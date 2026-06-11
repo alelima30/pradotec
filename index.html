@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pradotec Piscinas — Limpeza, Manutenção e Aquecimento em Itu e Região</title>
+<meta name="description" content="Pradotec Piscinas: limpeza, manutenção preventiva, tratamento da água, reparo de bombas e filtros e aquecimento solar em Itu, Salto, Indaiatuba, Sorocaba e região. Água cristalina e tranquilidade para sua família." />
+<meta property="og:title" content="Pradotec Piscinas — Limpeza e Manutenção em Itu e Região" />
+<meta property="og:description" content="Água cristalina, manutenção profissional e tranquilidade para sua família. Atendemos Itu, Salto, Indaiatuba, Sorocaba e região." />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="pt_BR" />
+<link rel="icon" type="image/png" href="assets/pradotec_logo.png" />
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#003B8E" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Pradotec" />
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ SPLASH / ABERTURA ============ -->
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-inner">
+    <span class="splash-ripple r1"></span>
+    <span class="splash-ripple r2"></span>
+    <img class="splash-logo" src="assets/pradotec_logo.png" alt="Pradotec Piscinas" />
+    <div class="splash-name">Pradotec <span>PISCINAS</span></div>
+    <div class="splash-bar"><span></span></div>
+  </div>
+  <svg class="splash-wave" viewBox="0 0 1440 110" preserveAspectRatio="none" aria-hidden="true">
+    <path fill="rgba(33,210,255,.18)" d="M0,64 C240,110 480,20 720,42 C960,64 1200,118 1440,72 L1440,110 L0,110 Z"/>
+  </svg>
+</div>
+
+<!-- ============ ICON SPRITE ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="ic-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+    <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M17.5 6.5 15 9M9 15l-2.5 2.5"/></symbol>
+    <symbol id="ic-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></symbol>
+    <symbol id="ic-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6 3 3 6-6a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2 2.5-2.5Z"/></symbol>
+    <symbol id="ic-droplet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5C12 2.5 5 9 5 14a7 7 0 0 0 14 0c0-5-7-11.5-7-11.5Z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/></symbol>
+    <symbol id="ic-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="m13.5 10.5-2.5 4"/><circle cx="12" cy="17" r="1.4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3Z"/><path d="M12 9v5"/><circle cx="12" cy="17" r="1.1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></symbol>
+    <symbol id="ic-therm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 9v6"/></symbol>
+    <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.5 3 8.2 7 10 4-1.8 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+    <symbol id="ic-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 4 6M9 6l4 0M9 6v0M9 6 9 4M9 6l0 2M15 18l5 0M15 18l-4 0M15 18l0-2M15 18l0 2"/><path d="m8 12-4 0M8 12h12"/></symbol>
+    <symbol id="ic-star" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.8 6.1 20.2l1.2-6.6L2.5 9l6.6-.9L12 2Z"/></symbol>
+    <symbol id="ic-wa" viewBox="0 0 24 24" fill="currentColor"><path d="M.06 24l1.68-6.13A11.86 11.86 0 0 1 .16 11.9C.16 5.33 5.5 0 12.06 0a11.82 11.82 0 0 1 8.4 3.49 11.8 11.8 0 0 1 3.48 8.41c0 6.57-5.34 11.9-11.9 11.9a11.9 11.9 0 0 1-5.7-1.45L.06 24zM6.6 20.13c1.68 1 3.28 1.6 5.4 1.6 5.46 0 9.9-4.43 9.9-9.88a9.86 9.86 0 0 0-9.88-9.9C6.56 1.95 2.13 6.38 2.13 11.84c0 2.24.66 3.92 1.76 5.66l-.99 3.62 3.7-.99zM18 14.78c-.07-.12-.27-.2-.57-.35-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51l-.57-.01c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.42.25-.69.25-1.28.18-1.41z"/></symbol>
+    <symbol id="ic-instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="nav">
+  <div class="wrap">
+    <a class="nav-brand" href="#home" aria-label="Pradotec Piscinas">
+      <span class="logo-badge nav-badge"><img src="assets/pradotec_logo.png" alt="Pradotec Piscinas" /></span>
+      <span class="nav-brand-txt"><b>Pradotec</b><span>PISCINAS</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="#home">Home</a>
+      <a href="#sobre">Sobre</a>
+      <a href="#servicos">Serviços</a>
+      <a href="#galeria">Galeria</a>
+      <a href="#planos">Planos</a>
+      <a href="#contato">Contato</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-text" href="#contato"><svg><use href="#ic-doc"/></svg>Solicitar Orçamento</a>
+      <button class="nav-burger" id="burger" aria-label="Abrir menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#home">Home</a>
+  <a href="#sobre">Sobre</a>
+  <a href="#servicos">Serviços</a>
+  <a href="#galeria">Galeria</a>
+  <a href="#planos">Planos</a>
+  <a href="#contato">Contato</a>
+  <a class="btn btn-wa wa-link" href="#"><svg><use href="#ic-wa"/></svg>Falar no WhatsApp</a>
+</div>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="home">
+  <div class="hero-water" id="heroWater" aria-hidden="true"><canvas id="water3d"></canvas></div>
+  <div class="hero-caustic"></div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <span class="pill reveal"><span class="dot"></span>Atendimento em Itu e região</span>
+      <h1 class="reveal d1">Água <span class="grad">cristalina</span> e piscina pronta o ano todo</h1>
+      <p class="hero-sub reveal d2">Manutenção profissional, tratamento da água e aquecimento solar com a tranquilidade que a sua família merece.</p>
+      <div class="hero-actions reveal d3">
+        <a class="btn btn-primary btn-lg" href="#contato"><svg><use href="#ic-doc"/></svg>Solicitar Orçamento</a>
+        <a class="btn btn-wa btn-lg wa-link" href="#"><svg><use href="#ic-wa"/></svg>Falar no WhatsApp</a>
+      </div>
+      <div class="hero-trust reveal d3">
+        <div class="t"><b>+10</b><span>anos cuidando de piscinas</span></div>
+        <div class="t"><b>320+</b><span>obras e serviços</span></div>
+        <div class="t"><b class="t-rate">5.0<svg class="t-star"><use href="#ic-star"/></svg></b><span>avaliação dos clientes</span></div>
+      </div>
+    </div>
+    <div class="hero-media reveal d2">
+      <div class="frame">
+        <div class="carousel" id="heroCarousel" data-interval="3500">
+          <div class="car-track">
+            <img class="car-slide" src="assets/img/hero-1.svg" alt="Piscina cristalina" />
+            <img class="car-slide" src="assets/img/hero-2.svg" alt="Limpeza e manutenção de piscina" />
+            <img class="car-slide" src="assets/img/hero-3.svg" alt="Antes e depois de tratamento" />
+            <img class="car-slide" src="assets/img/hero-4.svg" alt="Equipe Pradotec em serviço" />
+            <img class="car-slide" src="assets/img/hero-5.svg" alt="Área de lazer com piscina" />
+          </div>
+          <div class="car-dots" aria-label="Navegação das fotos"></div>
+        </div>
+      </div>
+      <div class="hero-float">
+        <span class="ic"><svg><use href="#ic-shield"/></svg></span>
+        <div><b>Serviço garantido</b><span>Profissionais especializados</span></div>
+      </div>
+    </div>
+  </div>
+  <svg class="wave" style="position:absolute;left:0;bottom:-1px" viewBox="0 0 1440 110" preserveAspectRatio="none" aria-hidden="true">
+    <path fill="#001536" d="M0,64 C240,110 480,20 720,42 C960,64 1200,118 1440,72 L1440,110 L0,110 Z"/>
+  </svg>
+</header>
+
+<!-- ============ QUEM SOMOS ============ -->
+<section class="about section-pad" id="sobre">
+  <div class="about-video" aria-hidden="true">
+    <video id="aboutVideo" src="assets/video/cachoeira.mp4" muted loop playsinline preload="metadata"></video>
+  </div>
+  <div class="wrap about-grid">
+    <div class="about-media reveal from-left">
+      <div class="frame">
+        <img src="assets/img/sobre.svg" alt="Equipe Pradotec Piscinas" />
+      </div>
+      <div class="about-badge">
+        <b>Itu</b>
+        <span>e toda a região</span>
+      </div>
+    </div>
+    <div class="about-copy reveal from-right d1">
+      <span class="eyebrow on-dark">Quem Somos</span>
+      <h2 class="h-sec">Cuidado completo para a sua piscina, do fundo à superfície</h2>
+      <p class="lead" style="margin-top:22px">A Pradotec Piscinas atua em Itu e região oferecendo serviços especializados de limpeza, manutenção preventiva e corretiva, tratamento da água, assistência técnica e cuidados completos para piscinas residenciais e condomínios.</p>
+      <ul class="about-points">
+        <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Equipe técnica especializada e atendimento próximo</li>
+        <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Produtos de qualidade e equipamentos profissionais</li>
+        <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Residências, condomínios e áreas de lazer</li>
+      </ul>
+      <div style="margin-top:34px;display:flex;gap:14px;flex-wrap:wrap">
+        <a class="btn btn-primary" href="#servicos"><svg><use href="#ic-sparkle"/></svg>Ver serviços</a>
+        <a class="btn btn-outline wa-link" href="#"><svg><use href="#ic-wa"/></svg>Falar agora</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SERVIÇOS ============ -->
+<section class="services section-pad" id="servicos">
+  <div class="wrap">
+    <div class="head-center reveal">
+      <span class="eyebrow center">Nossos Serviços</span>
+      <h2 class="h-sec">Tudo o que a sua piscina precisa</h2>
+      <p class="lead">Da limpeza semanal ao aquecimento solar — soluções completas para manter a água sempre perfeita.</p>
+    </div>
+    <div class="svc-grid">
+      <article class="svc-card reveal"><div class="svc-ic"><svg><use href="#ic-sparkle"/></svg></div><h3>Limpeza de Piscinas</h3><p>Aspiração, escovação, limpeza de borda e remoção de detritos para uma água sempre cristalina.</p></article>
+      <article class="svc-card reveal d1"><div class="svc-ic"><svg><use href="#ic-gear"/></svg></div><h3>Manutenção Preventiva</h3><p>Visitas programadas que evitam problemas, prolongam a vida dos equipamentos e mantêm tudo em ordem.</p></article>
+      <article class="svc-card reveal d2"><div class="svc-ic"><svg><use href="#ic-wrench"/></svg></div><h3>Reparo de Bombas e Filtros</h3><p>Assistência técnica, troca de areia, conserto e instalação de bombas, filtros e tubulações.</p></article>
+      <article class="svc-card reveal"><div class="svc-ic"><svg><use href="#ic-droplet"/></svg></div><h3>Tratamento Químico da Água</h3><p>Balanceamento completo da água com produtos de qualidade para uma piscina segura e saudável.</p></article>
+      <article class="svc-card reveal d1"><div class="svc-ic"><svg><use href="#ic-gauge"/></svg></div><h3>Controle de pH e Cloro</h3><p>Testes e ajustes precisos de pH, cloro e alcalinidade para o equilíbrio ideal da água.</p></article>
+      <article class="svc-card reveal d2"><div class="svc-ic"><svg><use href="#ic-sun"/></svg></div><h3>Aquecimento Solar</h3><p>Instalação e manutenção de aquecimento solar e trocadores de calor — economia o ano todo.</p></article>
+      <article class="svc-card reveal"><div class="svc-ic"><svg><use href="#ic-therm"/></svg></div><h3>Sauna Seca e Úmida</h3><p>Instalação e manutenção de saunas para a sua área de lazer ficar completa.</p></article>
+      <article class="svc-card reveal d1"><div class="svc-ic"><svg><use href="#ic-alert"/></svg></div><h3>Atendimento Emergencial</h3><p>Piscina verde ou equipamento parado? Atendimento ágil para resolver o problema rápido.</p></article>
+      <article class="svc-card svc-card-cta reveal d2">
+        <div class="svc-ic"><svg><use href="#ic-doc"/></svg></div>
+        <h3>Não sabe por onde começar?</h3>
+        <p>Fale com a gente e receba um orçamento sem compromisso para o seu caso.</p>
+        <a class="btn btn-primary" style="margin-top:18px" href="#contato"><svg><use href="#ic-arrow"/></svg>Solicitar Orçamento</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ANTES & DEPOIS ============ -->
+<section class="gallery section-pad" id="galeria">
+  <div class="wrap">
+    <div class="head-center reveal">
+      <span class="eyebrow center on-dark">Antes &amp; Depois</span>
+      <h2 class="h-sec" style="color:#fff">Resultados que falam por si</h2>
+      <p class="lead">Arraste para comparar. De piscina verde a cristalina, troca de areia, limpeza de borda e reparos realizados pela nossa equipe.</p>
+    </div>
+
+    <div class="ba-featured reveal zoom d1">
+      <div class="ba" data-ba>
+        <img src="assets/img/depois-1.svg" alt="Depois — piscina cristalina" />
+        <div class="before-wrap" data-before>
+          <img src="assets/img/antes-1.svg" alt="Antes — piscina verde" />
+        </div>
+        <span class="ba-tag before">Antes</span>
+        <span class="ba-tag after">Depois</span>
+        <div class="ba-handle" data-handle><div class="ba-knob"><svg><use href="#ic-sliders"/></svg></div></div>
+      </div>
+    </div>
+
+    <div class="ba-grid">
+      <div class="ba reveal" data-ba>
+        <img src="assets/img/depois-2.svg" alt="Depois — areia trocada" />
+        <div class="before-wrap" data-before><img src="assets/img/antes-2.svg" alt="Antes — troca de areia" /></div>
+        <span class="ba-tag before">Antes</span><span class="ba-tag after">Depois</span>
+        <div class="ba-handle" data-handle><div class="ba-knob"><svg><use href="#ic-sliders"/></svg></div></div>
+      </div>
+      <div class="ba reveal d1" data-ba>
+        <img src="assets/img/depois-3.svg" alt="Depois — borda limpa" />
+        <div class="before-wrap" data-before><img src="assets/img/antes-3.svg" alt="Antes — limpeza de borda" /></div>
+        <span class="ba-tag before">Antes</span><span class="ba-tag after">Depois</span>
+        <div class="ba-handle" data-handle><div class="ba-knob"><svg><use href="#ic-sliders"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PLANOS ============ -->
+<section class="plans section-pad" id="planos">
+  <div class="wrap">
+    <div class="head-center reveal">
+      <span class="eyebrow center">Planos Mensais</span>
+      <h2 class="h-sec">Tranquilidade em uma assinatura</h2>
+      <p class="lead">Deixe a sua piscina nas mãos de quem entende. Escolha o plano ideal e relaxe.</p>
+    </div>
+    <div class="plans-grid">
+      <div class="plan reveal zoom">
+        <h3>Plano Básico</h3>
+        <p class="ptag">Ideal para uso residencial</p>
+        <div class="price">Sob consulta</div>
+        <ul>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>1 visita semanal</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Limpeza completa da piscina</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Teste químico da água</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Ajuste de pH e cloro</li>
+        </ul>
+        <a class="btn btn-outline wa-link" href="#"><svg><use href="#ic-wa"/></svg>Quero este plano</a>
+      </div>
+      <div class="plan featured reveal zoom d1">
+        <span class="plan-badge">Mais completo</span>
+        <h3>Plano Premium</h3>
+        <p class="ptag">Para quem quer 100% de tranquilidade</p>
+        <div class="price">Sob consulta</div>
+        <ul>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>2 visitas semanais</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Produtos químicos inclusos</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Limpeza completa e tratamento</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Relatório fotográfico das visitas</li>
+          <li><span class="ck"><svg><use href="#ic-check"/></svg></span>Prioridade no atendimento</li>
+        </ul>
+        <a class="btn btn-primary wa-link" href="#"><svg><use href="#ic-wa"/></svg>Quero este plano</a>
+      </div>
+    </div>
+    <p class="plans-note">Planos personalizados para condomínios e áreas de lazer. Fale com a gente para um orçamento sob medida.</p>
+  </div>
+</section>
+
+<!-- ============ DEPOIMENTOS ============ -->
+<section class="reviews section-pad">
+  <div class="wrap">
+    <div class="head-center reveal">
+      <span class="eyebrow center">Depoimentos</span>
+      <h2 class="h-sec">Quem confia, recomenda</h2>
+    </div>
+    <div class="rev-grid">
+      <article class="rev-card reveal">
+        <div class="stars"><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg></div>
+        <p>"Excelente atendimento. Pontuais, organizados e a piscina sempre impecável."</p>
+        <div class="rev-who"><span class="av">M</span><div><b>Marcos R.</b><span>Itu · Residencial</span></div></div>
+      </article>
+      <article class="rev-card reveal d1">
+        <div class="stars"><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg></div>
+        <p>"Minha piscina ficou perfeita. Estava verde e em poucos dias voltou a ficar cristalina."</p>
+        <div class="rev-who"><span class="av">A</span><div><b>Ana P.</b><span>Salto · Residencial</span></div></div>
+      </article>
+      <article class="rev-card reveal d2">
+        <div class="stars"><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg></div>
+        <p>"Contratamos a manutenção do condomínio e o serviço é nota 10. Recomendo demais."</p>
+        <div class="rev-who"><span class="av">J</span><div><b>João V.</b><span>Indaiatuba · Condomínio</span></div></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÁREA DE ATENDIMENTO ============ -->
+<section class="area section-pad">
+  <div class="wrap area-grid">
+    <div class="area-copy reveal from-left">
+      <span class="eyebrow">Área de Atendimento</span>
+      <h2 class="h-sec">Atendemos Itu e toda a região</h2>
+      <p class="lead" style="margin-top:20px">Levamos água cristalina e manutenção profissional para residências, condomínios e áreas de lazer em diversas cidades.</p>
+      <ul class="cities">
+        <li><svg><use href="#ic-pin"/></svg>Itu</li>
+        <li><svg><use href="#ic-pin"/></svg>Salto</li>
+        <li><svg><use href="#ic-pin"/></svg>Indaiatuba</li>
+        <li><svg><use href="#ic-pin"/></svg>Sorocaba</li>
+        <li><svg><use href="#ic-pin"/></svg>e região</li>
+      </ul>
+      <a class="btn btn-primary wa-link" style="margin-top:30px" href="#"><svg><use href="#ic-wa"/></svg>Sua cidade não está aqui? Pergunte!</a>
+    </div>
+    <div class="map-frame reveal from-right d1">
+      <iframe loading="lazy" title="Mapa de atendimento — Itu e região" src="https://www.google.com/maps?q=Itu,SP&z=10&output=embed"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA BAND ============ -->
+<section class="cta-band section-pad" id="contato">
+  <div class="wrap cta-inner">
+    <div class="reveal">
+      <span class="eyebrow on-dark">Solicite seu orçamento</span>
+      <h2 style="color:#fff;margin-top:16px">Pronto para uma piscina sempre cristalina?</h2>
+      <p class="lead">Fale com a Pradotec Piscinas e receba um orçamento sem compromisso para a sua piscina.</p>
+    </div>
+    <div class="hero-actions reveal d1" style="margin-top:0">
+      <a class="btn btn-wa btn-lg wa-link" href="#"><svg><use href="#ic-wa"/></svg>Falar no WhatsApp</a>
+      <a class="btn btn-ghost btn-lg" href="https://instagram.com/pradotec_piscinas_itu" target="_blank" rel="noopener"><svg><use href="#ic-instagram"/></svg>Ver no Instagram</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RODAPÉ ============ -->
+<footer class="footer">
+  <div class="wrap footer-top">
+    <div class="footer-col">
+      <div class="footer-brand">
+        <span class="logo-badge nav-badge"><img src="assets/pradotec_logo.png" alt="Pradotec Piscinas" /></span>
+        <span><b>Pradotec</b><br /><span>PISCINAS</span></span>
+      </div>
+      <p>Limpeza, manutenção, tratamento da água e aquecimento solar para piscinas residenciais e condomínios em Itu e região.</p>
+      <a class="btn btn-primary wa-link" style="margin-top:22px" href="#"><svg><use href="#ic-wa"/></svg>Solicitar Orçamento</a>
+    </div>
+    <div class="footer-col">
+      <h4>Navegação</h4>
+      <ul>
+        <li><a href="#sobre">Sobre</a></li>
+        <li><a href="#servicos">Serviços</a></li>
+        <li><a href="#galeria">Galeria</a></li>
+        <li><a href="#planos">Planos</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Atendimento</h4>
+      <ul>
+        <li><a href="#"><svg><use href="#ic-pin"/></svg>Itu</a></li>
+        <li><a href="#"><svg><use href="#ic-pin"/></svg>Salto</a></li>
+        <li><a href="#"><svg><use href="#ic-pin"/></svg>Indaiatuba</a></li>
+        <li><a href="#"><svg><use href="#ic-pin"/></svg>Sorocaba e região</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contato</h4>
+      <ul>
+        <li><a class="wa-link" href="#"><svg><use href="#ic-wa"/></svg>WhatsApp</a></li>
+        <li><a href="https://instagram.com/pradotec_piscinas_itu" target="_blank" rel="noopener"><svg><use href="#ic-instagram"/></svg>@pradotec_piscinas_itu</a></li>
+        <li><a href="#"><svg><use href="#ic-pin"/></svg>Itu · São Paulo</a></li>
+        <li><a href="#"><svg><use href="#ic-clock"/></svg>Seg a Sáb · 8h às 18h</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© <span id="year"></span> Pradotec Piscinas. Todos os direitos reservados.</span>
+    <span>Itu e região · SP</span>
+  </div>
+</footer>
+
+<!-- ============ FLOATING WHATSAPP ============ -->
+<a class="wa-float wa-link" href="#" aria-label="Falar no WhatsApp"><svg><use href="#ic-wa"/></svg></a>
+
+<script src="site.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
