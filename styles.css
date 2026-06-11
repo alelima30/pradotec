@@ -62,6 +62,15 @@ body {
   overflow-x: clip;
 }
 
+html {
+  /* impede a faixa branca lateral no mobile: o clip precisa estar no
+     elemento raiz para valer no viewport, não só no body */
+  overflow-x: clip;
+}
+@supports not (overflow-x: clip) {
+  html { overflow-x: hidden; }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-display);
   line-height: 1.04;
