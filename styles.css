@@ -656,7 +656,10 @@ body.splash-lock { overflow: hidden; }
 }
 @media (max-width: 880px) {
   .hero-grid, .about-grid, .area-grid, .plans-grid { grid-template-columns: 1fr; }
-  .hero-media { display: none; }
+  /* carrossel visível no mobile, abaixo do texto */
+  .hero-media { display: block; width: 100%; max-width: 480px; margin: 30px auto 0; }
+  .hero-media .frame { aspect-ratio: 4/3; }
+  .hero-float { left: 14px; bottom: 14px; }
   .hero { min-height: auto; }
   .hero-copy { text-align: left; }
   .about-media { max-width: 460px; }
