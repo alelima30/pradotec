@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#003B8E"/><stop offset="1" stop-color="#00B8E6"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="1000" fill="url(#g)"/>
+  <path d="M0 780 C 160 720, 320 840, 480 780 S 800 800, 800 760 L 800 1000 L 0 1000 Z" fill="rgba(255,255,255,0.10)"/>
+  <path d="M0 860 C 200 800, 400 920, 600 860 S 800 880, 800 840 L 800 1000 L 0 1000 Z" fill="rgba(255,255,255,0.12)"/>
+  <text x="50%" y="48%" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="rgba(255,255,255,0.95)">Foto 1</text>
+  <text x="50%" y="48%" dy="38" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="500" fill="rgba(255,255,255,0.75)">Piscina cristalina</text>
+</svg>
