@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3d4a35"/><stop offset="1" stop-color="#6a7d5a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="800" fill="url(#g)"/>
+  <path d="M0 624 C 256 576, 512 672, 768 624 S 1280 640, 1280 608 L 1280 800 L 0 800 Z" fill="rgba(255,255,255,0.10)"/>
+  <path d="M0 688 C 320 640, 640 736, 960 688 S 1280 704, 1280 672 L 1280 800 L 0 800 Z" fill="rgba(255,255,255,0.12)"/>
+  <text x="50%" y="48%" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="38" font-weight="700" fill="rgba(255,255,255,0.95)">ANTES</text>
+  <text x="50%" y="48%" dy="61" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="23" font-weight="500" fill="rgba(255,255,255,0.75)">Limpeza de borda</text>
+</svg>
