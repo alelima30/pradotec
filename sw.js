@@ -1,5 +1,5 @@
 /* Pradotec Piscinas — Service Worker (PWA) */
-const CACHE = 'pradotec-v5';
+const CACHE = 'pradotec-v6';
 
 const PRECACHE = [
   './',
@@ -17,10 +17,10 @@ const PRECACHE = [
   './hero-5.jpg',
   './sobre.jpg',
   './antes-1.jpg',
-  './antes-2.svg',
+  './antes-2.jpg',
   './antes-3.svg',
   './depois-1.jpg',
-  './depois-2.svg',
+  './depois-2.jpg',
   './depois-3.svg'
 ];
 
