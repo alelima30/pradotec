@@ -1,5 +1,5 @@
 /* Pradotec Piscinas — Service Worker (PWA) */
-const CACHE = 'pradotec-v1';
+const CACHE = 'pradotec-v4';
 
 const PRECACHE = [
   './',
@@ -10,16 +10,16 @@ const PRECACHE = [
   './pradotec_logo.png',
   './icon-192.png',
   './icon-512.png',
-  './hero-1.svg',
-  './hero-2.svg',
-  './hero-3.svg',
-  './hero-4.svg',
-  './hero-5.svg',
-  './sobre.svg',
-  './antes-1.svg',
+  './hero-1.jpg',
+  './hero-2.jpg',
+  './hero-3.jpg',
+  './hero-4.jpg',
+  './hero-5.jpg',
+  './sobre.jpg',
+  './antes-1.jpg',
   './antes-2.svg',
   './antes-3.svg',
-  './depois-1.svg',
+  './depois-1.jpg',
   './depois-2.svg',
   './depois-3.svg'
 ];
