@@ -434,7 +434,8 @@ body.splash-lock { overflow: hidden; }
 .about-grid { display: grid; grid-template-columns: .92fr 1.08fr; gap: clamp(36px, 5vw, 80px); align-items: center; position: relative; z-index: 2; }
 .about-media { position: relative; }
 .about-media .frame { border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-md); aspect-ratio: 5/6; }
-.about-media .frame img { width: 100%; height: 100%; object-fit: cover; }
+.about-media .frame img,
+.about-media .frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .about-badge {
   position: absolute; right: -22px; bottom: -22px;
   background: var(--navy); color: #fff; border-radius: var(--r-md);
