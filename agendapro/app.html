@@ -355,9 +355,21 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
       </div>
       <div class="pub-corpo">
         <div class="aviso info">
-          É isto que a cliente enxerga depois de validar o telefone: os horários
-          <b>livres</b>. Nome, telefone e histórico de quem já marcou não saem do
-          banco — a regra que garante isso está no <code>02_rls.sql</code>.
+          <b>O link deste salão</b> — é o que você manda no WhatsApp, cola na bio
+          do Instagram ou imprime como QR no espelho.
+          <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
+            <input id="linkPublico" readonly onclick="this.select()"
+                   style="flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--borda);
+                          border-radius:8px;background:var(--painel);font-size:13px">
+            <button class="btn btn-peq" onclick="copiarLink()">Copiar</button>
+            <a class="btn btn-peq btn-p" id="abrirComoCliente" target="_blank"
+               style="text-decoration:none">Abrir o app do cliente ↗</a>
+          </div>
+        </div>
+        <div class="aviso info">
+          Abaixo, uma prévia do que a cliente enxerga: os horários <b>livres</b>.
+          Nome, telefone e histórico de quem já marcou não saem do banco — a
+          regra que garante isso está no <code>02_rls.sql</code>.
         </div>
         <div class="campo">
           <div class="passo">1 · SERVIÇO</div>
@@ -852,6 +864,12 @@ function prepararPublico(){
   document.getElementById('pubNome').textContent = s.nome;
   document.getElementById('pubEnd').textContent = s.endereco || 'Agende seu horário';
 
+  // O endereço do salão sai do `slug`. É a mesma coluna `saloes.slug` do banco,
+  // e é o que separa um salão do outro na porta de entrada do cliente.
+  const base = location.href.replace(/\/[^\/]*$/, '/') + 'agendar.html?salao=' + s.slug;
+  document.getElementById('linkPublico').value = base;
+  document.getElementById('abrirComoCliente').href = 'agendar.html?salao=' + s.slug;
+
   const sv = document.getElementById('pubServico');
   const svAntes = sv.value;
   sv.innerHTML = servsAtivos().map(x =>
@@ -868,6 +886,22 @@ function prepararPublico(){
   dt.min = hoje();
 
   pintarPublico();
+}
+
+function copiarLink(){
+  const el = document.getElementById('linkPublico');
+  el.select();
+  // navigator.clipboard exige https ou localhost. Aberto como arquivo local
+  // ele não existe, então cai no execCommand antigo em vez de falhar calado.
+  const pronto = () => { const b = event.target; const r = b.textContent;
+    b.textContent = 'Copiado ✓'; setTimeout(() => b.textContent = r, 1600); };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(el.value).then(pronto)
+      .catch(e => console.error('Falha ao copiar:', e));
+  } else {
+    try{ document.execCommand('copy'); pronto(); }
+    catch(e){ console.error('Falha ao copiar:', e); alert('Copie o link à mão.'); }
+  }
 }
 
 function pintarPublico(){

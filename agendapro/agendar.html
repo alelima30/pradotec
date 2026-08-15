@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Agendar — AgendaPro</title>
+<meta name="description" content="Agende seu horário no salão pelo celular, 24 horas por dia." />
+<meta name="theme-color" content="#7C3AED" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Agendar" />
+<link rel="icon" type="image/png" href="icones/icone-192.png" />
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
+<style>
+/* ===========================================================================
+   AgendaPro — aplicativo do CLIENTE
+   Feito para o celular primeiro: é ali que a pessoa marca, às 23h de domingo.
+   =========================================================================== */
+:root{
+  --roxo:#7C3AED; --roxo-esc:#5B21B6; --rosa:#EC4899;
+  --bg:#F5F6FA; --painel:#FFFFFF; --borda:#E3E6EF;
+  --txt:#1A2233; --txt2:#6B7385; --txt3:#9AA1B2;
+  --ok:#10B981; --alerta:#F59E0B; --erro:#EF4444;
+  --sombra:0 1px 3px rgba(16,24,40,.07), 0 10px 30px rgba(16,24,40,.07);
+  --r:14px;
+}
+[data-tema="escuro"]{
+  --bg:#12151E; --painel:#1A1F2B; --borda:#2A3140;
+  --txt:#E8EAF0; --txt2:#A0A7B8; --txt3:#6B7385;
+  --sombra:0 1px 3px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--txt);
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+
+.app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--painel);
+     box-shadow:var(--sombra);display:flex;flex-direction:column}
+
+/* ── Topo ────────────────────────────────────────────────────────────── */
+.cabeca{
+  background:linear-gradient(135deg,var(--roxo) 0%,var(--rosa) 100%);
+  color:#fff;padding:calc(16px + env(safe-area-inset-top)) 18px 18px;
+  position:relative;
+}
+.cabeca-linha{display:flex;align-items:center;gap:12px}
+.voltar{
+  width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);
+  color:#fff;font-size:19px;display:grid;place-items:center;flex:none;
+}
+.voltar:active{background:rgba(255,255,255,.32)}
+.cabeca h1{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.25}
+.cabeca p{font-size:13px;opacity:.9;margin-top:2px}
+.avatar-salao{
+  width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.22);
+  display:grid;place-items:center;font-size:22px;flex:none;
+}
+.eu{
+  margin-left:auto;background:rgba(255,255,255,.18);border-radius:99px;
+  padding:6px 12px;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;
+}
+
+/* ── Passos ──────────────────────────────────────────────────────────── */
+.trilha{display:flex;gap:5px;padding:12px 18px 0;background:var(--painel)}
+.trilha i{
+  height:3px;flex:1;border-radius:99px;background:var(--borda);
+  transition:background .25s;
+}
+.trilha i.on{background:var(--roxo)}
+
+.conteudo{flex:1;padding:18px}
+.passo{display:none}
+.passo.on{display:block;animation:entra .22s ease}
+@keyframes entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
+.sub{color:var(--txt2);font-size:14px;margin-bottom:16px}
+
+/* ── Cartões de escolha ──────────────────────────────────────────────── */
+.opcao{
+  width:100%;text-align:left;display:flex;align-items:center;gap:13px;
+  padding:14px;border:1.5px solid var(--borda);border-radius:var(--r);
+  background:var(--painel);margin-bottom:9px;transition:.15s;
+}
+.opcao:active{transform:scale(.99)}
+.opcao.sel{border-color:var(--roxo);background:rgba(124,58,237,.06)}
+.opcao .ic{
+  width:44px;height:44px;border-radius:12px;flex:none;display:grid;
+  place-items:center;font-size:19px;font-weight:800;color:#fff;
+}
+.opcao .txt{flex:1;min-width:0}
+.opcao .tt{font-weight:700;font-size:15px}
+.opcao .dd{font-size:13px;color:var(--txt2);margin-top:1px}
+.opcao .vv{font-weight:800;font-size:15px;white-space:nowrap}
+.opcao .marca{
+  width:22px;height:22px;border-radius:50%;border:2px solid var(--borda);
+  flex:none;display:grid;place-items:center;font-size:12px;color:#fff;
+}
+.opcao.sel .marca{background:var(--roxo);border-color:var(--roxo)}
+
+.cat{font-size:12px;font-weight:800;color:var(--txt3);letter-spacing:.07em;
+     text-transform:uppercase;margin:18px 0 8px}
+.cat:first-child{margin-top:0}
+
+/* ── Dias e horários ─────────────────────────────────────────────────── */
+.dias{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:16px}
+.dia{
+  flex:none;width:62px;padding:10px 4px;border:1.5px solid var(--borda);
+  border-radius:12px;text-align:center;background:var(--painel);
+}
+.dia small{display:block;font-size:11px;color:var(--txt2);text-transform:capitalize}
+.dia b{display:block;font-size:19px;font-weight:800;line-height:1.25}
+.dia i{display:block;font-size:10px;color:var(--txt3);font-style:normal}
+.dia.sel{background:var(--roxo);border-color:var(--roxo);color:#fff}
+.dia.sel small,.dia.sel i{color:rgba(255,255,255,.85)}
+.dia.sem{opacity:.4}
+
+.turno{font-size:12px;font-weight:800;color:var(--txt3);letter-spacing:.07em;
+       text-transform:uppercase;margin:16px 0 8px}
+.horas{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.hora{
+  padding:12px 2px;border:1.5px solid var(--borda);border-radius:11px;
+  text-align:center;font-weight:700;font-size:15px;background:var(--painel);
+}
+.hora.sel{background:var(--roxo);border-color:var(--roxo);color:#fff}
+
+/* ── Formulário ──────────────────────────────────────────────────────── */
+.campo{margin-bottom:15px}
+.campo label{display:block;font-size:13px;font-weight:700;color:var(--txt2);margin-bottom:6px}
+.campo input{
+  width:100%;padding:14px;border:1.5px solid var(--borda);border-radius:12px;
+  background:var(--bg);font-size:16px; /* 16px evita o zoom automático do iOS */
+}
+.campo input:focus{outline:none;border-color:var(--roxo);
+  box-shadow:0 0 0 3px rgba(124,58,237,.14);background:var(--painel)}
+
+.codigo{display:flex;gap:8px;justify-content:center;margin:20px 0}
+.codigo input{
+  width:46px;height:56px;text-align:center;font-size:24px;font-weight:800;
+  border:1.5px solid var(--borda);border-radius:12px;background:var(--bg);
+}
+.codigo input:focus{outline:none;border-color:var(--roxo);background:var(--painel)}
+
+/* ── Bolha do WhatsApp (simulação) ───────────────────────────────────── */
+.zap{
+  background:#DCF8C6;color:#111;border-radius:12px 12px 12px 3px;
+  padding:12px 14px;font-size:14px;margin:14px 0;position:relative;
+  box-shadow:0 1px 2px rgba(0,0,0,.12);line-height:1.45;
+}
+[data-tema="escuro"] .zap{background:#075E54;color:#E8F5E9}
+.zap b{font-size:22px;letter-spacing:.16em}
+.zap .de{font-size:11px;opacity:.7;font-weight:700;margin-bottom:4px}
+.zap .hr{font-size:10px;opacity:.6;text-align:right;margin-top:3px}
+.simul{
+  font-size:12px;color:var(--txt2);background:var(--bg);border:1px dashed var(--borda);
+  border-radius:10px;padding:10px 12px;margin-bottom:14px;
+}
+
+/* ── Resumo e confirmação ────────────────────────────────────────────── */
+.resumo{background:var(--bg);border-radius:var(--r);padding:15px;margin-bottom:16px}
+.resumo .l{display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:14px}
+.resumo .l span{color:var(--txt2)}
+.resumo .l b{text-align:right}
+.resumo .total{border-top:1px solid var(--borda);margin-top:7px;padding-top:11px;font-size:17px}
+
+.selo{
+  width:78px;height:78px;border-radius:50%;background:var(--ok);color:#fff;
+  display:grid;place-items:center;font-size:38px;margin:8px auto 16px;
+}
+.centro{text-align:center}
+
+/* ── Meus agendamentos ───────────────────────────────────────────────── */
+.item{
+  border:1.5px solid var(--borda);border-radius:var(--r);padding:14px;margin-bottom:10px;
+}
+.item.passado{opacity:.62}
+.item-topo{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.item h3{font-size:15px;font-weight:700}
+.item .q{font-size:13px;color:var(--txt2);margin-top:2px}
+.item .acoes{display:flex;gap:7px;margin-top:11px}
+.selo-st{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;white-space:nowrap}
+.st-conf{background:rgba(16,185,129,.15);color:#059669}
+.st-pend{background:rgba(245,158,11,.17);color:#B45309}
+.st-canc{background:rgba(239,68,68,.14);color:#DC2626}
+.st-conc{background:rgba(124,58,237,.14);color:var(--roxo)}
+.st-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
+
+/* ── Botões ──────────────────────────────────────────────────────────── */
+.rodape-acao{
+  position:sticky;bottom:0;background:var(--painel);border-top:1px solid var(--borda);
+  padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+  display:flex;gap:9px;
+}
+.b{
+  flex:1;padding:15px;border-radius:12px;font-weight:800;font-size:15px;
+  background:var(--roxo);color:#fff;transition:.15s;
+}
+.b:active{transform:scale(.985);background:var(--roxo-esc)}
+.b:disabled{opacity:.4;pointer-events:none}
+.b2{background:var(--bg);color:var(--txt);border:1.5px solid var(--borda);flex:0 0 auto;padding:15px 18px}
+.bp{padding:9px 14px;border-radius:10px;font-size:13px;font-weight:700;
+    border:1.5px solid var(--borda);background:var(--painel)}
+.bp.perigo{color:var(--erro);border-color:rgba(239,68,68,.35)}
+
+.nada{text-align:center;padding:40px 20px;color:var(--txt3)}
+.nada b{display:block;font-size:16px;color:var(--txt2);margin-bottom:5px}
+.recado{
+  padding:12px 14px;border-radius:11px;font-size:13.5px;margin-bottom:15px;
+  background:rgba(124,58,237,.08);color:var(--roxo);border:1px solid rgba(124,58,237,.2);
+}
+.recado.erro{background:rgba(239,68,68,.09);color:#DC2626;border-color:rgba(239,68,68,.25)}
+.recado.ok{background:rgba(16,185,129,.09);color:#059669;border-color:rgba(16,185,129,.25)}
+.link{color:var(--roxo);font-weight:700;text-decoration:underline;font-size:14px}
+.rodape-nota{padding:16px 18px 26px;font-size:12px;color:var(--txt3);text-align:center}
+.rodape-nota code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11px}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="cabeca">
+    <div class="cabeca-linha">
+      <button class="voltar" id="btVoltar" onclick="voltar()" style="display:none">‹</button>
+      <div class="avatar-salao" id="avatarSalao">✂</div>
+      <div style="min-width:0">
+        <h1 id="tituloSalao">AgendaPro</h1>
+        <p id="subSalao">Escolha o salão</p>
+      </div>
+      <button class="eu" id="btEu" onclick="irPara('meus')" style="display:none"></button>
+    </div>
+  </header>
+
+  <div class="trilha" id="trilha" style="display:none">
+    <i id="t1"></i><i id="t2"></i><i id="t3"></i><i id="t4"></i>
+  </div>
+
+  <main class="conteudo">
+
+    <!-- ══════ ESCOLHER SALÃO (só quando o link não traz o salão) ══════ -->
+    <section class="passo on" id="p-saloes">
+      <h2>Qual salão?</h2>
+      <p class="sub">Numa instalação de verdade, cada salão tem o próprio
+        endereço e você cai direto nele. Esta lista existe para a demonstração.</p>
+      <div id="listaSaloes"></div>
+      <div class="recado" style="margin-top:16px">
+        <b>Como o cliente chega aqui:</b> o salão manda o link
+        <code>agendar.html?salao=<i>apelido-do-salao</i></code> no WhatsApp,
+        coloca na bio do Instagram ou imprime como QR no espelho.
+      </div>
+    </section>
+
+    <!-- ══════ CAPA DO SALÃO ══════ -->
+    <section class="passo" id="p-capa">
+      <div id="capaAviso"></div>
+      <h2 id="capaNome">—</h2>
+      <p class="sub" id="capaEnd">—</p>
+      <div class="cat">O que oferecemos</div>
+      <div id="capaServicos"></div>
+      <div class="cat">Quem atende</div>
+      <div id="capaEquipe"></div>
+    </section>
+
+    <!-- ══════ 1 · SERVIÇO ══════ -->
+    <section class="passo" id="p-servico">
+      <h2>O que você quer fazer?</h2>
+      <p class="sub">Pode escolher mais de um — a gente soma o tempo.</p>
+      <div id="listaServicos"></div>
+    </section>
+
+    <!-- ══════ 2 · PROFISSIONAL ══════ -->
+    <section class="passo" id="p-prof">
+      <h2>Com quem?</h2>
+      <p class="sub" id="subProf">—</p>
+      <div id="listaProfs"></div>
+    </section>
+
+    <!-- ══════ 3 · DIA E HORA ══════ -->
+    <section class="passo" id="p-quando">
+      <h2>Quando fica bom?</h2>
+      <p class="sub" id="subQuando">—</p>
+      <div class="dias" id="listaDias"></div>
+      <div id="listaHoras"></div>
+    </section>
+
+    <!-- ══════ 4 · TELEFONE ══════ -->
+    <section class="passo" id="p-telefone">
+      <h2>Seu WhatsApp</h2>
+      <p class="sub">Mandamos um código para confirmar que o número é seu.
+        É com ele que você entra da próxima vez — sem senha.</p>
+      <div class="campo">
+        <label>Número com DDD</label>
+        <input id="fTelefone" type="tel" inputmode="numeric" placeholder="(11) 99999-9999"
+               autocomplete="tel" oninput="mascaraTelefone(this)">
+      </div>
+      <div id="avisoTel"></div>
+    </section>
+
+    <!-- ══════ 5 · CÓDIGO ══════ -->
+    <section class="passo" id="p-codigo">
+      <h2>Digite o código</h2>
+      <p class="sub" id="subCodigo">—</p>
+      <div class="codigo" id="caixaCodigo"></div>
+      <div id="avisoCodigo"></div>
+      <div id="bolhaZap"></div>
+      <p class="centro" style="margin-top:14px">
+        <button class="link" onclick="reenviarCodigo()" id="btReenviar">Não chegou? Reenviar</button>
+      </p>
+    </section>
+
+    <!-- ══════ 6 · NOME (só para quem é novo) ══════ -->
+    <section class="passo" id="p-nome">
+      <h2>Como podemos te chamar?</h2>
+      <p class="sub">Só na primeira vez. Depois é só o telefone.</p>
+      <div class="campo">
+        <label>Seu nome</label>
+        <input id="fNome" placeholder="Nome e sobrenome" autocomplete="name">
+      </div>
+      <div class="campo">
+        <label>Nascimento <span style="font-weight:400">(opcional)</span></label>
+        <input id="fNasc" type="date">
+      </div>
+      <div id="avisoNome"></div>
+    </section>
+
+    <!-- ══════ 7 · CONFIRMAR ══════ -->
+    <section class="passo" id="p-confirmar">
+      <h2>Confere pra mim?</h2>
+      <p class="sub">Depois de confirmar, você recebe o aviso no WhatsApp.</p>
+      <div class="resumo" id="resumoFinal"></div>
+      <div class="campo">
+        <label>Quer deixar algum recado? <span style="font-weight:400">(opcional)</span></label>
+        <input id="fRecado" placeholder="Ex.: tenho alergia a amônia">
+      </div>
+      <div id="avisoConfirmar"></div>
+    </section>
+
+    <!-- ══════ 8 · PRONTO ══════ -->
+    <section class="passo" id="p-pronto">
+      <div class="centro">
+        <div class="selo">✓</div>
+        <h2>Agendado!</h2>
+        <p class="sub" id="prontoTexto">—</p>
+      </div>
+      <div class="resumo" id="resumoPronto"></div>
+      <div id="bolhaConfirmacao"></div>
+    </section>
+
+    <!-- ══════ MEUS AGENDAMENTOS ══════ -->
+    <section class="passo" id="p-meus">
+      <h2>Meus horários</h2>
+      <p class="sub" id="subMeus">—</p>
+      <div id="listaMeus"></div>
+      <div id="outrosSaloes"></div>
+      <p class="centro" style="margin-top:22px">
+        <button class="link" onclick="sair()">Sair desta conta</button>
+      </p>
+    </section>
+
+  </main>
+
+  <div class="rodape-acao" id="rodapeAcao" style="display:none">
+    <button class="b2" id="btSecundario" style="display:none" onclick="acaoSecundaria()">—</button>
+    <button class="b" id="btPrincipal" onclick="acaoPrincipal()">Continuar</button>
+  </div>
+
+  <p class="rodape-nota" id="notaRodape"></p>
+</div>
+
+<script>
+/* ===========================================================================
+   AgendaPro — aplicativo do cliente
+   ---------------------------------------------------------------------------
+   COMO SE CHEGA AQUI
+   Cada salão tem um endereço próprio, montado a partir do apelido (`slug`):
+
+       agendar.html?salao=studio-bella
+
+   É esse link que o salão manda no WhatsApp, põe na bio do Instagram ou
+   imprime como QR no espelho. Sem o parâmetro, aparece a lista de salões —
+   que existe só para a demonstração; em produção o link sempre traz um.
+
+   O `slug` mora na coluna `saloes.slug` (supabase/01_schema.sql) e é lido pela
+   vista pública `saloes_publicos`, a única coisa que alguém sem login alcança.
+
+   MODO DEMONSTRAÇÃO
+   Os dados são os mesmos do app.html, no localStorage do navegador. Marque um
+   horário aqui e abra o app.html: o atendimento está lá na agenda. É o mesmo
+   banco, visto pelos dois lados.
+
+   O CÓDIGO DO WHATSAPP é simulado e aparece na tela. Em produção quem gera,
+   valida e expira é o Supabase Auth (Send SMS Hook); a Edge Function só
+   entrega pela Cloud API da Meta. Nunca inventar tabela de código próprio —
+   é lá que moram os furos.
+   =========================================================================== */
+
+const CHAVE = 'agendapro.demo.v1';
+const CHAVE_SESSAO = 'agendapro.cliente.v1';
+const PASSO_MIN = 15;
+const DIAS_CURTOS = ['dom','seg','ter','qua','qui','sex','sáb'];
+const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+const ATIVOS = ['pendente','confirmado','em_atendimento','concluido'];
+
+let bd = null;
+let salao = null;            // salão deste link
+let sessao = null;           // { perfilId, nome, telefone }
+let tela = 'saloes';
+let historico = [];
+
+// O que a pessoa está escolhendo agora
+let escolha = { servicos: [], profissionalId: null, data: null, inicio: null };
+let agendamentoARemarcar = null;   // preenchido quando a pessoa clica em Remarcar
+// Estado do código de verificação
+let otp = { codigo: null, telefone: null, enviadoEm: 0, tentativas: 0 };
+
+/* ── Tempo ───────────────────────────────────────────────────────────── */
+function hoje(){ return iso(new Date()); }
+function iso(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
+       + '-' + String(d.getDate()).padStart(2,'0');
+}
+function somarDias(dataIso, n){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  return iso(new Date(a, m-1, d + n));
+}
+function diaDaSemana(dataIso){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  return new Date(a, m-1, d).getDay();
+}
+function hm(min){
+  return String(Math.floor(min/60)).padStart(2,'0') + ':' + String(min%60).padStart(2,'0');
+}
+function real(v){ return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function dataCurta(dataIso){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  return String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0');
+}
+function dataLonga(dataIso){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  return DIAS[new Date(a,m-1,d).getDay()] + ', ' + String(d).padStart(2,'0') + '/'
+       + String(m).padStart(2,'0');
+}
+function agora(){
+  const d = new Date();
+  return d.getHours()*60 + d.getMinutes();
+}
+function novoId(){ return 'x' + Math.random().toString(36).slice(2,10); }
+
+/* ── Regras de disponibilidade ───────────────────────────────────────────
+   Espelham a função `horarios_livres()` que vai para o banco. Aqui servem
+   para desenhar a tela; a garantia contra choque é a constraint
+   `agenda_sem_choque` no Postgres.
+   ──────────────────────────────────────────────────────────────────────── */
+function sobrepoe(i1,f1,i2,f2){ return i1 < f2 && i2 < f1; }
+
+function ocupado(profId, data, ini, fim){
+  return bd.agendamentos.some(a =>
+    a.profissionalId === profId && a.data === data &&
+    ATIVOS.includes(a.status) && sobrepoe(ini, fim, a.inicio, a.fim));
+}
+
+function bloqueado(profId, data, ini, fim){
+  return bd.bloqueios.some(b =>
+    b.salaoId === salao.id && b.data === data &&
+    (b.profissionalId === profId || b.profissionalId === null) &&
+    sobrepoe(ini, fim, b.inicio, b.fim));
+}
+
+function jornadaDe(prof, data){
+  return (prof.jornada && prof.jornada[diaDaSemana(data)]) || [];
+}
+
+function horariosLivres(profId, data, duracao){
+  const prof = bd.profissionais.find(p => p.id === profId);
+  if(!prof || !prof.ativo) return [];
+  const livres = [];
+  const ehHoje = data === hoje();
+  const limiteHoje = agora() + 30;  // não oferece daqui a 5 minutos
+
+  for(const [ji,jf] of jornadaDe(prof, data)){
+    for(let t = ji; t + duracao <= jf; t += PASSO_MIN){
+      if(ehHoje && t < limiteHoje) continue;
+      if(ocupado(profId, data, t, t + duracao)) continue;
+      if(bloqueado(profId, data, t, t + duracao)) continue;
+      livres.push(t);
+    }
+  }
+  return livres;
+}
+
+/* ── Consultas ───────────────────────────────────────────────────────── */
+const servicosDoSalao = () => bd.servicos.filter(s =>
+  s.salaoId === salao.id && s.ativo);
+const profsDoSalao = () => bd.profissionais.filter(p =>
+  p.salaoId === salao.id && p.ativo);
+const acharServico = i => bd.servicos.find(s => s.id === i);
+const acharProf = i => bd.profissionais.find(p => p.id === i);
+const acharSalao = i => bd.saloes.find(s => s.id === i);
+
+// Profissionais que fazem TODOS os serviços escolhidos. Sem vínculo
+// cadastrado, considera-se que o profissional faz tudo — é como um salão
+// pequeno começa, e obrigar o cadastro antes de usar afasta o cliente.
+function profsQueAtendem(idsServicos){
+  const vinc = bd.servicosProfissionais || [];
+  return profsDoSalao().filter(p => {
+    const dele = vinc.filter(v => v.profissionalId === p.id);
+    if(!dele.length) return true;
+    return idsServicos.every(sid => dele.some(v => v.servicoId === sid));
+  });
+}
+
+function duracaoEscolhida(){
+  return escolha.servicos.reduce((s,i) => {
+    const sv = acharServico(i);
+    return s + sv.duracaoMin + (sv.intervaloMin||0);
+  }, 0);
+}
+function precoEscolhido(){
+  return escolha.servicos.reduce((s,i) => s + acharServico(i).preco, 0);
+}
+function nomesEscolhidos(){
+  return escolha.servicos.map(i => acharServico(i).nome).join(' + ');
+}
+
+// Ficha da pessoa logada NESTE salão. Uma por salão, de propósito: o
+// histórico de um não aparece no outro.
+function minhaFicha(salaoId){
+  if(!sessao) return null;
+  return bd.clientes.find(c => c.salaoId === (salaoId || salao.id)
+                            && c.perfilId === sessao.perfilId) || null;
+}
+
+function meusAgendamentos(salaoId){
+  const f = minhaFicha(salaoId);
+  if(!f) return [];
+  return bd.agendamentos.filter(a => a.clienteId === f.id)
+    .sort((a,b) => (b.data + String(b.inicio).padStart(4,'0'))
+                   .localeCompare(a.data + String(a.inicio).padStart(4,'0')));
+}
+
+// Em quais outros salões esta pessoa já é cliente. É a prova de que a
+// identidade é global e o vínculo é por salão.
+function meusOutrosSaloes(){
+  if(!sessao) return [];
+  return bd.clientes
+    .filter(c => c.perfilId === sessao.perfilId && c.salaoId !== salao.id)
+    .map(c => acharSalao(c.salaoId))
+    .filter(Boolean);
+}
+
+/* ── Navegação ───────────────────────────────────────────────────────── */
+const SEQUENCIA = ['servico','prof','quando','telefone','codigo','nome','confirmar'];
+
+function irPara(nova, semHistorico){
+  if(!semHistorico && tela !== nova) historico.push(tela);
+  tela = nova;
+  document.querySelectorAll('.passo').forEach(p => p.classList.remove('on'));
+  const alvo = document.getElementById('p-' + nova);
+  if(alvo) alvo.classList.add('on');
+  window.scrollTo(0,0);
+  desenhar();
+}
+
+function voltar(){
+  const anterior = historico.pop();
+  if(anterior) irPara(anterior, true);
+}
+
+function trilhaAte(n){
+  const t = document.getElementById('trilha');
+  if(!n){ t.style.display = 'none'; return; }
+  t.style.display = 'flex';
+  for(let i = 1; i <= 4; i++)
+    document.getElementById('t'+i).classList.toggle('on', i <= n);
+}
+
+/* ── Desenho de cada tela ────────────────────────────────────────────── */
+function desenhar(){
+  const cabeca = document.getElementById('btVoltar');
+  cabeca.style.display = historico.length && tela !== 'pronto' ? '' : 'none';
+
+  const eu = document.getElementById('btEu');
+  if(sessao && tela !== 'meus'){
+    eu.style.display = '';
+    eu.textContent = (sessao.nome || '').split(' ')[0] + ' ▾';
+  } else { eu.style.display = 'none'; }
+
+  const rodape = document.getElementById('rodapeAcao');
+  const bp = document.getElementById('btPrincipal');
+  const bs = document.getElementById('btSecundario');
+  rodape.style.display = '';
+  bs.style.display = 'none';
+  bp.disabled = false;
+
+  if(tela === 'saloes')      { desenharSaloes();    rodape.style.display='none'; trilhaAte(0); }
+  if(tela === 'capa')        { desenharCapa();      bp.textContent='Agendar horário'; trilhaAte(0); }
+  if(tela === 'servico')     { desenharServicos();  bp.textContent='Continuar';
+                               bp.disabled = !escolha.servicos.length; trilhaAte(1); }
+  if(tela === 'prof')        { desenharProfs();     bp.textContent='Continuar';
+                               bp.disabled = !escolha.profissionalId; trilhaAte(2); }
+  if(tela === 'quando')      { desenharQuando();    bp.textContent='Continuar';
+                               bp.disabled = escolha.inicio === null; trilhaAte(3); }
+  if(tela === 'telefone')    { desenharTelefone();  bp.textContent='Enviar código'; trilhaAte(4); }
+  if(tela === 'codigo')      { desenharCodigo();    bp.textContent='Confirmar código'; trilhaAte(4); }
+  if(tela === 'nome')        { desenharNome();      bp.textContent='Continuar'; trilhaAte(4); }
+  if(tela === 'confirmar')   { desenharConfirmar(); bp.textContent='Confirmar agendamento'; trilhaAte(4); }
+  if(tela === 'pronto')      { bp.textContent='Ver meus horários'; trilhaAte(0);
+                               bs.style.display=''; bs.textContent='Marcar outro'; }
+  if(tela === 'meus')        { desenharMeus();      bp.textContent='Agendar novo horário'; trilhaAte(0); }
+}
+
+function desenharSaloes(){
+  document.getElementById('listaSaloes').innerHTML = bd.saloes.map(s => `
+    <button class="opcao" onclick="entrarNoSalao('${s.slug}')">
+      <span class="ic" style="background:linear-gradient(135deg,#7C3AED,#EC4899)">
+        ${s.tipo === 'barbearia' ? '✄' : '✂'}</span>
+      <span class="txt"><span class="tt">${s.nome}</span>
+        <span class="dd">${s.endereco || ''}</span>
+        <span class="dd" style="color:var(--txt3)">?salao=${s.slug}</span></span>
+      <span style="color:var(--txt3);font-size:20px">›</span>
+    </button>`).join('');
+}
+
+function desenharCapa(){
+  document.getElementById('capaNome').textContent = salao.nome;
+  document.getElementById('capaEnd').textContent = salao.endereco || '';
+
+  const svs = servicosDoSalao();
+  const porCat = {};
+  for(const s of svs){ (porCat[s.categoria || 'Serviços'] ||= []).push(s); }
+
+  document.getElementById('capaServicos').innerHTML =
+    Object.entries(porCat).map(([cat, lista]) => `
+      <div class="cat" style="margin-top:12px">${cat}</div>
+      ${lista.map(s => `
+        <div class="opcao" style="cursor:default">
+          <span class="txt"><span class="tt">${s.nome}</span>
+            <span class="dd">${s.duracaoMin} min</span></span>
+          <span class="vv">${real(s.preco)}</span>
+        </div>`).join('')}`).join('');
+
+  document.getElementById('capaEquipe').innerHTML = profsDoSalao().map(p => `
+    <div class="opcao" style="cursor:default">
+      <span class="ic" style="background:${p.cor}">${p.nome[0]}</span>
+      <span class="txt"><span class="tt">${p.nome}</span>
+        <span class="dd">${resumoJornada(p)}</span></span>
+    </div>`).join('');
+
+  const meus = sessao ? meusAgendamentos().filter(a => a.data >= hoje()
+                        && ATIVOS.includes(a.status)) : [];
+  document.getElementById('capaAviso').innerHTML = meus.length
+    ? `<div class="recado ok">Você tem ${meus.length} horário(s) marcado(s) aqui.
+       <button class="link" onclick="irPara('meus')">Ver</button></div>` : '';
+}
+
+function resumoJornada(p){
+  const dias = [1,2,3,4,5,6,0].filter(d => (p.jornada[d]||[]).length);
+  if(!dias.length) return 'sem horário cadastrado';
+  return dias.map(d => DIAS_CURTOS[d]).join(', ');
+}
+
+function desenharServicos(){
+  const svs = servicosDoSalao();
+  const porCat = {};
+  for(const s of svs){ (porCat[s.categoria || 'Serviços'] ||= []).push(s); }
+
+  document.getElementById('listaServicos').innerHTML =
+    Object.entries(porCat).map(([cat, lista]) => `
+      <div class="cat">${cat}</div>
+      ${lista.map(s => {
+        const sel = escolha.servicos.includes(s.id);
+        return `<button class="opcao ${sel?'sel':''}" onclick="alternarServico('${s.id}')">
+          <span class="marca">${sel ? '✓' : ''}</span>
+          <span class="txt"><span class="tt">${s.nome}</span>
+            <span class="dd">${s.duracaoMin} min</span></span>
+          <span class="vv">${real(s.preco)}</span>
+        </button>`;
+      }).join('')}`).join('')
+    + (escolha.servicos.length > 1
+        ? `<div class="recado" style="margin-top:14px">
+             ${escolha.servicos.length} serviços · ${duracaoEscolhida()} min no total
+             · ${real(precoEscolhido())}</div>` : '');
+}
+
+function alternarServico(id){
+  const i = escolha.servicos.indexOf(id);
+  if(i >= 0) escolha.servicos.splice(i,1);
+  else escolha.servicos.push(id);
+  // Trocar de serviço invalida quem e quando: a duração mudou.
+  escolha.profissionalId = null;
+  escolha.data = null; escolha.inicio = null;
+  desenhar();
+}
+
+function desenharProfs(){
+  const aptos = profsQueAtendem(escolha.servicos);
+  document.getElementById('subProf').textContent =
+    nomesEscolhidos() + ' · ' + duracaoEscolhida() + ' min';
+
+  if(!aptos.length){
+    document.getElementById('listaProfs').innerHTML =
+      '<div class="recado erro">Ninguém deste salão faz essa combinação de serviços. '
+      + 'Tente separar em dois agendamentos.</div>';
+    return;
+  }
+
+  // "Sem preferência" é o que mais converte: a pessoa quer horário, não pessoa.
+  const dur = duracaoEscolhida();
+  const primeiroLivre = p => {
+    for(let i = 0; i <= 14; i++){
+      const d = somarDias(hoje(), i);
+      const h = horariosLivres(p.id, d, dur);
+      if(h.length) return {data:d, min:h[0]};
+    }
+    return null;
+  };
+
+  let html = '';
+  const qualquer = escolha.profissionalId === '*';
+  html += `<button class="opcao ${qualquer?'sel':''}" onclick="escolherProf('*')">
+      <span class="ic" style="background:linear-gradient(135deg,#7C3AED,#EC4899)">?</span>
+      <span class="txt"><span class="tt">Tanto faz</span>
+        <span class="dd">Mostra o horário mais cedo de qualquer profissional</span></span>
+      <span class="marca">${qualquer?'✓':''}</span>
+    </button>`;
+
+  for(const p of aptos){
+    const sel = escolha.profissionalId === p.id;
+    const pl = primeiroLivre(p);
+    html += `<button class="opcao ${sel?'sel':''}" onclick="escolherProf('${p.id}')">
+      <span class="ic" style="background:${p.cor}">${p.nome[0]}</span>
+      <span class="txt"><span class="tt">${p.nome}</span>
+        <span class="dd">${pl ? 'Livre ' + dataLonga(pl.data) + ' às ' + hm(pl.min)
+                             : 'sem horário nos próximos 15 dias'}</span></span>
+      <span class="marca">${sel?'✓':''}</span>
+    </button>`;
+  }
+  document.getElementById('listaProfs').innerHTML = html;
+}
+
+function escolherProf(id){
+  escolha.profissionalId = id;
+  escolha.data = null; escolha.inicio = null;
+  desenhar();
+}
+
+// Com "tanto faz", cada horário pode ser de um profissional diferente.
+// Guardamos quem atende em cada horário para gravar certo depois.
+let donoDoHorario = {};
+
+function desenharQuando(){
+  const dur = duracaoEscolhida();
+  const aptos = escolha.profissionalId === '*'
+    ? profsQueAtendem(escolha.servicos)
+    : [acharProf(escolha.profissionalId)];
+
+  document.getElementById('subQuando').textContent =
+    nomesEscolhidos() + ' · ' + (escolha.profissionalId === '*'
+      ? 'qualquer profissional' : acharProf(escolha.profissionalId).nome);
+
+  // Faixa de 14 dias, marcando quais têm vaga.
+  const dias = [];
+  for(let i = 0; i <= 13; i++){
+    const d = somarDias(hoje(), i);
+    let qtd = 0;
+    for(const p of aptos) qtd += horariosLivres(p.id, d, dur).length;
+    dias.push({data:d, qtd});
+  }
+  if(!escolha.data){
+    const primeiro = dias.find(d => d.qtd > 0);
+    escolha.data = primeiro ? primeiro.data : dias[0].data;
+  }
+
+  document.getElementById('listaDias').innerHTML = dias.map(d => {
+    const [a,m,dd] = d.data.split('-').map(Number);
+    const sem = DIAS_CURTOS[new Date(a,m-1,dd).getDay()];
+    return `<button class="dia ${d.data===escolha.data?'sel':''} ${d.qtd?'':'sem'}"
+              onclick="escolherDia('${d.data}')" ${d.qtd?'':'disabled'}>
+      <small>${sem}</small><b>${String(dd).padStart(2,'0')}</b>
+      <i>${d.qtd ? d.qtd + ' vagas' : 'cheio'}</i></button>`;
+  }).join('');
+
+  // Horários do dia escolhido, agrupados por turno.
+  donoDoHorario = {};
+  const mapa = {};
+  for(const p of aptos){
+    for(const t of horariosLivres(p.id, escolha.data, dur)){
+      if(mapa[t] === undefined){ mapa[t] = p.id; }
+    }
+  }
+  donoDoHorario = mapa;
+  const horas = Object.keys(mapa).map(Number).sort((a,b) => a-b);
+
+  if(!horas.length){
+    document.getElementById('listaHoras').innerHTML =
+      '<div class="recado">Sem horário livre neste dia. Escolha outro acima.</div>';
+    return;
+  }
+
+  const turnos = [
+    ['Manhã', horas.filter(h => h < 12*60)],
+    ['Tarde', horas.filter(h => h >= 12*60 && h < 18*60)],
+    ['Noite', horas.filter(h => h >= 18*60)],
+  ];
+
+  document.getElementById('listaHoras').innerHTML = turnos
+    .filter(([,lista]) => lista.length)
+    .map(([nome, lista]) => `<div class="turno">${nome}</div>
+      <div class="horas">${lista.map(h =>
+        `<button class="hora ${escolha.inicio===h?'sel':''}"
+                 onclick="escolherHora(${h})">${hm(h)}</button>`).join('')}</div>`)
+    .join('');
+}
+
+function escolherDia(d){ escolha.data = d; escolha.inicio = null; desenhar(); }
+function escolherHora(h){ escolha.inicio = h; desenhar(); }
+
+function desenharTelefone(){
+  const el = document.getElementById('fTelefone');
+  if(sessao) el.value = sessao.telefone || '';
+  document.getElementById('avisoTel').innerHTML = `
+    <div class="recado">Escolhido: <b>${nomesEscolhidos()}</b><br>
+      ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}</div>`;
+  setTimeout(() => el.focus(), 120);
+}
+
+function mascaraTelefone(el){
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length > 6)      v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+  else if(v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+  else if(v.length)     v = `(${v}`;
+  el.value = v;
+}
+
+function soDigitos(t){ return String(t||'').replace(/\D/g,''); }
+
+// E.164, que é o formato que o Supabase Auth guarda.
+function paraE164(tel){
+  const d = soDigitos(tel);
+  return d ? '+55' + d : '';
+}
+
+function desenharCodigo(){
+  const caixa = document.getElementById('caixaCodigo');
+  if(caixa.children.length !== 6){
+    caixa.innerHTML = Array.from({length:6}, (_,i) =>
+      `<input id="d${i}" inputmode="numeric" maxlength="1" autocomplete="one-time-code">`).join('');
+    for(let i = 0; i < 6; i++){
+      const c = document.getElementById('d'+i);
+      c.addEventListener('input', () => {
+        c.value = c.value.replace(/\D/g,'');
+        if(c.value && i < 5) document.getElementById('d'+(i+1)).focus();
+        if(codigoDigitado().length === 6) setTimeout(conferirCodigo, 120);
+      });
+      c.addEventListener('keydown', e => {
+        if(e.key === 'Backspace' && !c.value && i > 0) document.getElementById('d'+(i-1)).focus();
+      });
+    }
+    setTimeout(() => document.getElementById('d0').focus(), 150);
+  }
+  document.getElementById('subCodigo').innerHTML =
+    'Enviamos um código de 6 dígitos para <b>' + otp.telefone + '</b>.';
+}
+
+function codigoDigitado(){
+  return Array.from({length:6}, (_,i) => (document.getElementById('d'+i)||{}).value || '').join('');
+}
+
+function desenharNome(){
+  setTimeout(() => document.getElementById('fNome').focus(), 120);
+}
+
+function desenharConfirmar(){
+  const p = escolha.profissionalId === '*'
+    ? acharProf(donoDoHorario[escolha.inicio])
+    : acharProf(escolha.profissionalId);
+
+  document.getElementById('resumoFinal').innerHTML = `
+    <div class="l"><span>Salão</span><b>${salao.nome}</b></div>
+    <div class="l"><span>Serviço</span><b>${nomesEscolhidos()}</b></div>
+    <div class="l"><span>Profissional</span><b>${p ? p.nome : '—'}</b></div>
+    <div class="l"><span>Quando</span><b>${dataLonga(escolha.data)}<br>
+      ${hm(escolha.inicio)} às ${hm(escolha.inicio + duracaoEscolhida())}</b></div>
+    <div class="l"><span>Duração</span><b>${duracaoEscolhida()} min</b></div>
+    <div class="l total"><span>Total</span><b>${real(precoEscolhido())}</b></div>`;
+}
+
+function desenharMeus(){
+  const ficha = minhaFicha();
+  document.getElementById('subMeus').textContent =
+    (sessao ? sessao.nome + ' · ' : '') + salao.nome;
+
+  const lista = meusAgendamentos();
+  const alvo = document.getElementById('listaMeus');
+
+  if(!lista.length){
+    alvo.innerHTML = '<div class="nada"><b>Nenhum horário por aqui</b>'
+                   + 'Quando você marcar, aparece nesta tela.</div>';
+  } else {
+    const rotulo = {pendente:'Aguardando', confirmado:'Confirmado',
+      em_atendimento:'Em atendimento', concluido:'Atendido',
+      cancelado:'Cancelado', faltou:'Não compareceu'};
+    const classe = {pendente:'st-pend', confirmado:'st-conf', em_atendimento:'st-conf',
+      concluido:'st-conc', cancelado:'st-canc', faltou:'st-falt'};
+
+    const futuros = lista.filter(a => a.data >= hoje() && ATIVOS.includes(a.status));
+    const antigos = lista.filter(a => !(a.data >= hoje() && ATIVOS.includes(a.status)));
+
+    const cartao = (a, passado) => {
+      const p = acharProf(a.profissionalId);
+      const svs = (a.servicos||[]).map(s => acharServico(s.servicoId))
+                    .filter(Boolean).map(s => s.nome).join(' + ');
+      const total = (a.servicos||[]).reduce((s,x) => s + (x.preco||0), 0);
+      return `<div class="item ${passado?'passado':''}">
+        <div class="item-topo">
+          <div><h3>${svs || 'Atendimento'}</h3>
+            <div class="q">${dataLonga(a.data)} · ${hm(a.inicio)}</div>
+            <div class="q">${p ? 'com ' + p.nome : ''} · ${real(total)}</div></div>
+          <span class="selo-st ${classe[a.status]}">${rotulo[a.status]}</span>
+        </div>
+        ${!passado ? `<div class="acoes">
+          <button class="bp" onclick="remarcar('${a.id}')">Remarcar</button>
+          <button class="bp perigo" onclick="cancelar('${a.id}')">Cancelar</button>
+        </div>` : ''}
+      </div>`;
+    };
+
+    alvo.innerHTML =
+      (futuros.length ? '<div class="cat">Próximos</div>'
+        + futuros.map(a => cartao(a,false)).join('') : '')
+      + (antigos.length ? '<div class="cat">Já foram</div>'
+        + antigos.map(a => cartao(a,true)).join('') : '');
+  }
+
+  // A prova do modelo multi-salão, na tela do cliente.
+  const outros = meusOutrosSaloes();
+  document.getElementById('outrosSaloes').innerHTML = outros.length ? `
+    <div class="cat">Você também é cliente de</div>
+    ${outros.map(s => `<button class="opcao" onclick="entrarNoSalao('${s.slug}')">
+        <span class="ic" style="background:linear-gradient(135deg,#7C3AED,#EC4899)">
+          ${s.tipo === 'barbearia' ? '✄' : '✂'}</span>
+        <span class="txt"><span class="tt">${s.nome}</span>
+          <span class="dd">mesmo login, histórico separado</span></span>
+        <span style="color:var(--txt3);font-size:20px">›</span>
+      </button>`).join('')}
+    <p class="rodape-nota" style="padding:4px 0 0;text-align:left">
+      Um telefone, um login. Cada salão enxerga só a ficha que é dele — nenhum
+      deles vê o que você faz no outro.</p>` : '';
+}
+
+/* ── Ações do botão principal ────────────────────────────────────────── */
+function acaoPrincipal(){
+  if(tela === 'capa')      return irPara('servico');
+  if(tela === 'servico')   return irPara('prof');
+  if(tela === 'prof')      return irPara('quando');
+  if(tela === 'quando')    return sessao ? irPara('confirmar') : irPara('telefone');
+  if(tela === 'telefone')  return enviarCodigo();
+  if(tela === 'codigo')    return conferirCodigo();
+  if(tela === 'nome')      return salvarNome();
+  if(tela === 'confirmar') return confirmarAgendamento();
+  if(tela === 'pronto')    return irPara('meus', true);
+  if(tela === 'meus')      { escolha = {servicos:[], profissionalId:null, data:null, inicio:null};
+                             return irPara('servico'); }
+}
+
+function acaoSecundaria(){
+  if(tela === 'pronto'){
+    escolha = {servicos:[], profissionalId:null, data:null, inicio:null};
+    historico = [];
+    irPara('servico', true);
+  }
+}
+
+/* ── Verificação por WhatsApp ────────────────────────────────────────────
+   SIMULAÇÃO. Em produção nada disto existe no navegador: o
+   `supabase.auth.signInWithOtp({ phone })` pede o código, o Supabase Auth
+   gera/valida/expira, e o Send SMS Hook chama a Edge Function que entrega
+   pela Cloud API da Meta. O código NUNCA passa pelo cliente.
+   ──────────────────────────────────────────────────────────────────────── */
+function enviarCodigo(){
+  const tel = document.getElementById('fTelefone').value;
+  const d = soDigitos(tel);
+  if(d.length < 10){
+    document.getElementById('avisoTel').innerHTML =
+      '<div class="recado erro">Número incompleto. Precisa do DDD mais 8 ou 9 dígitos.</div>';
+    return;
+  }
+
+  // Limite de reenvio: template de autenticação da Meta é pago por mensagem.
+  // Sem trava, um robô transforma isso em torneira de dinheiro aberta.
+  const desdeUltimo = Date.now() - otp.enviadoEm;
+  if(otp.telefone === tel && desdeUltimo < 30000){
+    document.getElementById('avisoTel').innerHTML =
+      `<div class="recado erro">Espere ${Math.ceil((30000-desdeUltimo)/1000)}s para pedir outro código.</div>`;
+    return;
+  }
+
+  otp = {
+    codigo: String(Math.floor(100000 + Math.random()*900000)),
+    telefone: tel, enviadoEm: Date.now(), tentativas: 0,
+  };
+  irPara('codigo');
+  mostrarBolhaZap();
+}
+
+function mostrarBolhaZap(){
+  const h = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('bolhaZap').innerHTML = `
+    <div class="simul">Só na demonstração o código aparece aqui. Em produção
+      ele chega no WhatsApp e o navegador nunca o conhece.</div>
+    <div class="zap">
+      <div class="de">${salao.nome} · WhatsApp</div>
+      Seu código de acesso é <b>${otp.codigo}</b><br>
+      Vale por 5 minutos. Não compartilhe com ninguém.
+      <div class="hr">${h} ✓✓</div>
+    </div>`;
+}
+
+function reenviarCodigo(){
+  const desdeUltimo = Date.now() - otp.enviadoEm;
+  if(desdeUltimo < 30000){
+    document.getElementById('avisoCodigo').innerHTML =
+      `<div class="recado erro">Espere ${Math.ceil((30000-desdeUltimo)/1000)}s.</div>`;
+    return;
+  }
+  otp.codigo = String(Math.floor(100000 + Math.random()*900000));
+  otp.enviadoEm = Date.now();
+  otp.tentativas = 0;
+  document.getElementById('avisoCodigo').innerHTML =
+    '<div class="recado ok">Código novo enviado.</div>';
+  mostrarBolhaZap();
+}
+
+function conferirCodigo(){
+  const digitado = codigoDigitado();
+  if(digitado.length < 6) return;
+
+  if(digitado !== otp.codigo){
+    otp.tentativas++;
+    // Tentativa infinita é o que transforma 6 dígitos em brinquedo.
+    if(otp.tentativas >= 5){
+      document.getElementById('avisoCodigo').innerHTML =
+        '<div class="recado erro">Muitas tentativas. Peça um código novo.</div>';
+      otp.codigo = null;
+      return;
+    }
+    document.getElementById('avisoCodigo').innerHTML =
+      `<div class="recado erro">Código errado. ${5-otp.tentativas} tentativa(s) restante(s).</div>`;
+    for(let i = 0; i < 6; i++) document.getElementById('d'+i).value = '';
+    document.getElementById('d0').focus();
+    return;
+  }
+
+  // Código certo: telefone verificado. Agora, quem é essa pessoa?
+  const e164 = paraE164(otp.telefone);
+  bd.perfis = bd.perfis || [];
+  let perfil = bd.perfis.find(p => p.telefone === e164);
+
+  // Já existe ficha com este telefone (a recepção cadastrou um dia)?
+  // Nesse caso a pessoa reencontra o próprio histórico ao entrar pela
+  // primeira vez, em vez de virar cliente novo do zero.
+  const fichaSolta = bd.clientes.find(c =>
+    soDigitos(c.telefone) === soDigitos(otp.telefone) && !c.perfilId);
+
+  if(!perfil){
+    perfil = { id: novoId(), nome: fichaSolta ? fichaSolta.nome : '', telefone: e164 };
+    bd.perfis.push(perfil);
+  }
+  sessao = { perfilId: perfil.id, nome: perfil.nome, telefone: otp.telefone };
+  guardarSessao();
+
+  // Amarra as fichas soltas deste telefone ao perfil, em todos os salões.
+  for(const c of bd.clientes){
+    if(!c.perfilId && soDigitos(c.telefone) === soDigitos(otp.telefone)) c.perfilId = perfil.id;
+  }
+  salvar();
+
+  if(!perfil.nome) irPara('nome');
+  else irPara('confirmar');
+}
+
+function salvarNome(){
+  const nome = (document.getElementById('fNome').value || '').trim();
+  if(nome.length < 2){
+    document.getElementById('avisoNome').innerHTML =
+      '<div class="recado erro">Escreva pelo menos o primeiro nome.</div>';
+    return;
+  }
+  const perfil = bd.perfis.find(p => p.id === sessao.perfilId);
+  perfil.nome = nome;
+  perfil.nascimento = document.getElementById('fNasc').value || '';
+  sessao.nome = nome;
+  guardarSessao(); salvar();
+  irPara('confirmar');
+}
+
+/* ── Gravar o agendamento ────────────────────────────────────────────── */
+function confirmarAgendamento(){
+  const dur = duracaoEscolhida();
+  const profId = escolha.profissionalId === '*'
+    ? donoDoHorario[escolha.inicio] : escolha.profissionalId;
+  const prof = acharProf(profId);
+
+  // Última conferência antes de gravar. No banco quem recusa é a constraint —
+  // aqui é para a pessoa entender o que houve em vez de ver um erro cru.
+  if(ocupado(profId, escolha.data, escolha.inicio, escolha.inicio + dur)){
+    document.getElementById('avisoConfirmar').innerHTML =
+      '<div class="recado erro"><b>Alguém pegou este horário agora há pouco.</b><br>'
+      + 'Escolha outro. <button class="link" onclick="irPara(\'quando\')">Ver horários</button></div>';
+    return;
+  }
+
+  // Ficha desta pessoa NESTE salão. Não existe? Cria — é o momento em que a
+  // pessoa vira cliente deste salão, sem deixar de ser do outro.
+  let ficha = minhaFicha();
+  if(!ficha){
+    ficha = {
+      id: novoId(), salaoId: salao.id, perfilId: sessao.perfilId,
+      nome: sessao.nome, telefone: sessao.telefone, obs: '',
+      criadoEm: new Date().toISOString(),
+    };
+    bd.clientes.push(ficha);
+  }
+
+  const recado = (document.getElementById('fRecado').value || '').trim();
+  const ag = {
+    id: novoId(), salaoId: salao.id, clienteId: ficha.id, profissionalId: profId,
+    data: escolha.data, inicio: escolha.inicio, fim: escolha.inicio + dur,
+    status: 'confirmado', origem: 'online',
+    servicos: escolha.servicos.map(i => {
+      const sv = acharServico(i);
+      return {servicoId:i, duracaoMin:sv.duracaoMin, preco:sv.preco,
+              comissaoPct: sv.comissaoPct != null ? sv.comissaoPct : prof.comissaoPct};
+    }),
+    obs: recado,
+  };
+  bd.agendamentos.push(ag);
+
+  // Remarcar = marcar o novo e só então soltar o antigo. Nesta ordem: se o
+  // horário novo falhar, a pessoa não fica sem nenhum dos dois.
+  if(agendamentoARemarcar){
+    const velho = bd.agendamentos.find(x => x.id === agendamentoARemarcar);
+    if(velho){
+      velho.status = 'cancelado';
+      velho.canceladoMotivo = 'remarcado pelo cliente';
+    }
+    agendamentoARemarcar = null;
+  }
+
+  salvar();
+
+  document.getElementById('prontoTexto').innerHTML =
+    `${dataLonga(escolha.data)} às <b>${hm(escolha.inicio)}</b>, com ${prof.nome}.`;
+  document.getElementById('resumoPronto').innerHTML =
+    document.getElementById('resumoFinal').innerHTML;
+
+  const h = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('bolhaConfirmacao').innerHTML = `
+    <div class="simul">Neste ponto sai a confirmação no WhatsApp, e um lembrete
+      no dia anterior — é o que derruba a falta pela metade.</div>
+    <div class="zap">
+      <div class="de">${salao.nome} · WhatsApp</div>
+      Oi ${sessao.nome.split(' ')[0]}! Seu horário está confirmado:<br><br>
+      <b style="font-size:15px;letter-spacing:0">${nomesEscolhidos()}</b><br>
+      ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}<br>
+      com ${prof.nome}<br><br>
+      ${salao.endereco || ''}
+      <div class="hr">${h} ✓✓</div>
+    </div>`;
+
+  historico = [];
+  irPara('pronto', true);
+}
+
+/* ── Cancelar e remarcar ─────────────────────────────────────────────── */
+function cancelar(agId){
+  const a = bd.agendamentos.find(x => x.id === agId);
+  if(!a) return;
+  if(!confirm('Cancelar este horário?\n\nSe faltar menos de 24h, o salão pode '
+            + 'cobrar taxa conforme a política dele.')) return;
+  a.status = 'cancelado';
+  a.canceladoMotivo = 'cancelado pelo cliente';
+  salvar();
+  desenhar();
+}
+
+function remarcar(agId){
+  const a = bd.agendamentos.find(x => x.id === agId);
+  if(!a) return;
+  // Remarcar é marcar de novo e cancelar o antigo — só que já com as escolhas
+  // preenchidas, para a pessoa não recomeçar do zero.
+  escolha = {
+    servicos: (a.servicos||[]).map(s => s.servicoId),
+    profissionalId: a.profissionalId, data: null, inicio: null,
+  };
+  agendamentoARemarcar = agId;
+  irPara('quando');
+}
+
+/* ── Entrada e sessão ────────────────────────────────────────────────── */
+function entrarNoSalao(slug){
+  const s = bd.saloes.find(x => x.slug === slug);
+  if(!s){
+    document.getElementById('listaSaloes').innerHTML =
+      `<div class="recado erro"><b>Salão não encontrado.</b><br>
+       O endereço <code>?salao=${slug}</code> não corresponde a nenhum salão ativo.</div>`;
+    return;
+  }
+  salao = s;
+  // Mantém o endereço coerente com o que está na tela: dá para copiar da
+  // barra e mandar para outra pessoa.
+  const url = new URL(location.href);
+  url.searchParams.set('salao', slug);
+  history.replaceState(null, '', url);
+
+  document.getElementById('tituloSalao').textContent = s.nome;
+  document.getElementById('subSalao').textContent =
+    s.tipo === 'barbearia' ? 'Barbearia' : 'Salão de beleza';
+  document.getElementById('avatarSalao').textContent = s.tipo === 'barbearia' ? '✄' : '✂';
+  document.getElementById('notaRodape').innerHTML =
+    `Link deste salão: <code>?salao=${s.slug}</code> · AgendaPro`;
+
+  historico = [];
+  irPara('capa', true);
+}
+
+function guardarSessao(){
+  try{ localStorage.setItem(CHAVE_SESSAO, JSON.stringify(sessao)); }
+  catch(e){ console.error('Não consegui guardar a sessão:', e); }
+}
+
+function sair(){
+  if(!confirm('Sair desta conta neste aparelho?')) return;
+  sessao = null;
+  try{ localStorage.removeItem(CHAVE_SESSAO); }catch(e){}
+  historico = [];
+  irPara('capa', true);
+}
+
+/* ── Armazenamento (o ponto onde o Supabase entra) ───────────────────── */
+function salvar(){
+  try{
+    const cru = localStorage.getItem(CHAVE);
+    const anterior = cru ? JSON.parse(cru) : {};
+    // Preserva `salaoAtual`, que é do app.html: os dois compartilham a chave.
+    localStorage.setItem(CHAVE, JSON.stringify({...anterior, ...bd}));
+  }catch(e){
+    console.error('Não consegui gravar:', e);
+    alert('Não consegui salvar neste navegador. Em aba anônima os dados somem '
+        + 'ao fechar a janela.');
+  }
+}
+
+function carregar(){
+  try{
+    const cru = localStorage.getItem(CHAVE);
+    if(!cru) return null;
+    const d = JSON.parse(cru);
+    // Coleções que o app.html pode não ter criado ainda.
+    d.perfis = d.perfis || [];
+    d.bloqueios = d.bloqueios || [];
+    d.comandas = d.comandas || [];
+    d.servicosProfissionais = d.servicosProfissionais || [];
+    return d;
+  }catch(e){
+    console.error('Dados guardados estão corrompidos:', e);
+    return null;
+  }
+}
+
+/* ── Partida ─────────────────────────────────────────────────────────── */
+function registrarServiceWorker(){
+  if(!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  navigator.serviceWorker.register('sw.js')
+    .catch(e => console.error('[AgendaPro] service worker:', e));
+}
+
+(function(){
+  try{
+    const t = localStorage.getItem(CHAVE + '.tema');
+    if(t) document.documentElement.setAttribute('data-tema', t);
+  }catch(e){}
+
+  bd = carregar();
+  if(!bd){
+    document.getElementById('listaSaloes').innerHTML = `
+      <div class="recado erro"><b>Nenhum salão cadastrado ainda.</b><br>
+      Abra o <a class="link" href="app.html">app.html</a> uma vez para criar os
+      dados de demonstração, depois volte aqui.</div>`;
+    document.getElementById('rodapeAcao').style.display = 'none';
+    return;
+  }
+
+  try{
+    const s = localStorage.getItem(CHAVE_SESSAO);
+    if(s) sessao = JSON.parse(s);
+  }catch(e){}
+
+  // É aqui que o link vira salão.
+  const slug = new URLSearchParams(location.search).get('salao');
+  if(slug) entrarNoSalao(slug);
+  else { irPara('saloes', true); }
+
+  registrarServiceWorker();
+})();
+</script>
+</body>
+</html>

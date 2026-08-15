@@ -14,7 +14,8 @@ Falta ligar os dois — hoje a tela guarda no navegador, não no Supabase.
 
 | Arquivo | O que faz |
 |---|---|
-| `app.html` | O aplicativo: agenda, clientes, serviços, equipe, caixa e página pública |
+| `app.html` | O salão: agenda, clientes, serviços, equipe e caixa |
+| `agendar.html` | O cliente: capa do salão, escolha, código no WhatsApp, meus horários |
 | `index.html` | Encaminha a raiz para o app |
 | `sw.js` + `manifest.webmanifest` | PWA — instala no celular e no computador |
 | `supabase/01_schema.sql` | 16 tabelas, a trava anti-choque da agenda, comanda e comissão |
@@ -22,6 +23,32 @@ Falta ligar os dois — hoje a tela guarda no navegador, não no Supabase.
 | `tests/` | 49 verificações rodando em Postgres de verdade |
 
 ## Como testar
+
+### Os dois lados
+
+São dois aplicativos sobre o mesmo banco:
+
+| | Quem usa | Onde |
+|---|---|---|
+| **Recepção** | dono, recepção, profissional | `app.html` |
+| **Cliente** | quem marca horário | `agendar.html?salao=<slug>` |
+
+### Como o cliente chega no salão certo
+
+Pelo `slug` — a coluna `saloes.slug`, que é o apelido do salão no endereço:
+
+```
+agendar.html?salao=studio-bella
+agendar.html?salao=barbearia-do-ze
+```
+
+É esse link que o salão manda no WhatsApp, cola na bio do Instagram ou imprime
+como QR no espelho. Cada salão tem o seu, e ele é a única porta de entrada
+do cliente — quem abre um link não enxerga o outro salão.
+
+Dentro do `app.html`, na aba **Ver como cliente**, o link aparece pronto com
+botão de copiar. Sem o parâmetro, `agendar.html` mostra a lista de salões:
+isso existe só para a demonstração; em produção o link sempre traz um.
 
 **A tela** — abra `app.html` no navegador. Já vem com dois salões, cinco
 profissionais, dez serviços e a agenda de hoje preenchida. Tudo fica no
