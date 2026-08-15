@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgendaPro — Agenda do salão</title>
+<meta name="description" content="Agenda, clientes, comanda e comissão para salão de beleza, barbearia e estética." />
+<meta name="theme-color" content="#7C3AED" />
+<!-- PWA: instalável no celular e no computador -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="AgendaPro" />
+<link rel="icon" type="image/png" href="icones/icone-192.png" />
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
+<style>
+/* ===========================================================================
+   AgendaPro — visual
+   Sem framework, sem build. Abrir o arquivo é rodar o sistema.
+   =========================================================================== */
+:root{
+  --roxo:#7C3AED; --roxo-esc:#5B21B6; --rosa:#EC4899;
+  --bg:#F5F6FA; --painel:#FFFFFF; --borda:#E3E6EF;
+  --txt:#1A2233; --txt2:#6B7385; --txt3:#9AA1B2;
+  --ok:#10B981; --alerta:#F59E0B; --erro:#EF4444;
+  --sombra:0 1px 3px rgba(16,24,40,.08), 0 8px 24px rgba(16,24,40,.06);
+  --r:12px; --linha:15px; /* altura de 15 min na grade */
+}
+[data-tema="escuro"]{
+  --bg:#12151E; --painel:#1A1F2B; --borda:#2A3140;
+  --txt:#E8EAF0; --txt2:#A0A7B8; --txt3:#6B7385;
+  --sombra:0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--txt);
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+
+/* ── Cabeçalho ───────────────────────────────────────────────────────── */
+.topo{
+  position:sticky; top:0; z-index:40;
+  background:var(--painel); border-bottom:1px solid var(--borda);
+}
+.topo-in{
+  max-width:1400px; margin:0 auto; padding:10px 16px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.marca{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+.marca-ic{
+  width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--roxo),var(--rosa));color:#fff;font-size:16px;
+}
+.marca small{display:block;font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.1em}
+.sel-salao{
+  padding:7px 11px;border:1px solid var(--borda);border-radius:9px;
+  background:var(--bg);font-weight:600;max-width:220px;
+}
+.espaco{flex:1}
+.btn{
+  padding:8px 14px;border-radius:9px;font-weight:600;font-size:14px;
+  border:1px solid var(--borda);background:var(--painel);
+  transition:.15s; white-space:nowrap;
+}
+.btn:hover{border-color:var(--roxo);color:var(--roxo)}
+.btn-p{background:var(--roxo);color:#fff;border-color:var(--roxo)}
+.btn-p:hover{background:var(--roxo-esc);border-color:var(--roxo-esc);color:#fff}
+.btn-x{padding:8px 10px}
+.btn-peq{padding:5px 10px;font-size:13px}
+
+/* ── Abas ────────────────────────────────────────────────────────────── */
+.abas{
+  max-width:1400px;margin:0 auto;padding:0 16px;
+  display:flex;gap:2px;overflow-x:auto;
+}
+.aba{
+  padding:11px 16px;font-weight:600;font-size:14px;color:var(--txt2);
+  border-bottom:2px solid transparent;white-space:nowrap;
+}
+.aba:hover{color:var(--txt)}
+.aba.on{color:var(--roxo);border-bottom-color:var(--roxo)}
+
+/* ── Conteúdo ────────────────────────────────────────────────────────── */
+.corpo{max-width:1400px;margin:0 auto;padding:18px 16px 60px}
+.tela{display:none}
+.tela.on{display:block}
+.barra{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
+.dia{font-weight:700;font-size:16px;min-width:210px;text-align:center;text-transform:capitalize}
+
+/* ── Grade da agenda ─────────────────────────────────────────────────── */
+.grade-wrap{
+  background:var(--painel);border:1px solid var(--borda);border-radius:var(--r);
+  box-shadow:var(--sombra); overflow:auto;
+}
+.grade{display:grid;min-width:min-content}
+.col-h{
+  position:sticky;top:0;z-index:20;background:var(--painel);
+  border-bottom:1px solid var(--borda);padding:10px 8px;text-align:center;
+}
+.col-h .nm{font-weight:700;font-size:14px;white-space:nowrap}
+.col-h .fn{font-size:11px;color:var(--txt2)}
+.pnt{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}
+.col-horas{
+  position:sticky;left:0;z-index:15;background:var(--painel);
+  border-right:1px solid var(--borda);width:58px;
+}
+.hora{
+  height:calc(var(--linha)*4); font-size:11px; color:var(--txt3);
+  padding:2px 7px 0 0; text-align:right; border-top:1px solid var(--borda);
+}
+.col{position:relative;border-right:1px solid var(--borda);min-width:148px}
+.faixa{position:absolute;left:0;right:0;border-top:1px solid var(--borda)}
+.faixa.meia{border-top-style:dotted;opacity:.55}
+.fora{position:absolute;left:0;right:0;background:repeating-linear-gradient(
+  45deg,transparent,transparent 5px,rgba(128,128,128,.07) 5px,rgba(128,128,128,.07) 10px)}
+.bloqueio{
+  position:absolute;left:3px;right:3px;border-radius:7px;
+  background:rgba(148,163,184,.22);border:1px dashed var(--txt3);
+  font-size:11px;color:var(--txt2);padding:3px 6px;overflow:hidden;
+}
+.ag{
+  position:absolute;left:3px;right:3px;border-radius:8px;padding:4px 7px;
+  font-size:12px;overflow:hidden;cursor:pointer;color:#fff;
+  border-left:3px solid rgba(255,255,255,.55);
+  transition:transform .1s, box-shadow .1s;
+}
+.ag:hover{transform:translateX(1px);box-shadow:0 3px 10px rgba(0,0,0,.22);z-index:5}
+.ag b{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag span{opacity:.92;font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag.cancelado{opacity:.42;text-decoration:line-through}
+.ag.faltou{opacity:.55;background-image:repeating-linear-gradient(
+  45deg,transparent,transparent 4px,rgba(0,0,0,.16) 4px,rgba(0,0,0,.16) 8px)}
+.ag.concluido::after{content:"✓";position:absolute;right:5px;top:3px;font-size:11px;opacity:.85}
+.vazio-slot{position:absolute;left:0;right:0;cursor:pointer}
+.vazio-slot:hover{background:rgba(124,58,237,.09)}
+
+/* ── Cartões e listas ────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{
+  background:var(--painel);border:1px solid var(--borda);border-radius:var(--r);
+  padding:14px;box-shadow:var(--sombra);
+}
+.card h3{font-size:15px;font-weight:700;margin-bottom:3px}
+.card p{font-size:13px;color:var(--txt2)}
+.card-acoes{display:flex;gap:6px;margin-top:11px}
+.tabela{
+  width:100%;background:var(--painel);border:1px solid var(--borda);
+  border-radius:var(--r);overflow:hidden;box-shadow:var(--sombra);border-collapse:collapse;
+}
+.tabela th{
+  text-align:left;padding:10px 13px;font-size:12px;font-weight:700;
+  color:var(--txt2);text-transform:uppercase;letter-spacing:.04em;
+  border-bottom:1px solid var(--borda);background:var(--bg);
+}
+.tabela td{padding:11px 13px;border-bottom:1px solid var(--borda);font-size:14px}
+.tabela tr:last-child td{border-bottom:none}
+.tabela tr:hover td{background:rgba(124,58,237,.045)}
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;
+}
+.t-conf{background:rgba(16,185,129,.15);color:#059669}
+.t-pend{background:rgba(245,158,11,.16);color:#D97706}
+.t-canc{background:rgba(239,68,68,.14);color:#DC2626}
+.t-conc{background:rgba(124,58,237,.14);color:var(--roxo)}
+.t-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
+.vazio{text-align:center;padding:44px 20px;color:var(--txt3)}
+.vazio b{display:block;font-size:15px;color:var(--txt2);margin-bottom:4px}
+
+/* ── Indicadores ─────────────────────────────────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-bottom:16px}
+.kpi{
+  background:var(--painel);border:1px solid var(--borda);border-radius:var(--r);
+  padding:13px 15px;box-shadow:var(--sombra);
+}
+.kpi .v{font-size:23px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.kpi .r{font-size:12px;color:var(--txt2);font-weight:600}
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.fundo{
+  position:fixed;inset:0;background:rgba(10,14,25,.55);z-index:100;
+  display:none;align-items:center;justify-content:center;padding:16px;
+  backdrop-filter:blur(2px);
+}
+.fundo.on{display:flex}
+.modal{
+  background:var(--painel);border-radius:15px;width:100%;max-width:520px;
+  max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+.modal-h{
+  padding:15px 18px;border-bottom:1px solid var(--borda);
+  display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--painel);
+}
+.modal-h h3{font-size:16px;font-weight:700;flex:1}
+.modal-c{padding:18px}
+.modal-p{
+  padding:13px 18px;border-top:1px solid var(--borda);display:flex;gap:8px;
+  justify-content:flex-end;position:sticky;bottom:0;background:var(--painel);flex-wrap:wrap;
+}
+.campo{margin-bottom:13px}
+.campo label{display:block;font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:5px}
+.campo input,.campo select,.campo textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--borda);border-radius:9px;
+  background:var(--bg);
+}
+.campo input:focus,.campo select:focus,.campo textarea:focus{
+  outline:none;border-color:var(--roxo);box-shadow:0 0 0 3px rgba(124,58,237,.14)
+}
+.dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.aviso{
+  padding:10px 12px;border-radius:9px;font-size:13px;margin-bottom:13px;
+  background:rgba(239,68,68,.1);color:#DC2626;border:1px solid rgba(239,68,68,.25);
+}
+.aviso.ok{background:rgba(16,185,129,.1);color:#059669;border-color:rgba(16,185,129,.25)}
+.aviso.info{background:rgba(124,58,237,.09);color:var(--roxo);border-color:rgba(124,58,237,.22)}
+
+/* ── Escolha de serviços (checkboxes) ────────────────────────────────── */
+.lista-serv{border:1px solid var(--borda);border-radius:9px;max-height:190px;overflow:auto}
+.serv-op{
+  display:flex;align-items:center;gap:9px;padding:8px 11px;
+  border-bottom:1px solid var(--borda);cursor:pointer;
+}
+.serv-op:last-child{border-bottom:none}
+.serv-op:hover{background:rgba(124,58,237,.05)}
+.serv-op input{width:auto;margin:0}
+.serv-op .i{flex:1}
+.serv-op .n{font-weight:600;font-size:14px}
+.serv-op .d{font-size:12px;color:var(--txt2)}
+
+/* ── Página pública (ver como cliente) ───────────────────────────────── */
+.publico{max-width:560px;margin:0 auto}
+.pub-topo{
+  background:linear-gradient(135deg,var(--roxo),var(--rosa));color:#fff;
+  border-radius:var(--r) var(--r) 0 0;padding:22px 20px;text-align:center;
+}
+.pub-topo h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.pub-topo p{opacity:.92;font-size:13px;margin-top:3px}
+.pub-corpo{
+  background:var(--painel);border:1px solid var(--borda);border-top:none;
+  border-radius:0 0 var(--r) var(--r);padding:18px;box-shadow:var(--sombra);
+}
+.passo{font-size:12px;font-weight:700;color:var(--roxo);letter-spacing:.05em;margin-bottom:8px}
+.horarios{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:7px}
+.hslot{
+  padding:9px 4px;border:1px solid var(--borda);border-radius:9px;
+  text-align:center;font-weight:600;font-size:14px;background:var(--bg);
+}
+.hslot:hover{border-color:var(--roxo);color:var(--roxo);background:rgba(124,58,237,.07)}
+.hslot.sel{background:var(--roxo);color:#fff;border-color:var(--roxo)}
+.nota{
+  font-size:12px;color:var(--txt2);margin-top:14px;padding-top:12px;
+  border-top:1px dashed var(--borda);
+}
+
+.rodape{
+  max-width:1400px;margin:0 auto;padding:22px 16px 40px;
+  font-size:12px;color:var(--txt3);text-align:center;
+}
+@media(max-width:640px){
+  .topo-in{padding:9px 12px}
+  .corpo{padding:14px 11px 50px}
+  .dia{min-width:auto;font-size:14px}
+  .dupla{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <div class="marca">
+      <span class="marca-ic">◷</span>
+      <span>AgendaPro<small id="mTipo">SALÃO</small></span>
+    </div>
+    <select class="sel-salao" id="selSalao" onchange="trocarSalao(this.value)"></select>
+    <span class="espaco"></span>
+    <button class="btn btn-p" id="btInstalar" style="display:none" onclick="instalarApp()">↓ Instalar app</button>
+    <button class="btn btn-x" onclick="trocarTema()" title="Tema claro/escuro" id="btTema">◐</button>
+    <button class="btn" onclick="recomecar()" title="Apaga os dados de demonstração e recria">Recomeçar</button>
+  </div>
+  <nav class="abas" id="abas"></nav>
+</header>
+
+<main class="corpo">
+
+  <!-- ══════════ AGENDA ══════════ -->
+  <section class="tela on" id="tela-agenda">
+    <div class="barra">
+      <button class="btn btn-x" onclick="mudarDia(-1)">‹</button>
+      <span class="dia" id="rotuloDia"></span>
+      <button class="btn btn-x" onclick="mudarDia(1)">›</button>
+      <button class="btn btn-peq" onclick="irHoje()">Hoje</button>
+      <span class="espaco"></span>
+      <button class="btn btn-p" onclick="abrirNovo()">+ Agendamento</button>
+    </div>
+    <div class="kpis" id="kpisDia"></div>
+    <div class="grade-wrap"><div class="grade" id="grade"></div></div>
+    <p class="nota">
+      Clique num espaço vazio da coluna para marcar naquele horário. Clique num
+      atendimento para mudar o status ou abrir a comanda.
+    </p>
+  </section>
+
+  <!-- ══════════ CLIENTES ══════════ -->
+  <section class="tela" id="tela-clientes">
+    <div class="barra">
+      <h2>Clientes</h2><span class="espaco"></span>
+      <input id="buscaCliente" placeholder="Buscar por nome ou telefone"
+             oninput="pintarClientes()"
+             style="padding:8px 11px;border:1px solid var(--borda);border-radius:9px;background:var(--painel);min-width:220px">
+      <button class="btn btn-p" onclick="abrirCliente()">+ Cliente</button>
+    </div>
+    <div id="listaClientes"></div>
+  </section>
+
+  <!-- ══════════ SERVIÇOS ══════════ -->
+  <section class="tela" id="tela-servicos">
+    <div class="barra">
+      <h2>Serviços</h2><span class="espaco"></span>
+      <button class="btn btn-p" onclick="abrirServico()">+ Serviço</button>
+    </div>
+    <div id="listaServicos"></div>
+  </section>
+
+  <!-- ══════════ EQUIPE ══════════ -->
+  <section class="tela" id="tela-equipe">
+    <div class="barra">
+      <h2>Equipe</h2><span class="espaco"></span>
+      <button class="btn btn-p" onclick="abrirProf()">+ Profissional</button>
+    </div>
+    <div class="cards" id="listaEquipe"></div>
+  </section>
+
+  <!-- ══════════ CAIXA ══════════ -->
+  <section class="tela" id="tela-caixa">
+    <div class="barra"><h2>Caixa do dia</h2><span class="espaco"></span>
+      <span class="dia" id="rotuloCaixa" style="min-width:auto;font-size:14px;color:var(--txt2)"></span>
+    </div>
+    <div class="kpis" id="kpisCaixa"></div>
+    <div id="listaComandas"></div>
+    <h2 style="margin:22px 0 11px;font-size:16px">Comissão por profissional</h2>
+    <div id="listaComissao"></div>
+  </section>
+
+  <!-- ══════════ VER COMO CLIENTE ══════════ -->
+  <section class="tela" id="tela-publico">
+    <div class="publico">
+      <div class="pub-topo">
+        <h3 id="pubNome">—</h3>
+        <p id="pubEnd">Agende seu horário</p>
+      </div>
+      <div class="pub-corpo">
+        <div class="aviso info">
+          É isto que a cliente enxerga depois de validar o telefone: os horários
+          <b>livres</b>. Nome, telefone e histórico de quem já marcou não saem do
+          banco — a regra que garante isso está no <code>02_rls.sql</code>.
+        </div>
+        <div class="campo">
+          <div class="passo">1 · SERVIÇO</div>
+          <select id="pubServico" onchange="pintarPublico()"></select>
+        </div>
+        <div class="campo">
+          <div class="passo">2 · PROFISSIONAL</div>
+          <select id="pubProf" onchange="pintarPublico()"></select>
+        </div>
+        <div class="campo">
+          <div class="passo">3 · DIA</div>
+          <input type="date" id="pubData" onchange="pintarPublico()">
+        </div>
+        <div class="passo">4 · HORÁRIO LIVRE</div>
+        <div class="horarios" id="pubHorarios"></div>
+        <p class="nota" id="pubNota"></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <span id="avisoLocal" style="display:none">
+    Aberto direto do arquivo: funciona, mas <b>não instala como app</b> nem
+    guarda offline. Sirva por https:// ou localhost para isso.<br>
+  </span>
+  AgendaPro · demonstração com dados no próprio navegador (localStorage).
+  Nada é enviado para servidor nenhum.
+</footer>
+
+<!-- ══════════ MODAL ══════════ -->
+<div class="fundo" id="fundo" onclick="if(event.target===this)fecharModal()">
+  <div class="modal">
+    <div class="modal-h">
+      <h3 id="modalTitulo">—</h3>
+      <button class="btn btn-x" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-c" id="modalCorpo"></div>
+    <div class="modal-p" id="modalPe"></div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   AgendaPro — lógica
+   ---------------------------------------------------------------------------
+   MODO DEMONSTRAÇÃO. Os dados vivem no localStorage deste navegador, para
+   que a tela possa ser conferida sem Supabase nenhum configurado.
+
+   A troca para o Supabase acontece num lugar só: o objeto `Dados` no fim do
+   arquivo. Tudo acima dele conversa por funções, nunca com o armazenamento
+   direto — assim a substituição não espalha por toda a página.
+
+   IMPORTANTE: a conferência de conflito de horário daqui é de CONVENIÊNCIA,
+   para avisar bonito na tela. A garantia de verdade é a constraint
+   `agenda_sem_choque` no Postgres (supabase/01_schema.sql). Duas recepções
+   clicando ao mesmo tempo só são barradas lá — o navegador de uma nunca vai
+   saber o que a outra acabou de fazer.
+   =========================================================================== */
+
+const CHAVE = 'agendapro.demo.v1';
+const ABRE = 8 * 60;    // 08:00 — início da grade
+const FECHA = 20 * 60;  // 20:00 — fim da grade
+const PASSO = 15;       // granularidade da grade, em minutos
+
+const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+const CORES = ['#7C3AED','#EC4899','#0EA5E9','#F59E0B','#10B981','#EF4444','#8B5CF6'];
+
+let bd = null;          // banco em memória
+let salaoAtual = null;
+let diaAtual = hoje();
+let telaAtual = 'agenda';
+
+/* ── Utilidades de tempo ─────────────────────────────────────────────── */
+function hoje(){ const d = new Date(); return iso(d); }
+function iso(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
+       + '-' + String(d.getDate()).padStart(2,'0');
+}
+function somarDias(dataIso, n){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  const dt = new Date(a, m-1, d + n);
+  return iso(dt);
+}
+function diaDaSemana(dataIso){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  return new Date(a, m-1, d).getDay();
+}
+function hm(min){
+  return String(Math.floor(min/60)).padStart(2,'0') + ':' + String(min%60).padStart(2,'0');
+}
+function minDe(hhmm){
+  const [h,m] = String(hhmm).split(':').map(Number);
+  return (h||0)*60 + (m||0);
+}
+function real(v){
+  return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function porExtenso(dataIso){
+  const [a,m,d] = dataIso.split('-').map(Number);
+  const dt = new Date(a, m-1, d);
+  return DIAS[dt.getDay()] + ', ' + String(d).padStart(2,'0') + '/'
+       + String(m).padStart(2,'0') + '/' + a;
+}
+function id(){ return 'x' + Math.random().toString(36).slice(2,10); }
+
+/* ── Regras de agenda ────────────────────────────────────────────────────
+   Espelham o que o banco garante. Mantidas curtas de propósito: quanto mais
+   lógica de regra mora no navegador, mais chance de a tela e o banco
+   discordarem — e quem ganha a discussão é sempre o banco.
+   ──────────────────────────────────────────────────────────────────────── */
+
+// Dois intervalos se sobrepõem? Fim é exclusivo: 09:00-10:00 e 10:00-11:00 não.
+function sobrepoe(ini1, fim1, ini2, fim2){
+  return ini1 < fim2 && ini2 < fim1;
+}
+
+const ATIVOS = ['pendente','confirmado','em_atendimento','concluido'];
+
+// Devolve o agendamento que atrapalha, ou null. `ignorar` é o id de quem está
+// sendo editado — senão ele conflitaria consigo mesmo.
+function conflito(profId, data, ini, fim, ignorar){
+  return bd.agendamentos.find(a =>
+    a.salaoId === salaoAtual &&
+    a.profissionalId === profId &&
+    a.data === data &&
+    a.id !== ignorar &&
+    ATIVOS.includes(a.status) &&
+    sobrepoe(ini, fim, a.inicio, a.fim)
+  ) || null;
+}
+
+// Janelas de trabalho do profissional naquele dia da semana.
+function jornadaDo(prof, data){
+  return (prof.jornada && prof.jornada[diaDaSemana(data)]) || [];
+}
+
+function dentroDaJornada(prof, data, ini, fim){
+  return jornadaDo(prof, data).some(j => ini >= j[0] && fim <= j[1]);
+}
+
+function emBloqueio(profId, data, ini, fim){
+  return bd.bloqueios.some(b =>
+    b.salaoId === salaoAtual && b.data === data &&
+    (b.profissionalId === profId || b.profissionalId === null) &&
+    sobrepoe(ini, fim, b.inicio, b.fim)
+  );
+}
+
+// Horários livres para um serviço com um profissional, num dia.
+// É a versão de tela da função `horarios_livres()` que vai para o banco.
+function horariosLivres(profId, data, duracao){
+  const prof = bd.profissionais.find(p => p.id === profId);
+  if(!prof) return [];
+  const livres = [];
+  for(const [jIni, jFim] of jornadaDo(prof, data)){
+    for(let t = jIni; t + duracao <= jFim; t += PASSO){
+      if(conflito(profId, data, t, t + duracao, null)) continue;
+      if(emBloqueio(profId, data, t, t + duracao)) continue;
+      livres.push(t);
+    }
+  }
+  return livres;
+}
+
+// Varre os próximos dias procurando vaga. Para no limite pedido para não
+// ficar rodando 365 dias à toa quando o profissional está de férias.
+function proximosDiasComVaga(profId, aPartirDe, duracao, quantos, alcance){
+  const achados = [];
+  const limite = alcance || 21;
+  for(let i = 1; i <= limite && achados.length < (quantos||3); i++){
+    const d = somarDias(aPartirDe, i);
+    const n = horariosLivres(profId, d, duracao).length;
+    if(n) achados.push({data:d, qtd:n});
+  }
+  return achados;
+}
+
+/* ── Consultas ao "banco" ────────────────────────────────────────────── */
+const doSalao = lista => lista.filter(x => x.salaoId === salaoAtual);
+const profsAtivos = () => doSalao(bd.profissionais).filter(p => p.ativo);
+const servsAtivos = () => doSalao(bd.servicos).filter(s => s.ativo);
+const clientesDo  = () => doSalao(bd.clientes);
+const agendaDoDia = d => doSalao(bd.agendamentos).filter(a => a.data === d);
+
+const acharCliente = i => bd.clientes.find(c => c.id === i);
+const acharProf    = i => bd.profissionais.find(p => p.id === i);
+const acharServico = i => bd.servicos.find(s => s.id === i);
+const acharSalao   = i => bd.saloes.find(s => s.id === i);
+
+function nomeCliente(i){ const c = acharCliente(i); return c ? c.nome : '—'; }
+
+// Duração e preço de um agendamento saem da soma dos serviços dele.
+function totalDe(ag){
+  return (ag.servicos || []).reduce((s,x) => s + (x.preco||0), 0);
+}
+function rotuloServicos(ag){
+  return (ag.servicos || []).map(x => {
+    const s = acharServico(x.servicoId);
+    return s ? s.nome : '—';
+  }).join(' + ');
+}
+
+/* ── Navegação ───────────────────────────────────────────────────────── */
+const TELAS = [
+  ['agenda',   'Agenda'],
+  ['clientes', 'Clientes'],
+  ['servicos', 'Serviços'],
+  ['equipe',   'Equipe'],
+  ['caixa',    'Caixa'],
+  ['publico',  'Ver como cliente'],
+];
+
+function montarAbas(){
+  document.getElementById('abas').innerHTML = TELAS.map(([k,r]) =>
+    `<button class="aba${k===telaAtual?' on':''}" onclick="irPara('${k}')">${r}</button>`
+  ).join('');
+}
+
+function irPara(k){
+  telaAtual = k;
+  document.querySelectorAll('.tela').forEach(t => t.classList.remove('on'));
+  document.getElementById('tela-' + k).classList.add('on');
+  montarAbas();
+  pintar();
+}
+
+function mudarDia(n){ diaAtual = somarDias(diaAtual, n); pintar(); }
+function irHoje(){ diaAtual = hoje(); pintar(); }
+
+function trocarSalao(sid){
+  salaoAtual = sid;
+  const s = acharSalao(sid);
+  document.getElementById('mTipo').textContent = (s.tipo || 'salão').toUpperCase();
+  salvar();
+  pintar();
+}
+
+function trocarTema(){
+  const atual = document.documentElement.getAttribute('data-tema');
+  const novo = atual === 'escuro' ? 'claro' : 'escuro';
+  document.documentElement.setAttribute('data-tema', novo);
+  try{ localStorage.setItem(CHAVE + '.tema', novo); }catch(e){}
+}
+
+/* ── Desenho: agenda ─────────────────────────────────────────────────── */
+function pintarAgenda(){
+  document.getElementById('rotuloDia').textContent = porExtenso(diaAtual);
+
+  const profs = profsAtivos();
+  const grade = document.getElementById('grade');
+
+  if(!profs.length){
+    grade.innerHTML = '<div class="vazio"><b>Nenhum profissional cadastrado</b>'
+                    + 'Vá em Equipe e adicione quem atende.</div>';
+    document.getElementById('kpisDia').innerHTML = '';
+    return;
+  }
+
+  const totalMin = FECHA - ABRE;
+  const altura = (totalMin / PASSO) * 15;   // 15px por bloco de 15 min
+  const y = m => ((m - ABRE) / PASSO) * 15;
+
+  grade.style.gridTemplateColumns = `58px repeat(${profs.length}, minmax(148px, 1fr))`;
+
+  let html = '<div class="col-h" style="position:sticky;left:0;z-index:25"></div>';
+  for(const p of profs){
+    const j = jornadaDo(p, diaAtual);
+    const fx = j.length
+      ? j.map(x => hm(x[0]) + '–' + hm(x[1])).join(' · ')
+      : 'folga';
+    html += `<div class="col-h">
+      <div class="nm"><span class="pnt" style="background:${p.cor}"></span>${p.nome}</div>
+      <div class="fn">${fx}</div></div>`;
+  }
+
+  // Coluna das horas
+  html += '<div class="col-horas">';
+  for(let m = ABRE; m < FECHA; m += 60) html += `<div class="hora">${hm(m)}</div>`;
+  html += '</div>';
+
+  // Uma coluna por profissional
+  for(const p of profs){
+    html += `<div class="col" style="height:${altura}px" data-prof="${p.id}"
+                  onclick="cliqueNaColuna(event,'${p.id}')">`;
+
+    for(let m = ABRE; m < FECHA; m += 30){
+      const meia = (m % 60) !== 0;
+      html += `<div class="faixa${meia?' meia':''}" style="top:${y(m)}px"></div>`;
+    }
+
+    // Sombreado fora da jornada
+    const janelas = jornadaDo(p, diaAtual);
+    if(!janelas.length){
+      html += `<div class="fora" style="top:0;height:${altura}px"></div>`;
+    } else {
+      let cursor = ABRE;
+      for(const [ji,jf] of janelas.slice().sort((a,b)=>a[0]-b[0])){
+        if(ji > cursor) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(ji)-y(cursor)}px"></div>`;
+        cursor = Math.max(cursor, jf);
+      }
+      if(cursor < FECHA) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(FECHA)-y(cursor)}px"></div>`;
+    }
+
+    // Bloqueios
+    for(const b of bd.bloqueios.filter(b => b.salaoId === salaoAtual && b.data === diaAtual
+                                         && (b.profissionalId === p.id || b.profissionalId === null))){
+      html += `<div class="bloqueio" style="top:${y(b.inicio)}px;height:${y(b.fim)-y(b.inicio)}px">
+                 ${b.motivo || 'Bloqueado'}</div>`;
+    }
+
+    // Atendimentos
+    for(const a of agendaDoDia(diaAtual).filter(a => a.profissionalId === p.id)){
+      const alt = Math.max(y(a.fim) - y(a.inicio), 20);
+      html += `<div class="ag ${a.status}" style="top:${y(a.inicio)}px;height:${alt}px;
+                    background:${p.cor}" onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
+                 <b>${hm(a.inicio)} ${nomeCliente(a.clienteId)}</b>
+                 <span>${rotuloServicos(a)}</span></div>`;
+    }
+    html += '</div>';
+  }
+
+  grade.innerHTML = html;
+  pintarKpis();
+}
+
+function pintarKpis(){
+  const doDia = agendaDoDia(diaAtual);
+  const validos = doDia.filter(a => ATIVOS.includes(a.status));
+  const receita = validos.reduce((s,a) => s + totalDe(a), 0);
+  const minutos = validos.reduce((s,a) => s + (a.fim - a.inicio), 0);
+
+  // Ocupação = minutos vendidos ÷ minutos de jornada disponíveis no dia
+  let capacidade = 0;
+  for(const p of profsAtivos())
+    for(const [i,f] of jornadaDo(p, diaAtual)) capacidade += (f - i);
+  const ocup = capacidade ? Math.round(minutos / capacidade * 100) : 0;
+
+  const faltas = doDia.filter(a => a.status === 'faltou').length;
+
+  document.getElementById('kpisDia').innerHTML = `
+    <div class="kpi"><div class="v">${validos.length}</div><div class="r">atendimentos</div></div>
+    <div class="kpi"><div class="v">${real(receita)}</div><div class="r">previsto no dia</div></div>
+    <div class="kpi"><div class="v">${ocup}%</div><div class="r">ocupação da equipe</div></div>
+    <div class="kpi"><div class="v">${faltas}</div><div class="r">faltas</div></div>`;
+}
+
+// Clique num espaço vazio: descobre o horário pela posição vertical.
+function cliqueNaColuna(ev, profId){
+  const r = ev.currentTarget.getBoundingClientRect();
+  const min = ABRE + Math.floor((ev.clientY - r.top) / 15) * PASSO;
+  abrirNovo(profId, Math.max(ABRE, Math.min(min, FECHA - PASSO)));
+}
+
+/* ── Desenho: clientes ───────────────────────────────────────────────── */
+function pintarClientes(){
+  const busca = (document.getElementById('buscaCliente').value || '').toLowerCase().trim();
+  const lista = clientesDo().filter(c =>
+    !busca || c.nome.toLowerCase().includes(busca) || (c.telefone||'').includes(busca));
+
+  const alvo = document.getElementById('listaClientes');
+  if(!lista.length){
+    alvo.innerHTML = '<div class="vazio"><b>Nenhum cliente</b>'
+                   + (busca ? 'Nada encontrado para essa busca.' : 'Cadastre o primeiro.') + '</div>';
+    return;
+  }
+
+  alvo.innerHTML = `<table class="tabela"><thead><tr>
+      <th>Nome</th><th>Telefone</th><th>Última visita</th><th>Visitas</th><th></th>
+    </tr></thead><tbody>` + lista.map(c => {
+      const dele = doSalao(bd.agendamentos)
+        .filter(a => a.clienteId === c.id && a.status === 'concluido')
+        .sort((a,b) => b.data.localeCompare(a.data));
+      const ult = dele[0] ? porExtenso(dele[0].data).split(', ')[1] : '—';
+      return `<tr>
+        <td><b>${c.nome}</b>${c.obs ? `<br><span style="font-size:12px;color:var(--txt2)">${c.obs}</span>` : ''}</td>
+        <td>${c.telefone || '—'}</td><td>${ult}</td><td>${dele.length}</td>
+        <td style="text-align:right"><button class="btn btn-peq" onclick="abrirCliente('${c.id}')">Editar</button></td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+/* ── Desenho: serviços ───────────────────────────────────────────────── */
+function pintarServicos(){
+  const lista = doSalao(bd.servicos);
+  const alvo = document.getElementById('listaServicos');
+  if(!lista.length){
+    alvo.innerHTML = '<div class="vazio"><b>Nenhum serviço</b>É a duração daqui que monta a agenda.</div>';
+    return;
+  }
+  alvo.innerHTML = `<table class="tabela"><thead><tr>
+      <th>Serviço</th><th>Categoria</th><th>Duração</th><th>Preço</th><th>Comissão</th><th></th>
+    </tr></thead><tbody>` + lista.map(s => `<tr>
+      <td><b>${s.nome}</b>${s.ativo ? '' : ' <span class="tag t-canc">inativo</span>'}</td>
+      <td>${s.categoria || '—'}</td>
+      <td>${s.duracaoMin} min</td>
+      <td>${real(s.preco)}</td>
+      <td>${s.comissaoPct != null ? s.comissaoPct + '%' : '<span style="color:var(--txt3)">do profissional</span>'}</td>
+      <td style="text-align:right"><button class="btn btn-peq" onclick="abrirServico('${s.id}')">Editar</button></td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+/* ── Desenho: equipe ─────────────────────────────────────────────────── */
+function pintarEquipe(){
+  const lista = doSalao(bd.profissionais);
+  const alvo = document.getElementById('listaEquipe');
+  if(!lista.length){
+    alvo.innerHTML = '<div class="vazio"><b>Ninguém cadastrado</b>Adicione quem atende.</div>';
+    return;
+  }
+  alvo.innerHTML = lista.map(p => {
+    const dias = [1,2,3,4,5,6,0].filter(d => (p.jornada[d]||[]).length)
+      .map(d => DIAS[d].slice(0,3)).join(', ') || 'sem jornada';
+    return `<div class="card">
+      <h3><span class="pnt" style="background:${p.cor}"></span>${p.nome}
+        ${p.ativo ? '' : '<span class="tag t-canc">inativo</span>'}</h3>
+      <p>Comissão de ${p.comissaoPct}% · ${dias}</p>
+      <div class="card-acoes">
+        <button class="btn btn-peq" onclick="abrirProf('${p.id}')">Editar</button>
+        <button class="btn btn-peq" onclick="abrirBloqueio('${p.id}')">Bloquear horário</button>
+      </div></div>`;
+  }).join('');
+}
+
+/* ── Desenho: caixa ──────────────────────────────────────────────────── */
+function pintarCaixa(){
+  document.getElementById('rotuloCaixa').textContent = porExtenso(diaAtual);
+  const comandas = doSalao(bd.comandas).filter(c => c.data === diaAtual);
+
+  let bruto = 0, comissao = 0;
+  const porProf = {};
+  for(const c of comandas){
+    for(const i of c.itens){
+      const t = i.qtd * i.precoUnit;
+      const cm = Math.round(t * (i.comissaoPct||0)) / 100;
+      bruto += t; comissao += cm;
+      if(i.profissionalId){
+        porProf[i.profissionalId] = porProf[i.profissionalId] || {venda:0, com:0};
+        porProf[i.profissionalId].venda += t;
+        porProf[i.profissionalId].com += cm;
+      }
+    }
+  }
+  const descontos = comandas.reduce((s,c) => s + (c.desconto||0), 0);
+
+  document.getElementById('kpisCaixa').innerHTML = `
+    <div class="kpi"><div class="v">${comandas.length}</div><div class="r">comandas</div></div>
+    <div class="kpi"><div class="v">${real(bruto - descontos)}</div><div class="r">faturamento</div></div>
+    <div class="kpi"><div class="v">${real(comissao)}</div><div class="r">comissões</div></div>
+    <div class="kpi"><div class="v">${real(comandas.length ? (bruto-descontos)/comandas.length : 0)}</div>
+      <div class="r">ticket médio</div></div>`;
+
+  const alvo = document.getElementById('listaComandas');
+  if(!comandas.length){
+    alvo.innerHTML = '<div class="vazio"><b>Nenhuma comanda hoje</b>'
+                   + 'Abra pela agenda: clique num atendimento e depois em Comanda.</div>';
+  } else {
+    alvo.innerHTML = `<table class="tabela"><thead><tr>
+        <th>#</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagamento</th><th></th>
+      </tr></thead><tbody>` + comandas.map(c => {
+        const t = c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0) - (c.desconto||0);
+        const formas = c.pagamentos.length
+          ? c.pagamentos.map(p => p.forma).join(', ')
+          : '<span class="tag t-pend">em aberto</span>';
+        return `<tr>
+          <td><b>${c.numero}</b></td>
+          <td>${nomeCliente(c.clienteId)}</td>
+          <td>${c.itens.length}</td>
+          <td><b>${real(t)}</b></td>
+          <td>${formas}</td>
+          <td style="text-align:right"><button class="btn btn-peq" onclick="abrirComanda('${c.id}')">Abrir</button></td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+  }
+
+  const alvoC = document.getElementById('listaComissao');
+  const chaves = Object.keys(porProf);
+  alvoC.innerHTML = !chaves.length
+    ? '<div class="vazio">Sem comissão lançada hoje.</div>'
+    : `<table class="tabela"><thead><tr><th>Profissional</th><th>Vendeu</th><th>Comissão</th></tr></thead><tbody>`
+      + chaves.map(k => {
+          const p = acharProf(k);
+          return `<tr><td><span class="pnt" style="background:${p?p.cor:'#999'}"></span>${p?p.nome:'—'}</td>
+            <td>${real(porProf[k].venda)}</td><td><b>${real(porProf[k].com)}</b></td></tr>`;
+        }).join('') + '</tbody></table>';
+}
+
+/* ── Desenho: página pública ─────────────────────────────────────────── */
+function prepararPublico(){
+  const s = acharSalao(salaoAtual);
+  document.getElementById('pubNome').textContent = s.nome;
+  document.getElementById('pubEnd').textContent = s.endereco || 'Agende seu horário';
+
+  const sv = document.getElementById('pubServico');
+  const svAntes = sv.value;
+  sv.innerHTML = servsAtivos().map(x =>
+    `<option value="${x.id}">${x.nome} · ${x.duracaoMin} min · ${real(x.preco)}</option>`).join('');
+  if(svAntes && servsAtivos().some(x => x.id === svAntes)) sv.value = svAntes;
+
+  const pf = document.getElementById('pubProf');
+  const pfAntes = pf.value;
+  pf.innerHTML = profsAtivos().map(x => `<option value="${x.id}">${x.nome}</option>`).join('');
+  if(pfAntes && profsAtivos().some(x => x.id === pfAntes)) pf.value = pfAntes;
+
+  const dt = document.getElementById('pubData');
+  if(!dt.value) dt.value = diaAtual;
+  dt.min = hoje();
+
+  pintarPublico();
+}
+
+function pintarPublico(){
+  const servId = document.getElementById('pubServico').value;
+  const profId = document.getElementById('pubProf').value;
+  const data   = document.getElementById('pubData').value || diaAtual;
+  const alvo   = document.getElementById('pubHorarios');
+  const nota   = document.getElementById('pubNota');
+
+  const s = acharServico(servId);
+  if(!s || !profId){ alvo.innerHTML = ''; return; }
+
+  const livres = horariosLivres(profId, data, s.duracaoMin + (s.intervaloMin||0));
+
+  if(!livres.length){
+    // Dia cheio não é beco sem saída: oferece os próximos dias com vaga, que
+    // é o que Booksy e Fresha fazem. Sem isso a pessoa fecha a página.
+    const proximos = proximosDiasComVaga(profId, data, s.duracaoMin + (s.intervaloMin||0), 3);
+    alvo.innerHTML = '';
+    if(proximos.length){
+      nota.innerHTML = `<b>${porExtenso(data)} está cheio com ${acharProf(profId).nome}.</b><br>`
+        + 'Próximos dias com horário: '
+        + proximos.map(d => `<button class="btn btn-peq" style="margin:4px 4px 0 0"
+             onclick="document.getElementById('pubData').value='${d.data}';pintarPublico()">
+             ${porExtenso(d.data).split(', ')[1]} · ${d.qtd} vagas</button>`).join('');
+    } else {
+      nota.innerHTML = `<b>Sem horário livre nos próximos dias com ${acharProf(profId).nome}.</b><br>`
+        + 'Tente outro profissional.';
+    }
+    return;
+  }
+
+  alvo.innerHTML = livres.map(m =>
+    `<button class="hslot" onclick="marcarPeloPublico('${profId}','${servId}','${data}',${m})">${hm(m)}</button>`
+  ).join('');
+
+  const p = acharProf(profId);
+  const ocupados = agendaDoDia(data).filter(a => a.profissionalId === profId
+                                              && ATIVOS.includes(a.status)).length;
+  nota.innerHTML = `${livres.length} horários livres com ${p.nome}. `
+    + `Há ${ocupados} atendimento(s) marcado(s) nesse dia — e a cliente não vê `
+    + `nenhum deles, só os buracos entre eles.`;
+}
+
+function marcarPeloPublico(profId, servId, data, min){
+  const s = acharServico(servId);
+  const dur = s.duracaoMin + (s.intervaloMin||0);
+
+  abrirModal('Confirmar agendamento', `
+    <div class="aviso info">No app de verdade, aqui a cliente já está identificada
+      pelo telefone que ela validou com o código do WhatsApp.</div>
+    <div class="campo"><label>Serviço</label>
+      <input value="${s.nome} · ${hm(min)}–${hm(min+s.duracaoMin)}" disabled></div>
+    <div class="campo"><label>Seu nome</label>
+      <input id="pNome" placeholder="Como quer ser chamada"></div>
+    <div class="campo"><label>Seu WhatsApp</label>
+      <input id="pTel" placeholder="(11) 99999-9999"></div>
+  `, [
+    ['Cancelar', 'fecharModal()', ''],
+    ['Confirmar horário', `confirmarPublico('${profId}','${servId}','${data}',${min})`, 'btn-p'],
+  ]);
+}
+
+function confirmarPublico(profId, servId, data, min){
+  const nome = (document.getElementById('pNome').value || '').trim();
+  const tel  = (document.getElementById('pTel').value || '').trim();
+  if(nome.length < 2){ alert('Diga seu nome para confirmar.'); return; }
+
+  const s = acharServico(servId);
+  const dur = s.duracaoMin + (s.intervaloMin||0);
+
+  // A mesma conferência que a recepção faz. No banco, quem decide é a
+  // constraint — aqui é só para não deixar a tela mentir.
+  if(conflito(profId, data, min, min + dur, null)){
+    alert('Esse horário acabou de ser ocupado. Escolha outro.');
+    fecharModal(); pintarPublico(); return;
+  }
+
+  let cli = clientesDo().find(c => c.telefone && c.telefone === tel);
+  if(!cli){
+    cli = {id:id(), salaoId:salaoAtual, nome, telefone:tel, obs:'', criadoEm:new Date().toISOString()};
+    bd.clientes.push(cli);
+  }
+
+  bd.agendamentos.push({
+    id:id(), salaoId:salaoAtual, clienteId:cli.id, profissionalId:profId,
+    data, inicio:min, fim:min + dur, status:'confirmado', origem:'online',
+    servicos:[{servicoId:servId, duracaoMin:s.duracaoMin, preco:s.preco,
+               comissaoPct: s.comissaoPct != null ? s.comissaoPct : acharProf(profId).comissaoPct}],
+    obs:'',
+  });
+
+  salvar(); fecharModal();
+  diaAtual = data;
+  alert('Pronto! ' + porExtenso(data) + ' às ' + hm(min) + ' com ' + acharProf(profId).nome
+      + '.\n\nNo app de verdade sai um WhatsApp de confirmação neste momento.');
+  pintar();
+}
+
+/* ── Modal genérico ──────────────────────────────────────────────────── */
+function abrirModal(titulo, corpo, botoes){
+  document.getElementById('modalTitulo').textContent = titulo;
+  document.getElementById('modalCorpo').innerHTML = corpo;
+  document.getElementById('modalPe').innerHTML = (botoes||[])
+    .map(([r,acao,cls]) => `<button class="btn ${cls||''}" onclick="${acao}">${r}</button>`).join('');
+  document.getElementById('fundo').classList.add('on');
+}
+function fecharModal(){ document.getElementById('fundo').classList.remove('on'); }
+document.addEventListener('keydown', e => { if(e.key === 'Escape') fecharModal(); });
+
+/* ── Novo agendamento ────────────────────────────────────────────────── */
+function abrirNovo(profId, min){
+  const profs = profsAtivos(), servs = servsAtivos(), clis = clientesDo();
+  if(!profs.length || !servs.length){
+    abrirModal('Falta cadastro',
+      '<div class="aviso">Cadastre pelo menos um profissional e um serviço antes de agendar.</div>',
+      [['Fechar','fecharModal()','btn-p']]);
+    return;
+  }
+
+  abrirModal('Novo agendamento', `
+    <div id="avisoAg"></div>
+    <div class="campo"><label>Cliente</label>
+      <select id="fCliente">
+        <option value="">— novo cliente —</option>
+        ${clis.map(c => `<option value="${c.id}">${c.nome}${c.telefone?' · '+c.telefone:''}</option>`).join('')}
+      </select></div>
+    <div id="blocoNovo">
+      <div class="dupla">
+        <div class="campo"><label>Nome</label><input id="fNome" placeholder="Nome da cliente"></div>
+        <div class="campo"><label>WhatsApp</label><input id="fTel" placeholder="(11) 99999-9999"></div>
+      </div>
+    </div>
+    <div class="campo"><label>Profissional</label>
+      <select id="fProf" onchange="recalcularFim()">
+        ${profs.map(p => `<option value="${p.id}"${p.id===profId?' selected':''}>${p.nome}</option>`).join('')}
+      </select></div>
+    <div class="campo"><label>Serviços</label>
+      <div class="lista-serv">${servs.map(s => `
+        <label class="serv-op">
+          <input type="checkbox" value="${s.id}" onchange="recalcularFim()">
+          <span class="i"><span class="n">${s.nome}</span>
+            <span class="d">${s.duracaoMin} min · ${real(s.preco)}</span></span>
+        </label>`).join('')}</div></div>
+    <div class="dupla">
+      <div class="campo"><label>Data</label>
+        <input type="date" id="fData" value="${diaAtual}" onchange="recalcularFim()"></div>
+      <div class="campo"><label>Início</label>
+        <input type="time" id="fInicio" value="${hm(min || 9*60)}" step="900" onchange="recalcularFim()"></div>
+    </div>
+    <div class="campo"><label>Observação</label>
+      <textarea id="fObs" rows="2" placeholder="Alguma preferência, alergia, recado"></textarea></div>
+  `, [
+    ['Cancelar','fecharModal()',''],
+    ['Agendar','salvarAgendamento()','btn-p'],
+  ]);
+
+  document.getElementById('fCliente').addEventListener('change', function(){
+    document.getElementById('blocoNovo').style.display = this.value ? 'none' : 'block';
+  });
+  recalcularFim();
+}
+
+// Mostra ao vivo em que horário aquilo termina, e se bate em alguém.
+function recalcularFim(){
+  const aviso = document.getElementById('avisoAg');
+  if(!aviso) return;
+
+  const escolhidos = [...document.querySelectorAll('.serv-op input:checked')].map(c => c.value);
+  if(!escolhidos.length){
+    aviso.innerHTML = '<div class="aviso info">Escolha ao menos um serviço — é a duração dele que reserva o horário.</div>';
+    return;
+  }
+
+  const dur = escolhidos.reduce((s,i) => {
+    const sv = acharServico(i);
+    return s + sv.duracaoMin + (sv.intervaloMin||0);
+  }, 0);
+  const preco = escolhidos.reduce((s,i) => s + acharServico(i).preco, 0);
+
+  const profId = document.getElementById('fProf').value;
+  const data = document.getElementById('fData').value;
+  const ini = minDe(document.getElementById('fInicio').value);
+  const fim = ini + dur;
+
+  const prof = acharProf(profId);
+  const bate = conflito(profId, data, ini, fim, null);
+  const bloq = emBloqueio(profId, data, ini, fim);
+  const foraJornada = !dentroDaJornada(prof, data, ini, fim);
+
+  let html = `<div class="aviso ok">${hm(ini)} às ${hm(fim)} · ${dur} min · ${real(preco)}</div>`;
+  if(bate){
+    html += `<div class="aviso"><b>Choca com outro atendimento.</b><br>
+      ${prof.nome} já tem ${nomeCliente(bate.clienteId)} das ${hm(bate.inicio)} às ${hm(bate.fim)}.
+      O banco recusaria este agendamento.</div>`;
+  } else if(bloq){
+    html += `<div class="aviso"><b>Horário bloqueado</b> na agenda de ${prof.nome}.</div>`;
+  } else if(foraJornada){
+    html += `<div class="aviso"><b>Fora da jornada de ${prof.nome}.</b><br>
+      Dá para marcar assim mesmo (encaixe), mas confira com ela.</div>`;
+  }
+  aviso.innerHTML = html;
+}
+
+function salvarAgendamento(){
+  const escolhidos = [...document.querySelectorAll('.serv-op input:checked')].map(c => c.value);
+  if(!escolhidos.length){ alert('Escolha ao menos um serviço.'); return; }
+
+  const profId = document.getElementById('fProf').value;
+  const data = document.getElementById('fData').value;
+  const ini = minDe(document.getElementById('fInicio').value);
+  const dur = escolhidos.reduce((s,i) => {
+    const sv = acharServico(i); return s + sv.duracaoMin + (sv.intervaloMin||0);
+  }, 0);
+  const fim = ini + dur;
+
+  if(conflito(profId, data, ini, fim, null)){
+    alert('Esse horário choca com outro atendimento. Escolha outro.');
+    return;
+  }
+
+  let cliId = document.getElementById('fCliente').value;
+  if(!cliId){
+    const nome = (document.getElementById('fNome').value || '').trim();
+    if(nome.length < 2){ alert('Informe o nome da cliente.'); return; }
+    const novo = {
+      id:id(), salaoId:salaoAtual, nome,
+      telefone:(document.getElementById('fTel').value || '').trim(),
+      obs:'', criadoEm:new Date().toISOString(),
+    };
+    bd.clientes.push(novo);
+    cliId = novo.id;
+  }
+
+  const prof = acharProf(profId);
+  bd.agendamentos.push({
+    id:id(), salaoId:salaoAtual, clienteId:cliId, profissionalId:profId,
+    data, inicio:ini, fim, status:'confirmado', origem:'recepcao',
+    servicos: escolhidos.map(i => {
+      const sv = acharServico(i);
+      return {servicoId:i, duracaoMin:sv.duracaoMin, preco:sv.preco,
+              comissaoPct: sv.comissaoPct != null ? sv.comissaoPct : prof.comissaoPct};
+    }),
+    obs: document.getElementById('fObs').value || '',
+  });
+
+  salvar(); fecharModal();
+  diaAtual = data;
+  pintar();
+}
+
+/* ── Detalhe do agendamento ──────────────────────────────────────────── */
+const ROTULO_STATUS = {
+  pendente:'Pendente', confirmado:'Confirmado', em_atendimento:'Em atendimento',
+  concluido:'Concluído', cancelado:'Cancelado', faltou:'Faltou',
+};
+const CLASSE_STATUS = {
+  pendente:'t-pend', confirmado:'t-conf', em_atendimento:'t-conf',
+  concluido:'t-conc', cancelado:'t-canc', faltou:'t-falt',
+};
+
+function abrirDetalhe(agId){
+  const a = bd.agendamentos.find(x => x.id === agId);
+  if(!a) return;
+  const p = acharProf(a.profissionalId), c = acharCliente(a.clienteId);
+  const comanda = bd.comandas.find(x => x.agendamentoId === agId);
+
+  abrirModal('Atendimento', `
+    <div class="campo">
+      <span class="tag ${CLASSE_STATUS[a.status]}">${ROTULO_STATUS[a.status]}</span>
+      ${a.origem === 'online' ? '<span class="tag t-conc" style="margin-left:5px">veio pelo link</span>' : ''}
+    </div>
+    <table class="tabela" style="box-shadow:none"><tbody>
+      <tr><td style="color:var(--txt2);width:110px">Cliente</td><td><b>${c ? c.nome : '—'}</b>
+        ${c && c.telefone ? `<br><span style="font-size:13px;color:var(--txt2)">${c.telefone}</span>` : ''}</td></tr>
+      <tr><td style="color:var(--txt2)">Quando</td><td>${porExtenso(a.data)}<br>
+        <b>${hm(a.inicio)} às ${hm(a.fim)}</b> · ${a.fim - a.inicio} min</td></tr>
+      <tr><td style="color:var(--txt2)">Profissional</td>
+        <td><span class="pnt" style="background:${p?p.cor:'#999'}"></span>${p ? p.nome : '—'}</td></tr>
+      <tr><td style="color:var(--txt2)">Serviços</td><td>${rotuloServicos(a)}<br>
+        <b>${real(totalDe(a))}</b></td></tr>
+      ${a.obs ? `<tr><td style="color:var(--txt2)">Obs.</td><td>${a.obs}</td></tr>` : ''}
+    </tbody></table>
+    <div class="campo" style="margin-top:14px">
+      <label>Mudar status</label>
+      <select id="fStatus">${Object.keys(ROTULO_STATUS).map(k =>
+        `<option value="${k}"${k===a.status?' selected':''}>${ROTULO_STATUS[k]}</option>`).join('')}</select>
+    </div>
+  `, [
+    ['Excluir', `excluirAgendamento('${agId}')`, ''],
+    [comanda ? 'Abrir comanda' : 'Abrir comanda', `comandaDoAgendamento('${agId}')`, ''],
+    ['Salvar', `salvarStatus('${agId}')`, 'btn-p'],
+  ]);
+}
+
+function salvarStatus(agId){
+  const a = bd.agendamentos.find(x => x.id === agId);
+  a.status = document.getElementById('fStatus').value;
+  salvar(); fecharModal(); pintar();
+}
+
+function excluirAgendamento(agId){
+  if(!confirm('Excluir este atendimento?')) return;
+  bd.agendamentos = bd.agendamentos.filter(x => x.id !== agId);
+  salvar(); fecharModal(); pintar();
+}
+
+/* ── Comanda ─────────────────────────────────────────────────────────── */
+function comandaDoAgendamento(agId){
+  let c = bd.comandas.find(x => x.agendamentoId === agId);
+  if(!c){
+    const a = bd.agendamentos.find(x => x.id === agId);
+    c = {
+      id:id(), salaoId:salaoAtual, agendamentoId:agId, clienteId:a.clienteId,
+      numero: proximoNumero(), data:a.data, desconto:0, pagamentos:[],
+      itens: (a.servicos||[]).map(s => ({
+        tipo:'servico', descricao: acharServico(s.servicoId).nome,
+        qtd:1, precoUnit:s.preco, profissionalId:a.profissionalId,
+        comissaoPct:s.comissaoPct,
+      })),
+    };
+    bd.comandas.push(c);
+    salvar();
+  }
+  abrirComanda(c.id);
+}
+
+// Numeração por salão. No banco isso é um contador com UPDATE atômico; aqui,
+// que roda numa aba só, o máximo + 1 basta.
+function proximoNumero(){
+  const nums = doSalao(bd.comandas).map(c => c.numero);
+  return (nums.length ? Math.max(...nums) : 0) + 1;
+}
+
+function abrirComanda(comId){
+  const c = bd.comandas.find(x => x.id === comId);
+  if(!c) return;
+
+  const subtotal = c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0);
+  const comissao = c.itens.reduce((s,i) => s + Math.round(i.qtd*i.precoUnit*(i.comissaoPct||0))/100, 0);
+  const total = subtotal - (c.desconto||0);
+  const pago = c.pagamentos.reduce((s,p) => s + p.valor, 0);
+
+  abrirModal(`Comanda ${c.numero} · ${nomeCliente(c.clienteId)}`, `
+    <table class="tabela" style="box-shadow:none;margin-bottom:13px"><thead><tr>
+      <th>Item</th><th>Profissional</th><th style="text-align:right">Valor</th>
+      <th style="text-align:right">Comissão</th><th></th>
+    </tr></thead><tbody>
+      ${c.itens.length ? c.itens.map((i,ix) => {
+        const p = acharProf(i.profissionalId);
+        const t = i.qtd*i.precoUnit;
+        return `<tr>
+          <td>${i.descricao}${i.qtd > 1 ? ` <span style="color:var(--txt2)">×${i.qtd}</span>` : ''}</td>
+          <td style="font-size:13px">${p ? p.nome : '—'}</td>
+          <td style="text-align:right">${real(t)}</td>
+          <td style="text-align:right;color:var(--txt2)">${real(Math.round(t*(i.comissaoPct||0))/100)}</td>
+          <td style="text-align:right"><button class="btn btn-peq"
+              onclick="removerItem('${c.id}',${ix})">✕</button></td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="5" style="color:var(--txt3)">Sem itens.</td></tr>'}
+    </tbody></table>
+
+    <div class="dupla">
+      <div class="campo"><label>Somar item</label>
+        <select id="cItem">
+          <optgroup label="Serviços">${servsAtivos().map(s =>
+            `<option value="s:${s.id}">${s.nome} · ${real(s.preco)}</option>`).join('')}</optgroup>
+          <optgroup label="Produtos">${doSalao(bd.produtos).map(p =>
+            `<option value="p:${p.id}">${p.nome} · ${real(p.preco)}</option>`).join('')}</optgroup>
+        </select></div>
+      <div class="campo"><label>Quem executou</label>
+        <select id="cProf">${profsAtivos().map(p =>
+          `<option value="${p.id}">${p.nome}</option>`).join('')}</select></div>
+    </div>
+    <button class="btn btn-peq" onclick="somarItem('${c.id}')">+ Somar à comanda</button>
+
+    <div class="campo" style="margin-top:16px"><label>Desconto</label>
+      <input type="number" id="cDesc" value="${c.desconto||0}" min="0" step="0.01"
+             onchange="mudarDesconto('${c.id}', this.value)"></div>
+
+    <table class="tabela" style="box-shadow:none"><tbody>
+      <tr><td>Subtotal</td><td style="text-align:right">${real(subtotal)}</td></tr>
+      <tr><td>Desconto</td><td style="text-align:right">− ${real(c.desconto||0)}</td></tr>
+      <tr><td><b>Total</b></td><td style="text-align:right;font-size:17px"><b>${real(total)}</b></td></tr>
+      <tr><td style="color:var(--txt2)">Comissões</td>
+          <td style="text-align:right;color:var(--txt2)">${real(comissao)}</td></tr>
+      <tr><td style="color:var(--txt2)">Recebido</td>
+          <td style="text-align:right;color:${pago >= total && total > 0 ? 'var(--ok)' : 'var(--alerta)'}">
+          ${real(pago)}</td></tr>
+    </tbody></table>
+
+    ${c.pagamentos.length ? `<div class="campo" style="margin-top:11px">
+      ${c.pagamentos.map(p => `<span class="tag t-conf" style="margin-right:5px">
+        ${p.forma} ${real(p.valor)}</span>`).join('')}</div>` : ''}
+
+    <div class="dupla" style="margin-top:13px">
+      <div class="campo"><label>Forma</label>
+        <select id="cForma">
+          <option value="pix">Pix</option><option value="dinheiro">Dinheiro</option>
+          <option value="debito">Débito</option><option value="credito">Crédito</option>
+        </select></div>
+      <div class="campo"><label>Valor</label>
+        <input type="number" id="cValor" value="${Math.max(total - pago, 0).toFixed(2)}"
+               min="0" step="0.01"></div>
+    </div>
+    <button class="btn btn-peq" onclick="receber('${c.id}')">Registrar pagamento</button>
+  `, [['Fechar','fecharModal();pintar()','btn-p']]);
+}
+
+function somarItem(comId){
+  const c = bd.comandas.find(x => x.id === comId);
+  const [tipo, ref] = document.getElementById('cItem').value.split(':');
+  const profId = document.getElementById('cProf').value;
+  const prof = acharProf(profId);
+
+  if(tipo === 's'){
+    const s = acharServico(ref);
+    c.itens.push({tipo:'servico', descricao:s.nome, qtd:1, precoUnit:s.preco,
+      profissionalId:profId, comissaoPct: s.comissaoPct != null ? s.comissaoPct : prof.comissaoPct});
+  } else {
+    const p = bd.produtos.find(x => x.id === ref);
+    c.itens.push({tipo:'produto', descricao:p.nome, qtd:1, precoUnit:p.preco,
+      profissionalId:profId, comissaoPct:p.comissaoPct});
+  }
+  salvar(); abrirComanda(comId);
+}
+
+function removerItem(comId, ix){
+  const c = bd.comandas.find(x => x.id === comId);
+  c.itens.splice(ix,1); salvar(); abrirComanda(comId);
+}
+
+function mudarDesconto(comId, v){
+  const c = bd.comandas.find(x => x.id === comId);
+  c.desconto = parseFloat(v) || 0; salvar(); abrirComanda(comId);
+}
+
+function receber(comId){
+  const c = bd.comandas.find(x => x.id === comId);
+  const valor = parseFloat(document.getElementById('cValor').value) || 0;
+  if(valor <= 0){ alert('Informe o valor recebido.'); return; }
+  c.pagamentos.push({forma: document.getElementById('cForma').value, valor});
+  salvar(); abrirComanda(comId);
+}
+
+/* ── Cadastros ───────────────────────────────────────────────────────── */
+function abrirCliente(cid){
+  const c = cid ? acharCliente(cid) : null;
+  abrirModal(c ? 'Editar cliente' : 'Novo cliente', `
+    <div class="campo"><label>Nome</label>
+      <input id="kNome" value="${c ? c.nome : ''}" placeholder="Nome completo"></div>
+    <div class="dupla">
+      <div class="campo"><label>WhatsApp</label>
+        <input id="kTel" value="${c ? (c.telefone||'') : ''}" placeholder="(11) 99999-9999"></div>
+      <div class="campo"><label>Nascimento</label>
+        <input type="date" id="kNasc" value="${c ? (c.nascimento||'') : ''}"></div>
+    </div>
+    <div class="campo"><label>Observações e alergias</label>
+      <textarea id="kObs" rows="3" placeholder="Fórmula da cor, preferências, alergias">${c ? (c.obs||'') : ''}</textarea></div>
+  `, [
+    ['Cancelar','fecharModal()',''],
+    ['Salvar', `salvarCliente(${c ? `'${c.id}'` : 'null'})`, 'btn-p'],
+  ]);
+}
+
+function salvarCliente(cid){
+  const nome = (document.getElementById('kNome').value || '').trim();
+  if(nome.length < 2){ alert('Informe o nome.'); return; }
+  const dados = {
+    nome,
+    telefone: (document.getElementById('kTel').value || '').trim(),
+    nascimento: document.getElementById('kNasc').value || '',
+    obs: document.getElementById('kObs').value || '',
+  };
+  if(cid) Object.assign(acharCliente(cid), dados);
+  else bd.clientes.push({id:id(), salaoId:salaoAtual, criadoEm:new Date().toISOString(), ...dados});
+  salvar(); fecharModal(); pintar();
+}
+
+function abrirServico(sid){
+  const s = sid ? acharServico(sid) : null;
+  abrirModal(s ? 'Editar serviço' : 'Novo serviço', `
+    <div class="campo"><label>Nome</label>
+      <input id="sNome" value="${s ? s.nome : ''}" placeholder="Corte feminino"></div>
+    <div class="dupla">
+      <div class="campo"><label>Categoria</label>
+        <input id="sCat" value="${s ? (s.categoria||'') : ''}" placeholder="Cabelo"></div>
+      <div class="campo"><label>Duração (min)</label>
+        <input type="number" id="sDur" value="${s ? s.duracaoMin : 60}" min="5" step="5"></div>
+    </div>
+    <div class="dupla">
+      <div class="campo"><label>Preço</label>
+        <input type="number" id="sPreco" value="${s ? s.preco : 0}" min="0" step="0.01"></div>
+      <div class="campo"><label>Comissão (%)</label>
+        <input type="number" id="sCom" value="${s && s.comissaoPct != null ? s.comissaoPct : ''}"
+               min="0" max="100" placeholder="usa a do profissional"></div>
+    </div>
+    <div class="campo"><label>Intervalo depois (min)</label>
+      <input type="number" id="sInt" value="${s ? (s.intervaloMin||0) : 0}" min="0" step="5">
+      <span style="font-size:12px;color:var(--txt2)">Tempo de arrumar a estação. Ocupa a agenda mas não é cobrado.</span></div>
+    <label class="serv-op" style="border:1px solid var(--borda);border-radius:9px">
+      <input type="checkbox" id="sAtivo" ${!s || s.ativo ? 'checked' : ''}>
+      <span class="i"><span class="n">Ativo</span>
+        <span class="d">Aparece na agenda e no link público</span></span></label>
+  `, [
+    ['Cancelar','fecharModal()',''],
+    ['Salvar', `salvarServico(${s ? `'${s.id}'` : 'null'})`, 'btn-p'],
+  ]);
+}
+
+function salvarServico(sid){
+  const nome = (document.getElementById('sNome').value || '').trim();
+  const dur = parseInt(document.getElementById('sDur').value, 10);
+  if(nome.length < 2){ alert('Informe o nome do serviço.'); return; }
+  if(!dur || dur <= 0){ alert('A duração precisa ser maior que zero.'); return; }
+
+  const comTxt = document.getElementById('sCom').value;
+  const dados = {
+    nome, categoria: document.getElementById('sCat').value || '',
+    duracaoMin: dur,
+    intervaloMin: parseInt(document.getElementById('sInt').value, 10) || 0,
+    preco: parseFloat(document.getElementById('sPreco').value) || 0,
+    comissaoPct: comTxt === '' ? null : parseFloat(comTxt),
+    ativo: document.getElementById('sAtivo').checked,
+  };
+  if(sid) Object.assign(acharServico(sid), dados);
+  else bd.servicos.push({id:id(), salaoId:salaoAtual, ...dados});
+  salvar(); fecharModal(); pintar();
+}
+
+function abrirProf(pid){
+  const p = pid ? acharProf(pid) : null;
+  const j = p ? p.jornada : {1:[[540,1140]],2:[[540,1140]],3:[[540,1140]],4:[[540,1140]],5:[[540,1140]],6:[[540,840]]};
+
+  const linhas = [1,2,3,4,5,6,0].map(d => {
+    const w = (j[d] && j[d][0]) || null;
+    const w2 = (j[d] && j[d][1]) || null;
+    return `<tr>
+      <td style="font-size:13px;text-transform:capitalize">${DIAS[d]}</td>
+      <td><input type="time" id="j${d}a" value="${w ? hm(w[0]) : ''}" step="900" style="padding:5px"></td>
+      <td><input type="time" id="j${d}b" value="${w ? hm(w[1]) : ''}" step="900" style="padding:5px"></td>
+      <td><input type="time" id="j${d}c" value="${w2 ? hm(w2[0]) : ''}" step="900" style="padding:5px"></td>
+      <td><input type="time" id="j${d}d" value="${w2 ? hm(w2[1]) : ''}" step="900" style="padding:5px"></td>
+    </tr>`;
+  }).join('');
+
+  abrirModal(p ? 'Editar profissional' : 'Novo profissional', `
+    <div class="campo"><label>Nome</label>
+      <input id="qNome" value="${p ? p.nome : ''}" placeholder="Nome de quem atende"></div>
+    <div class="dupla">
+      <div class="campo"><label>Comissão padrão (%)</label>
+        <input type="number" id="qCom" value="${p ? p.comissaoPct : 40}" min="0" max="100"></div>
+      <div class="campo"><label>Cor na agenda</label>
+        <select id="qCor">${CORES.map(c =>
+          `<option value="${c}"${p && p.cor===c?' selected':''}
+                   style="background:${c}">${c}</option>`).join('')}</select></div>
+    </div>
+    <label class="serv-op" style="border:1px solid var(--borda);border-radius:9px;margin-bottom:13px">
+      <input type="checkbox" id="qAtivo" ${!p || p.ativo ? 'checked' : ''}>
+      <span class="i"><span class="n">Ativo</span>
+        <span class="d">Aparece na agenda</span></span></label>
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:5px">
+      JORNADA — deixe em branco para folga. As duas últimas colunas são o turno
+      da tarde, para o intervalo de almoço no meio.</label>
+    <table class="tabela" style="box-shadow:none;font-size:13px"><thead><tr>
+      <th>Dia</th><th>Entra</th><th>Sai</th><th>Volta</th><th>Sai</th>
+    </tr></thead><tbody>${linhas}</tbody></table>
+  `, [
+    ['Cancelar','fecharModal()',''],
+    ['Salvar', `salvarProf(${p ? `'${p.id}'` : 'null'})`, 'btn-p'],
+  ]);
+}
+
+function salvarProf(pid){
+  const nome = (document.getElementById('qNome').value || '').trim();
+  if(nome.length < 2){ alert('Informe o nome.'); return; }
+
+  const jornada = {};
+  for(const d of [0,1,2,3,4,5,6]){
+    const janelas = [];
+    const a = document.getElementById('j'+d+'a').value;
+    const b = document.getElementById('j'+d+'b').value;
+    const c = document.getElementById('j'+d+'c').value;
+    const e = document.getElementById('j'+d+'d').value;
+    if(a && b && minDe(b) > minDe(a)) janelas.push([minDe(a), minDe(b)]);
+    if(c && e && minDe(e) > minDe(c)) janelas.push([minDe(c), minDe(e)]);
+    if(janelas.length) jornada[d] = janelas;
+  }
+
+  const dados = {
+    nome,
+    comissaoPct: parseFloat(document.getElementById('qCom').value) || 0,
+    cor: document.getElementById('qCor').value,
+    ativo: document.getElementById('qAtivo').checked,
+    jornada,
+  };
+  if(pid) Object.assign(acharProf(pid), dados);
+  else bd.profissionais.push({id:id(), salaoId:salaoAtual, ...dados});
+  salvar(); fecharModal(); pintar();
+}
+
+function abrirBloqueio(pid){
+  const p = acharProf(pid);
+  abrirModal('Bloquear horário de ' + p.nome, `
+    <div class="aviso info">Almoço, médico, folga. O horário some da agenda e do
+      link público — e a cliente não fica sabendo o motivo.</div>
+    <div class="campo"><label>Dia</label>
+      <input type="date" id="bData" value="${diaAtual}"></div>
+    <div class="dupla">
+      <div class="campo"><label>Das</label><input type="time" id="bIni" value="12:00" step="900"></div>
+      <div class="campo"><label>Às</label><input type="time" id="bFim" value="13:00" step="900"></div>
+    </div>
+    <div class="campo"><label>Motivo (só a equipe vê)</label>
+      <input id="bMotivo" placeholder="Almoço"></div>
+  `, [
+    ['Cancelar','fecharModal()',''],
+    ['Bloquear', `salvarBloqueio('${pid}')`, 'btn-p'],
+  ]);
+}
+
+function salvarBloqueio(pid){
+  const ini = minDe(document.getElementById('bIni').value);
+  const fim = minDe(document.getElementById('bFim').value);
+  if(fim <= ini){ alert('O fim precisa ser depois do início.'); return; }
+  bd.bloqueios.push({
+    id:id(), salaoId:salaoAtual, profissionalId:pid,
+    data: document.getElementById('bData').value,
+    inicio:ini, fim, motivo: document.getElementById('bMotivo').value || 'Bloqueado',
+  });
+  salvar(); fecharModal(); pintar();
+}
+
+/* ── Pintura geral ───────────────────────────────────────────────────── */
+function pintar(){
+  if(telaAtual === 'agenda')   pintarAgenda();
+  if(telaAtual === 'clientes') pintarClientes();
+  if(telaAtual === 'servicos') pintarServicos();
+  if(telaAtual === 'equipe')   pintarEquipe();
+  if(telaAtual === 'caixa')    pintarCaixa();
+  if(telaAtual === 'publico')  prepararPublico();
+}
+
+/* ===========================================================================
+   ARMAZENAMENTO
+   ---------------------------------------------------------------------------
+   Este é o único trecho que muda quando o Supabase entrar. `salvar()` vira
+   chamada de upsert, e `carregar()` vira select — o resto da página nem fica
+   sabendo.
+   =========================================================================== */
+function salvar(){
+  try{
+    localStorage.setItem(CHAVE, JSON.stringify({...bd, salaoAtual}));
+  }catch(e){
+    // Erro silencioso aqui foi um dos vícios do AdminPro (95 catch vazios).
+    console.error('Não consegui gravar no localStorage:', e);
+    alert('Não consegui salvar neste navegador. Se estiver em aba anônima, '
+        + 'os dados somem ao fechar.');
+  }
+}
+
+function carregar(){
+  try{
+    const cru = localStorage.getItem(CHAVE);
+    if(cru){
+      const d = JSON.parse(cru);
+      salaoAtual = d.salaoAtual;
+      delete d.salaoAtual;
+      return d;
+    }
+  }catch(e){
+    console.error('Dados guardados estão corrompidos, recomeçando:', e);
+  }
+  return null;
+}
+
+function recomecar(){
+  if(!confirm('Isto apaga tudo o que você mexeu e recria a demonstração. Continuar?')) return;
+  try{ localStorage.removeItem(CHAVE); }catch(e){}
+  bd = semear();
+  salaoAtual = bd.saloes[0].id;
+  salvar();
+  iniciar();
+}
+
+/* ── Dados de demonstração ───────────────────────────────────────────────
+   Dois salões de propósito: dá para trocar no seletor lá em cima e conferir
+   que um não enxerga o outro — que é a ideia do multi-salão.
+   ──────────────────────────────────────────────────────────────────────── */
+function semear(){
+  const s1 = 'salao-bella', s2 = 'barbearia-ze';
+  const comercial = {1:[[540,1140]],2:[[540,1140]],3:[[540,1140]],4:[[540,1140]],5:[[540,1200]],6:[[540,900]]};
+  const tarde = {2:[[720,1200]],3:[[720,1200]],4:[[720,1200]],5:[[720,1200]],6:[[540,1020]]};
+
+  const profs = [
+    {id:'p1', salaoId:s1, nome:'Ana',     comissaoPct:45, cor:CORES[0], ativo:true, jornada:comercial},
+    {id:'p2', salaoId:s1, nome:'Bianca',  comissaoPct:40, cor:CORES[1], ativo:true, jornada:tarde},
+    {id:'p3', salaoId:s1, nome:'Carla',   comissaoPct:50, cor:CORES[2], ativo:true, jornada:comercial},
+    {id:'p4', salaoId:s2, nome:'Zé',      comissaoPct:60, cor:CORES[3], ativo:true, jornada:comercial},
+    {id:'p5', salaoId:s2, nome:'Marcos',  comissaoPct:50, cor:CORES[4], ativo:true, jornada:comercial},
+  ];
+
+  const servs = [
+    {id:'v1', salaoId:s1, nome:'Corte feminino',   categoria:'Cabelo', duracaoMin:60,  intervaloMin:10, preco:90,  comissaoPct:null, ativo:true},
+    {id:'v2', salaoId:s1, nome:'Escova',           categoria:'Cabelo', duracaoMin:45,  intervaloMin:0,  preco:70,  comissaoPct:null, ativo:true},
+    {id:'v3', salaoId:s1, nome:'Coloração',        categoria:'Química',duracaoMin:120, intervaloMin:15, preco:280, comissaoPct:35,   ativo:true},
+    {id:'v4', salaoId:s1, nome:'Mechas',           categoria:'Química',duracaoMin:180, intervaloMin:15, preco:450, comissaoPct:35,   ativo:true},
+    {id:'v5', salaoId:s1, nome:'Manicure',         categoria:'Unhas',  duracaoMin:45,  intervaloMin:5,  preco:45,  comissaoPct:null, ativo:true},
+    {id:'v6', salaoId:s1, nome:'Pedicure',         categoria:'Unhas',  duracaoMin:60,  intervaloMin:5,  preco:55,  comissaoPct:null, ativo:true},
+    {id:'v7', salaoId:s1, nome:'Sobrancelha',      categoria:'Estética',duracaoMin:30, intervaloMin:0,  preco:40,  comissaoPct:null, ativo:true},
+    {id:'v8', salaoId:s2, nome:'Corte masculino',  categoria:'Cabelo', duracaoMin:30,  intervaloMin:5,  preco:50,  comissaoPct:null, ativo:true},
+    {id:'v9', salaoId:s2, nome:'Barba',            categoria:'Barba',  duracaoMin:30,  intervaloMin:5,  preco:40,  comissaoPct:null, ativo:true},
+    {id:'v10',salaoId:s2, nome:'Corte + barba',    categoria:'Combo',  duracaoMin:60,  intervaloMin:5,  preco:80,  comissaoPct:null, ativo:true},
+  ];
+
+  const clis = [
+    {id:'c1', salaoId:s1, nome:'Maria Silva',      telefone:'(11) 98888-1111', obs:'Alergia a amônia'},
+    {id:'c2', salaoId:s1, nome:'Joana Prado',      telefone:'(11) 98888-2222', obs:'Cor 7.1 + 20 vol'},
+    {id:'c3', salaoId:s1, nome:'Rita Nogueira',    telefone:'(11) 98888-3333', obs:''},
+    {id:'c4', salaoId:s1, nome:'Beatriz Antunes',  telefone:'(11) 98888-4444', obs:'Prefere a Carla'},
+    {id:'c5', salaoId:s2, nome:'João Pereira',     telefone:'(11) 97777-1111', obs:'Máquina 2 dos lados'},
+    {id:'c6', salaoId:s2, nome:'Pedro Alves',      telefone:'(11) 97777-2222', obs:''},
+  ];
+
+  const prods = [
+    {id:'d1', salaoId:s1, nome:'Máscara capilar',  preco:65, comissaoPct:10},
+    {id:'d2', salaoId:s1, nome:'Óleo de argan',    preco:48, comissaoPct:10},
+    {id:'d3', salaoId:s2, nome:'Pomada modeladora',preco:35, comissaoPct:15},
+  ];
+
+  // Agenda de hoje, montada sem chocar: cada profissional em sequência.
+  const d = hoje();
+  const ags = [];
+  const marcar = (cli, prof, sv, ini, status) => {
+    const s = servs.find(x => x.id === sv);
+    const p = profs.find(x => x.id === prof);
+    ags.push({
+      id:id(), salaoId:p.salaoId, clienteId:cli, profissionalId:prof, data:d,
+      inicio:ini, fim:ini + s.duracaoMin + s.intervaloMin, status,
+      origem: status === 'pendente' ? 'online' : 'recepcao',
+      servicos:[{servicoId:sv, duracaoMin:s.duracaoMin, preco:s.preco,
+                 comissaoPct: s.comissaoPct != null ? s.comissaoPct : p.comissaoPct}],
+      obs:'',
+    });
+  };
+  marcar('c1','p1','v1', 9*60,      'concluido');
+  marcar('c2','p1','v3', 10*60+30,  'em_atendimento');
+  marcar('c3','p1','v2', 14*60,     'confirmado');
+  marcar('c4','p3','v4', 9*60,      'confirmado');
+  marcar('c1','p3','v7', 13*60,     'pendente');
+  marcar('c2','p2','v5', 13*60,     'confirmado');
+  marcar('c3','p2','v6', 15*60,     'confirmado');
+  marcar('c5','p4','v10', 9*60,     'concluido');
+  marcar('c6','p4','v8', 10*60+30,  'confirmado');
+  marcar('c5','p5','v9', 11*60,     'confirmado');
+
+  return {
+    saloes: [
+      {id:s1, slug:'studio-bella', nome:'Studio Bella', tipo:'salão',
+       endereco:'Rua das Flores, 210 — Itu/SP'},
+      {id:s2, slug:'barbearia-do-ze', nome:'Barbearia do Zé', tipo:'barbearia',
+       endereco:'Av. Central, 88 — Itu/SP'},
+    ],
+    profissionais: profs,
+    servicos: servs,
+    clientes: clis,
+    produtos: prods,
+    agendamentos: ags,
+    bloqueios: [
+      {id:id(), salaoId:s1, profissionalId:'p1', data:d, inicio:12*60, fim:13*60, motivo:'Almoço'},
+      {id:id(), salaoId:s1, profissionalId:'p3', data:d, inicio:12*60, fim:13*60, motivo:'Almoço'},
+    ],
+    comandas: [],
+  };
+}
+
+/* ===========================================================================
+   INSTALAR COMO APLICATIVO (PWA)
+   ---------------------------------------------------------------------------
+   Instalado, o AgendaPro abre em janela própria, com ícone na tela inicial e
+   sem barra de endereço — a recepção usa como se fosse app nativo, e abre
+   mesmo com a internet oscilando.
+
+   Só funciona servido por https:// (ou localhost). Abrir o arquivo com dois
+   cliques, direto do disco, mostra a tela mas NÃO instala — o navegador não
+   registra service worker em file://. Está avisado no rodapé em vez de
+   falhar calado.
+   =========================================================================== */
+let pedidoDeInstalacao = null;
+
+window.addEventListener('beforeinstallprompt', ev => {
+  ev.preventDefault();
+  pedidoDeInstalacao = ev;
+  document.getElementById('btInstalar').style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+  pedidoDeInstalacao = null;
+  document.getElementById('btInstalar').style.display = 'none';
+});
+
+async function instalarApp(){
+  if(!pedidoDeInstalacao){ explicarInstalacaoManual(); return; }
+  pedidoDeInstalacao.prompt();
+  const r = await pedidoDeInstalacao.userChoice.catch(() => null);
+  if(r && r.outcome === 'accepted') document.getElementById('btInstalar').style.display = 'none';
+  pedidoDeInstalacao = null;
+}
+
+// iPhone não dispara beforeinstallprompt: no Safari é pelo botão Compartilhar.
+function explicarInstalacaoManual(){
+  abrirModal('Instalar o AgendaPro', `
+    <div class="campo"><b>iPhone / iPad (Safari)</b>
+      <p style="color:var(--txt2);font-size:14px">Toque em <b>Compartilhar</b> ↑
+      e depois em <b>Adicionar à Tela de Início</b>.</p></div>
+    <div class="campo"><b>Android (Chrome)</b>
+      <p style="color:var(--txt2);font-size:14px">Menu <b>⋮</b> →
+      <b>Instalar aplicativo</b>.</p></div>
+    <div class="campo"><b>Computador (Chrome / Edge)</b>
+      <p style="color:var(--txt2);font-size:14px">Ícone de instalar na barra de
+      endereço, à direita.</p></div>
+    <div class="aviso info">Para instalar, a página precisa estar num endereço
+      <b>https://</b>. Aberta direto do arquivo no disco, ela funciona mas não
+      instala.</div>
+  `, [['Entendi','fecharModal()','btn-p']]);
+}
+
+function registrarServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  if(location.protocol === 'file:'){
+    console.info('[AgendaPro] Aberto como arquivo local — sem instalação nem modo offline. '
+               + 'Sirva por https:// (ou localhost) para o app instalável funcionar.');
+    document.getElementById('avisoLocal').style.display = '';
+    return;
+  }
+  navigator.serviceWorker.register('sw.js')
+    .then(() => console.info('[AgendaPro] Service worker no ar.'))
+    .catch(e => console.error('[AgendaPro] Falha ao registrar o service worker:', e));
+}
+
+/* ── Partida ─────────────────────────────────────────────────────────── */
+function iniciar(){
+  const sel = document.getElementById('selSalao');
+  sel.innerHTML = bd.saloes.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+  sel.value = salaoAtual;
+  const s = acharSalao(salaoAtual);
+  document.getElementById('mTipo').textContent = (s.tipo || 'salão').toUpperCase();
+  montarAbas();
+  pintar();
+}
+
+(function(){
+  try{
+    const t = localStorage.getItem(CHAVE + '.tema');
+    if(t) document.documentElement.setAttribute('data-tema', t);
+  }catch(e){}
+
+  bd = carregar();
+  if(!bd){ bd = semear(); salaoAtual = bd.saloes[0].id; salvar(); }
+  if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
+  iniciar();
+  registrarServiceWorker();
+})();
+</script>
+</body>
+</html>

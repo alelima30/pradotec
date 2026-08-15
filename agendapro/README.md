@@ -5,7 +5,8 @@ Irmão do [AdminPro](https://github.com/alelima30/adminpro): mesma stack —
 HTML/CSS/JS puro, sem build, backend Supabase, PWA instalável — com as dívidas
 daquele projeto corrigidas de saída.
 
-**Estado: banco pronto e testado. O aplicativo ainda não existe.**
+**Estado: banco pronto e testado; app rodando com dados de demonstração.**
+Falta ligar os dois — hoje a tela guarda no navegador, não no Supabase.
 
 ---
 
@@ -13,14 +14,50 @@ daquele projeto corrigidas de saída.
 
 | Arquivo | O que faz |
 |---|---|
+| `app.html` | O aplicativo: agenda, clientes, serviços, equipe, caixa e página pública |
+| `index.html` | Encaminha a raiz para o app |
+| `sw.js` + `manifest.webmanifest` | PWA — instala no celular e no computador |
 | `supabase/01_schema.sql` | 16 tabelas, a trava anti-choque da agenda, comanda e comissão |
 | `supabase/02_rls.sql` | Isolamento entre salões e entre papéis — a segurança de verdade |
 | `tests/` | 49 verificações rodando em Postgres de verdade |
 
+## Como testar
+
+**A tela** — abra `app.html` no navegador. Já vem com dois salões, cinco
+profissionais, dez serviços e a agenda de hoje preenchida. Tudo fica no
+`localStorage`; o botão **Recomeçar** devolve ao estado inicial.
+
+Para instalar como aplicativo é preciso servir por http, porque navegador não
+registra service worker em `file://`:
+
 ```bash
-bash tests/rodar.sh          # precisa de um Postgres alcançável
+cd agendapro && python3 -m http.server 8000
+# abra http://localhost:8000  →  botão "Instalar app"
+```
+
+**O banco** — precisa de um Postgres alcançável:
+
+```bash
+bash tests/rodar.sh
 PGHOST=localhost PGPORT=5432 bash tests/rodar.sh
 ```
+
+**No Supabase** — rode `01_schema.sql` e `02_rls.sql` no SQL Editor, depois
+cole `tests/conferir_instalacao.sql` e clique em Run. Ele devolve onze linhas
+✓/✗ dizendo se a instalação ficou de pé (RLS ligado, trava presente, vitrine
+aberta, nenhuma tabela exposta para quem não fez login).
+
+## O que dá para conferir na tela
+
+- **Multi-salão** — troque de salão no seletor do topo: agenda, clientes e
+  serviços mudam junto, e um não enxerga o outro
+- **A grade entende serviço** — mecha ocupa 3h, corte ocupa 1h; o listrado
+  marca fora da jornada e o hachurado marca almoço
+- **Conflito** — tente marcar em cima de alguém e o aviso aparece antes de salvar
+- **Ver como cliente** — a mesma agenda vista de fora: só os horários livres,
+  sem nome nem telefone de ninguém. Dia cheio sugere os próximos com vaga
+- **Comanda** — clique num atendimento, abra a comanda, some produto e veja a
+  comissão sair por item
 
 ## As três decisões que definem o projeto
 
@@ -79,17 +116,22 @@ separada por verbo: `for insert`, `for update`, `for delete`.
 
 ## O que falta
 
-1. `03_funcoes_agenda.sql` — `horarios_livres()` (respeitando jornada, bloqueio
-   e duração do serviço) e `agendar()`, por onde o cliente marca sem poder
-   escolher o próprio preço nem o horário das 3 da manhã
-2. Cadastro por telefone com código no WhatsApp, via
+1. **Ligar a tela no Supabase.** Hoje o app grava no `localStorage`. A troca
+   acontece num lugar só — o bloco `ARMAZENAMENTO` no fim do `app.html`, com
+   `salvar()` e `carregar()`. O resto da página conversa por funções e não
+   fica sabendo de onde vem o dado.
+2. `03_funcoes_agenda.sql` — `horarios_livres()` e `agendar()` no banco. A
+   versão que está no `app.html` é de tela: serve para desenhar, não para
+   garantir. Cliente marcando precisa passar por função `security definer`,
+   senão escolhe o próprio preço e o horário das 3 da manhã.
+3. Cadastro por telefone com código no WhatsApp, via
    [Send SMS Hook](https://supabase.com/docs/guides/auth/auth-hooks/send-sms-hook)
    do Supabase — ele gera, valida e expira o código; a Edge Function só
    entrega. Template de autenticação da Meta é pago por mensagem, então limite
-   de reenvio por número desde o primeiro dia
-3. O aplicativo: agenda em colunas por profissional, ficha do cliente, comanda
-4. A página pública de agendamento
-5. CI com Postgres de serviço, rodando `tests/rodar.sh` a cada envio
+   de reenvio por número desde o primeiro dia.
+4. CI com Postgres de serviço, rodando `tests/rodar.sh` a cada envio.
+5. Sinal por Pix, pacotes e fidelidade — os campos de sinal já existem na
+   tabela `agendamentos`, vazios.
 
 ## Onde este código vai morar
 
