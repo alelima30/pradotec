@@ -435,6 +435,8 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
   para servidor nenhum.
 </p>
 
+<script src="config.js"></script>
+<script src="dados.js"></script>
 <script>
 /* ===========================================================================
    AgendaPro — cadastro do dono
@@ -574,6 +576,12 @@ function escolherPlano(codigo){
    cobrança, quando a pessoa já é cliente e está esperando.
    ──────────────────────────────────────────────────────────────────────── */
 function soDigitos(t){ return String(t||'').replace(/\D/g,''); }
+
+// E.164 é o formato que o Supabase Auth guarda o telefone.
+function paraE164(tel){
+  const d = soDigitos(tel);
+  return d ? '+55' + d : null;
+}
 
 function mascaraTel(el){
   let v = soDigitos(el.value).slice(0,11);
@@ -733,7 +741,7 @@ function mudouNomeSalao(){
 }
 
 /* ── Criar a conta ───────────────────────────────────────────────────── */
-function criarConta(){
+async function criarConta(){
   const campos = ['fNome','fEmail','fSenha','fSenha2','fZap','fDoc','fTipo','fSalao'];
   let ok = true, primeiro = null;
   for(const c of campos){
@@ -757,10 +765,44 @@ function criarConta(){
   const nomeSalao = document.getElementById('fSalao').value.trim();
   const slug  = slugSugerido(nomeSalao);
 
-  // No sistema de verdade isto é `supabase.auth.signUp()` seguido de
-  // `criar_salao()`. A função do banco faz salão, assinatura, vínculo de
-  // dono e primeiro profissional numa transação só — meia criação deixaria
-  // um salão sem dono, que ninguém alcança nem para apagar.
+  // ── Modo nuvem: quem faz tudo é o banco ──
+  //
+  // `signUp` cria a conta; `criar_salao()` cria salão, assinatura, vínculo
+  // de dono e o primeiro profissional numa transação só. Meia criação
+  // deixaria um salão sem dono, que ninguém alcança nem para apagar.
+  if(window.Dados && Dados.ligado){
+    const bt = document.querySelector('button.grande');
+    const rotulo = bt.textContent;
+    bt.disabled = true; bt.textContent = 'Criando…';
+    try{
+      await Dados.criarConta({ email: document.getElementById('fEmail').value.trim(),
+        senha: document.getElementById('fSenha').value,
+        nome, telefone: paraE164(tel) });
+
+      const r = await Dados.chamar('criar_salao', {
+        p_nome_salao: nomeSalao, p_tipo: tipo, p_slug: slug,
+        p_telefone: tel,
+        p_documento: document.getElementById('fDoc').value,
+        p_origem: document.getElementById('fOrigem').value || null });
+
+      const criado = Array.isArray(r) ? r[0] : r;
+      const apelido = (criado && criado.slug) || slug;
+      const url = location.href.replace(/\/[^\/]*$/, '/')
+                + 'agendar.html?salao=' + apelido;
+      document.getElementById('textoPronto').innerHTML =
+        `<b>${nomeSalao}</b> está no ar. Você tem 7 dias de teste grátis.`;
+      document.getElementById('linkFinal').textContent = url;
+      irPasso(3);
+    }catch(e){
+      console.error('[AgendaPro] falha ao criar a conta:', e);
+      geral.innerHTML = '<div class="aviso ruim"><span class="ic">⚠</span>'
+        + '<div><b>Não consegui criar a conta</b>' + e.message + '</div></div>';
+      bt.disabled = false; bt.textContent = rotulo;
+    }
+    return;
+  }
+
+  // ── Modo demonstração ──
   bd.perfis = bd.perfis || [];
   const perfil = { id: novoId(), nome, telefone: tel,
                    email: document.getElementById('fEmail').value.trim() };

@@ -167,8 +167,12 @@ create policy salao_criar on public.saloes for insert to authenticated
 -- profissionais em dois cliques.
 -- ---------------------------------------------------------------------------
 
+-- Preço é público. A página de cadastro mostra os planos ANTES de existir
+-- login — se `anon` não lê esta tabela, o visitante vê a tela de preços
+-- vazia e vai embora. Foi assim que este furo apareceu: a bancada de teste
+-- respondeu "permission denied for table planos" ao carregar a página.
 drop policy if exists plano_ler on public.planos;
-create policy plano_ler on public.planos for select to authenticated
+create policy plano_ler on public.planos for select to anon, authenticated
   using ( ativo or is_super() );
 
 drop policy if exists plano_gerir on public.planos;
@@ -296,6 +300,18 @@ create policy cli_equipe on public.clientes for all to authenticated
 drop policy if exists cli_eu on public.clientes;
 create policy cli_eu on public.clientes for select to authenticated
   using ( perfil_id = auth.uid() );
+
+-- Virar cliente de um salão é ato da própria pessoa: é o que acontece na
+-- primeira vez que ela marca pelo link. Sem esta policy o autoatendimento
+-- simplesmente não funciona — e era o caso: o furo só apareceu no teste
+-- ponta a ponta contra um Postgres de verdade, porque no modo demonstração
+-- não existe RLS para barrar.
+--
+-- É seguro: o `with check` amarra a ficha ao próprio perfil, então ninguém
+-- cria ficha em nome de outra pessoa. E o índice único impede duplicar.
+drop policy if exists cli_eu_criar on public.clientes;
+create policy cli_eu_criar on public.clientes for insert to authenticated
+  with check ( perfil_id = auth.uid() );
 
 drop policy if exists cli_eu_editar on public.clientes;
 create policy cli_eu_editar on public.clientes for update to authenticated
@@ -527,7 +543,7 @@ grant select, insert, update, delete on
   to authenticated;
 
 grant select on public.comandas_totais to authenticated;
-grant select on public.planos to authenticated;
+grant select on public.planos to anon, authenticated;
 grant select on public.assinaturas to authenticated;
 
 revoke all on public.contadores from anon, authenticated;

@@ -424,6 +424,8 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   </div>
 </div>
 
+<script src="config.js"></script>
+<script src="dados.js"></script>
 <script>
 /* ===========================================================================
    AgendaPro — lógica
@@ -1680,6 +1682,29 @@ function assinar(codigo){
   pintar();
 }
 
+/* ── A ponte com o banco ─────────────────────────────────────────────────
+   Em modo demonstração nada muda: continua tudo no localStorage.
+   Com o config.js preenchido, `carregarTudo()` traz do Supabase e o
+   `salvar()` manda de volta só o que mudou (a comparação está em dados.js).
+   ──────────────────────────────────────────────────────────────────────── */
+const NA_NUVEM = !!(window.Dados && window.Dados.ligado);
+let _baixado = null;                                  // retrato do banco
+const _copia = o => JSON.parse(JSON.stringify(o));
+
+async function carregarTudo(){
+  if(!NA_NUVEM) return carregar();
+  try{
+    const d = await Dados.baixar(salaoAtual);
+    _baixado = _copia(d);
+    return d;
+  }catch(e){
+    console.error('[AgendaPro] não consegui ler o banco:', e);
+    alert('Não consegui falar com o banco:\n\n' + e.message
+        + '\n\nConfira url e chave no config.js.');
+    return null;
+  }
+}
+
 /* ===========================================================================
    ARMAZENAMENTO
    ---------------------------------------------------------------------------
@@ -1688,6 +1713,19 @@ function assinar(codigo){
    sabendo.
    =========================================================================== */
 function salvar(){
+  if(NA_NUVEM){
+    // Grava no banco e só então atualiza o retrato. Se falhar, a pessoa
+    // fica sabendo — tela dizendo "salvo" com banco vazio é o pior erro
+    // possível num sistema de agenda.
+    Dados.subir(_baixado, bd)
+      .then(() => { _baixado = _copia(bd); })
+      .catch(e => {
+        console.error('[AgendaPro] falha ao gravar:', e);
+        alert('NÃO consegui salvar no banco:\n\n' + e.message
+            + '\n\nO que está na tela ainda não foi gravado.');
+      });
+    return;
+  }
   try{
     localStorage.setItem(CHAVE, JSON.stringify({...bd, salaoAtual}));
   }catch(e){
@@ -1909,11 +1947,44 @@ function iniciar(){
     if(t) document.documentElement.setAttribute('data-tema', t);
   }catch(e){}
 
-  bd = carregar();
-  if(!bd){ bd = semear(); salaoAtual = bd.saloes[0].id; salvar(); }
-  if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
-  iniciar();
-  registrarServiceWorker();
+  (async () => {
+    bd = await carregarTudo();
+    // Só o modo nuvem desiste quando não vem nada: ali o null significa
+    // "o banco não respondeu". No modo demonstração, null é o esperado na
+    // primeira visita — e é a deixa para semear.
+    if(NA_NUVEM && !bd) return;
+    if(NA_NUVEM){
+      if(bd.semSessao){
+        document.querySelector('.corpo').innerHTML =
+          '<div class="vazio"><b>Entre para ver sua agenda</b>'
+          + 'Ainda não tem conta? <a class="link" href="criar.html">'
+          + 'Crie a sua em 2 minutos</a>.</div>';
+        document.getElementById('abas').innerHTML = '';
+        return;
+      }
+      if(!bd.saloes || !bd.saloes.length){
+        document.querySelector('.corpo').innerHTML =
+          '<div class="vazio"><b>Nenhum salão nesta conta</b>'
+          + 'Crie o seu em <a class="link" href="criar.html">criar.html</a>.</div>';
+        return;
+      }
+      if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
+      // O bd veio filtrado pelo primeiro salão; recarrega pelo escolhido.
+      bd = await carregarTudo();
+    } else {
+      // Primeira visita: `carregar()` devolve null, e é a deixa para semear.
+      if(!bd || !bd.saloes || !bd.saloes.length){
+        bd = semear(); salaoAtual = bd.saloes[0].id; salvar();
+      }
+      if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
+    }
+    iniciar();
+    registrarServiceWorker();
+    const rod = document.querySelector('.rodape');
+    if(rod) rod.innerHTML = NA_NUVEM
+      ? 'AgendaPro · ligado ao banco (' + Dados.ambiente + ')'
+      : rod.innerHTML;
+  })();
 })();
 </script>
 </body>

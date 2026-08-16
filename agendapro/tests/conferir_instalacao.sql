@@ -115,6 +115,9 @@ anon_em_tabela as (
   select table_name from information_schema.role_table_grants
    where grantee = 'anon' and table_schema = 'public'
      and table_name in (select nome from esperadas)
+     -- `planos` é exceção deliberada: é tabela de preço, e a página de
+     -- cadastro precisa mostrá-la antes de a pessoa ter conta.
+     and table_name <> 'planos'
 ),
 
 vitrine(nome) as (

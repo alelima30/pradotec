@@ -5,8 +5,9 @@ Irmão do [AdminPro](https://github.com/alelima30/adminpro): mesma stack —
 HTML/CSS/JS puro, sem build, backend Supabase, PWA instalável — com as dívidas
 daquele projeto corrigidas de saída.
 
-**Estado: banco pronto e testado; app rodando com dados de demonstração.**
-Falta ligar os dois — hoje a tela guarda no navegador, não no Supabase.
+**Estado: completo para testar.** Roda sozinho no navegador, e liga no
+Supabase preenchendo dois campos no `config.js`. Os dois caminhos foram
+verificados de ponta a ponta.
 
 ---
 
@@ -20,7 +21,14 @@ Falta ligar os dois — hoje a tela guarda no navegador, não no Supabase.
 | `sw.js` + `manifest.webmanifest` | PWA — instala no celular e no computador |
 | `supabase/01_schema.sql` | 16 tabelas, a trava anti-choque da agenda, comanda e comissão |
 | `supabase/02_rls.sql` | Isolamento entre salões e entre papéis — a segurança de verdade |
-| `tests/` | 49 verificações rodando em Postgres de verdade |
+| `config.js` | **o único arquivo a editar** para ligar no Supabase |
+| `dados.js` | a camada de dados: localStorage ou Supabase, escolhido pelo config |
+| `supabase/00_tudo.sql` | instalação completa, para colar de uma vez no SQL Editor |
+| `tests/` | 219 verificações: banco, mapa de colunas e camada de dados |
+
+> **Para instalar e testar de ponta a ponta, siga o
+> [COMO-TESTAR.md](COMO-TESTAR.md).** Este arquivo explica as decisões; aquele
+> explica os passos.
 
 ## Como testar
 
@@ -143,19 +151,15 @@ separada por verbo: `for insert`, `for update`, `for delete`.
 
 ## O que falta
 
-1. **Ligar a tela no Supabase.** Hoje o app grava no `localStorage`. A troca
-   acontece num lugar só — o bloco `ARMAZENAMENTO` no fim do `app.html`, com
-   `salvar()` e `carregar()`. O resto da página conversa por funções e não
-   fica sabendo de onde vem o dado.
-2. `03_funcoes_agenda.sql` — `horarios_livres()` e `agendar()` no banco. A
+1. **Entrega do código pelo WhatsApp.** O login por telefone depende do
+   *Send SMS Hook* do Supabase apontando para uma Edge Function com a Cloud
+   API da Meta. O login por email e senha (o do dono) já funciona.
+2. **`agendar.html` no modo nuvem.** O app do cliente ainda grava no
+   navegador; o do salão e o cadastro do dono já falam com o banco.
+3. `03_funcoes_agenda.sql` — `horarios_livres()` e `agendar()` no banco. A
    versão que está no `app.html` é de tela: serve para desenhar, não para
    garantir. Cliente marcando precisa passar por função `security definer`,
    senão escolhe o próprio preço e o horário das 3 da manhã.
-3. Cadastro por telefone com código no WhatsApp, via
-   [Send SMS Hook](https://supabase.com/docs/guides/auth/auth-hooks/send-sms-hook)
-   do Supabase — ele gera, valida e expira o código; a Edge Function só
-   entrega. Template de autenticação da Meta é pago por mensagem, então limite
-   de reenvio por número desde o primeiro dia.
 4. CI com Postgres de serviço, rodando `tests/rodar.sh` a cada envio.
 5. Sinal por Pix, pacotes e fidelidade — os campos de sinal já existem na
    tabela `agendamentos`, vazios.

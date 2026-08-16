@@ -1,0 +1,1424 @@
+-- ===========================================================================
+-- AgendaPro — INSTALAÇÃO COMPLETA
+--
+-- Cole ESTE arquivo inteiro no SQL Editor do Supabase e clique em Run.
+-- É a junção de 01_schema.sql + 02_rls.sql + 03_onboarding.sql, na ordem.
+--
+-- Pode rodar mais de uma vez sem medo: tudo aqui é 'create if not exists',
+-- 'create or replace' ou 'drop policy if exists' antes de criar.
+--
+-- Depois de rodar, cole tests/conferir_instalacao.sql para checar.
+-- ===========================================================================
+
+
+-- ###########################################################################
+-- ## 01_schema.sql
+-- ###########################################################################
+
+-- ===========================================================================
+-- AgendaPro — 01_schema.sql
+-- Tabelas, chaves e travas. Sem RLS aqui: segurança está no 02_rls.sql.
+--
+-- Rodar à mão no SQL Editor do Supabase, em ordem (01, 02, 03).
+-- Mudança de banco merece revisão antes — mesma política do AdminPro.
+--
+-- A diferença de fundo em relação ao AdminPro: lá um usuário pertence a UM
+-- condomínio (coluna `condominio_id` em `usuarios`). Aqui a mesma pessoa pode
+-- ser cliente de vários salões e profissional em outro. Por isso a identidade
+-- é global (`perfis`) e o pertencimento é uma tabela à parte (`vinculos`).
+-- ===========================================================================
+
+create extension if not exists pgcrypto;
+
+-- btree_gist permite misturar "=" (uuid) com "&&" (intervalo) no mesmo
+-- EXCLUDE. É o que torna possível a trava anti-choque da agenda lá embaixo.
+create extension if not exists btree_gist;
+
+-- ---------------------------------------------------------------------------
+-- 1) O INQUILINO
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.saloes (
+  id        uuid primary key default gen_random_uuid(),
+  -- slug é o endereço público: agendapro.app/agendar/salao-da-ana
+  slug      text unique not null check (slug ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'),
+  nome      text not null,
+  -- O tipo não é só rótulo: ele define o VOCABULÁRIO do sistema. Barbearia
+  -- diz "barbeiro", esmalteria diz "manicure", clínica diz "paciente". Um
+  -- produto só, cinco nichos, sem manter cinco produtos.
+  tipo      text not null default 'salao'
+            check (tipo in ('salao','barbearia','estetica','manicure',
+                            'clinica','tatuagem','pet','outro')),
+  logo      text,
+  telefone  text,
+  whatsapp  text,
+  endereco  jsonb not null default '{}'::jsonb,
+  fuso      text not null default 'America/Sao_Paulo',
+  status    text not null default 'ativo'
+            check (status in ('ativo','suspenso','cancelado')),
+  -- Regras do agendamento online: antecedência mínima e máxima, prazo de
+  -- cancelamento, se exige sinal. Cabe em JSON porque é configuração que só o
+  -- próprio salão lê — não é dado que se cruza em relatório.
+  cfg       jsonb not null default '{}'::jsonb,
+  criado_em timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 1b) O QUE O SALÃO PAGA
+--
+-- O AdminPro não tem isso, e a documentação dele reconhece: "o sistema não
+-- sabe quem é o cliente, só qual é o condomínio". Com poucos clientes e Pix
+-- na mão aquilo passava. Aqui não passa, porque o preço é por profissional —
+-- sem controle, o dono assina o plano de um e cadastra oito.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.planos (
+  codigo           text primary key,
+  nome             text not null,
+  max_profissionais int not null check (max_profissionais > 0),
+  preco_mes        numeric(10,2) not null default 0 check (preco_mes >= 0),
+  -- Quais módulos o plano libera. Fica em JSON porque é configuração da
+  -- plataforma, mexida por nós, não dado que se cruza em relatório.
+  recursos         jsonb not null default '{}'::jsonb,
+  ativo            boolean not null default true,
+  ordem            smallint not null default 0
+);
+
+create table if not exists public.assinaturas (
+  salao_id     uuid primary key references public.saloes(id) on delete cascade,
+  plano        text not null references public.planos(codigo),
+  status       text not null default 'trial'
+               check (status in ('trial','ativa','inadimplente','cancelada')),
+  -- Fim do teste grátis. Passou disso sem virar 'ativa', o salão para.
+  trial_ate    date,
+  vence_em     date,
+  -- Por onde o dono chegou até nós. É a única forma de saber qual parceria
+  -- ou anúncio trouxe cliente que paga, em vez de cliente que só olhou.
+  origem       text,
+  indicado_por text,
+  criado_em    timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+
+-- Quantos profissionais este salão pode ter, agora. Sem assinatura, trata-se
+-- como trial de um — nunca como ilimitado: o padrão de um sistema de cobrança
+-- tem que ser o mais restrito, senão a falha de cadastro vira plano grátis.
+create or replace function public.limite_profissionais(p_salao uuid)
+returns int language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select pl.max_profissionais
+       from public.assinaturas a
+       join public.planos pl on pl.codigo = a.plano
+      where a.salao_id = p_salao
+        and a.status in ('trial','ativa')
+        and (a.status <> 'trial' or a.trial_ate is null or a.trial_ate >= current_date)),
+    1)
+$$;
+
+-- Os planos de partida. Preço é decisão comercial e muda com um UPDATE —
+-- por isso está em tabela, não espalhado pelo código.
+insert into public.planos (codigo, nome, max_profissionais, preco_mes, ordem) values
+  ('trial',      'Teste grátis', 1,  0.00, 0),
+  ('individual', 'Individual',   1, 47.00, 1),
+  ('duo',        'Duo',          2, 87.00, 2),
+  ('time',       'Time',         3,127.00, 3),
+  ('equipe',     'Equipe',       5,187.00, 4),
+  ('salao',      'Salão',       20,297.00, 5)
+on conflict (codigo) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- 2) QUEM É A PESSOA (global) E ONDE ELA ENTRA (por salão)
+-- ---------------------------------------------------------------------------
+
+-- Uma linha por telefone no sistema inteiro. É o espelho de auth.users.
+create table if not exists public.perfis (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  nome       text not null check (length(btrim(nome)) >= 2),
+  -- E.164, do jeito que o Supabase Auth guarda: +5511999999999
+  telefone   text unique not null check (telefone ~ '^\+[1-9][0-9]{7,14}$'),
+  email      text,
+  nascimento date,
+  foto       text,
+  -- Dono da plataforma (você). Enxerga todos os salões, para dar suporte.
+  super_admin boolean not null default false,
+  criado_em  timestamptz not null default now()
+);
+
+-- A mesma pessoa pode ter N vínculos: cliente no salão A, profissional no B.
+create table if not exists public.vinculos (
+  perfil_id uuid not null references public.perfis(id) on delete cascade,
+  salao_id  uuid not null references public.saloes(id) on delete cascade,
+  papel     text not null
+            check (papel in ('dono','admin','recepcao','profissional','cliente')),
+  -- Cliente entra 'ativo' assim que o OTP valida o telefone.
+  -- Equipe entra 'pendente' e o dono libera — ninguém vira profissional sozinho.
+  status    text not null default 'ativo'
+            check (status in ('ativo','pendente','bloqueado')),
+  criado_em timestamptz not null default now(),
+  primary key (perfil_id, salao_id, papel)
+);
+
+create index if not exists ix_vinculos_salao on public.vinculos(salao_id, papel)
+  where status = 'ativo';
+
+-- ---------------------------------------------------------------------------
+-- 3) O QUE O SALÃO OFERECE
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.profissionais (
+  id            uuid primary key default gen_random_uuid(),
+  salao_id      uuid not null references public.saloes(id) on delete cascade,
+  -- Sem perfil = profissional que não usa o app; a recepção lança por ele.
+  perfil_id     uuid references public.perfis(id) on delete set null,
+  nome          text not null,
+  apelido       text,
+  foto          text,
+  cor           text not null default '#7C3AED',  -- cor da coluna na agenda
+  comissao_pct  numeric(5,2) not null default 0
+                check (comissao_pct between 0 and 100),
+  aceita_online boolean not null default true,
+  ativo         boolean not null default true,
+  criado_em     timestamptz not null default now()
+);
+
+create index if not exists ix_prof_salao on public.profissionais(salao_id)
+  where ativo;
+
+-- ⚠ A TRAVA DO PLANO MORA AQUI, e não na tela.
+--
+-- Limite conferido em JavaScript não é limite: o dono abre o console, chama a
+-- API REST do Supabase com a chave que está no HTML e cadastra quantos
+-- profissionais quiser no plano de um. Receita vazando sem ninguém ver.
+--
+-- Como gatilho, a recusa vale para a tela, para a API e para o SQL escrito à
+-- mão. A mensagem diz o número e o plano, para o dono saber o que fazer em
+-- vez de achar que quebrou.
+create or replace function public.checar_limite_profissionais()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare usados int; limite int; nome_plano text;
+begin
+  -- Só conta quem está ativo: desativar um barbeiro é a forma legítima de
+  -- abrir vaga sem apagar o histórico dele.
+  if not new.ativo then return new; end if;
+  if tg_op = 'UPDATE' and old.ativo and new.salao_id = old.salao_id then
+    return new;   -- já contava antes, nada muda
+  end if;
+
+  select count(*) into usados
+    from public.profissionais
+   where salao_id = new.salao_id and ativo
+     and (tg_op = 'INSERT' or id <> new.id);
+
+  limite := public.limite_profissionais(new.salao_id);
+
+  if usados >= limite then
+    select pl.nome into nome_plano
+      from public.assinaturas a join public.planos pl on pl.codigo = a.plano
+     where a.salao_id = new.salao_id;
+    raise exception
+      'O plano % permite % profissional(is) ativo(s), e o salão já tem %. '
+      'Troque de plano ou desative alguém antes de cadastrar mais.',
+      coalesce(nome_plano, 'atual'), limite, usados
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists tg_limite_prof on public.profissionais;
+create trigger tg_limite_prof
+  before insert or update on public.profissionais
+  for each row execute function public.checar_limite_profissionais();
+
+create table if not exists public.servicos (
+  id            uuid primary key default gen_random_uuid(),
+  salao_id      uuid not null references public.saloes(id) on delete cascade,
+  nome          text not null,
+  categoria     text,
+  descricao     text,
+  -- A duração é o coração da agenda: é ela que decide onde o próximo cabe.
+  duracao_min   int not null check (duracao_min > 0 and duracao_min <= 600),
+  -- Tempo depois do atendimento (arrumar a estação, lavar pincel). Conta na
+  -- agenda mas não aparece pro cliente como parte do serviço.
+  intervalo_min int not null default 0 check (intervalo_min between 0 and 120),
+  preco         numeric(10,2) not null default 0 check (preco >= 0),
+  -- null = herda a comissão do profissional
+  comissao_pct  numeric(5,2) check (comissao_pct between 0 and 100),
+  cor           text,
+  aceita_online boolean not null default true,
+  ativo         boolean not null default true,
+  criado_em     timestamptz not null default now()
+);
+
+create index if not exists ix_serv_salao on public.servicos(salao_id) where ativo;
+
+-- Quem faz o quê. Sem linha aqui, o profissional não aparece como opção.
+-- Duração e preço podem ser sobrescritos: a Ana faz mecha em 2h, a Bia em 3h.
+create table if not exists public.servicos_profissionais (
+  servico_id      uuid not null references public.servicos(id) on delete cascade,
+  profissional_id uuid not null references public.profissionais(id) on delete cascade,
+  duracao_min     int check (duracao_min > 0 and duracao_min <= 600),
+  preco           numeric(10,2) check (preco >= 0),
+  primary key (servico_id, profissional_id)
+);
+
+-- ---------------------------------------------------------------------------
+-- 4) QUANDO O PROFISSIONAL ATENDE
+-- ---------------------------------------------------------------------------
+
+-- Jornada semanal. Duas linhas no mesmo dia = intervalo de almoço no meio:
+--   seg 09:00-12:00  e  seg 13:00-19:00
+create table if not exists public.jornadas (
+  id              uuid primary key default gen_random_uuid(),
+  profissional_id uuid not null references public.profissionais(id) on delete cascade,
+  dia_semana      smallint not null check (dia_semana between 0 and 6), -- 0 = domingo
+  inicio          time not null,
+  fim             time not null,
+  check (fim > inicio)
+);
+
+create index if not exists ix_jornada_prof on public.jornadas(profissional_id, dia_semana);
+
+-- Exceção pontual: férias, médico, feriado, ou o salão fechado inteiro.
+-- profissional_id nulo = vale para o salão todo.
+create table if not exists public.bloqueios (
+  id              uuid primary key default gen_random_uuid(),
+  salao_id        uuid not null references public.saloes(id) on delete cascade,
+  profissional_id uuid references public.profissionais(id) on delete cascade,
+  inicio          timestamptz not null,
+  fim             timestamptz not null,
+  motivo          text,
+  criado_em       timestamptz not null default now(),
+  check (fim > inicio)
+);
+
+create index if not exists ix_bloq_salao on public.bloqueios(salao_id, inicio);
+
+-- ---------------------------------------------------------------------------
+-- 5) O CLIENTE DO SALÃO
+-- ---------------------------------------------------------------------------
+
+-- Ficha do cliente DENTRO de um salão. A mesma pessoa (mesmo `perfil_id`) tem
+-- uma ficha em cada salão que frequenta, com histórico e observações próprias
+-- — e um salão não enxerga a ficha do outro.
+--
+-- perfil_id nulo = cliente que a recepção cadastrou e nunca instalou o app.
+-- Quando essa pessoa se cadastrar com o mesmo telefone, os dois se juntam.
+create table if not exists public.clientes (
+  id         uuid primary key default gen_random_uuid(),
+  salao_id   uuid not null references public.saloes(id) on delete cascade,
+  perfil_id  uuid references public.perfis(id) on delete set null,
+  nome       text not null,
+  telefone   text,
+  email      text,
+  nascimento date,
+  obs        text,
+  alergias   text,
+  -- fórmula de coloração, preferências, alertas. Texto livre por natureza.
+  ficha      jsonb not null default '{}'::jsonb,
+  criado_em  timestamptz not null default now()
+);
+
+-- A mesma pessoa não pode ter duas fichas no mesmo salão.
+create unique index if not exists ux_cli_perfil
+  on public.clientes(salao_id, perfil_id) where perfil_id is not null;
+create unique index if not exists ux_cli_tel
+  on public.clientes(salao_id, telefone) where telefone is not null;
+
+-- ---------------------------------------------------------------------------
+-- 6) A AGENDA — e a trava que impede horário duplicado
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.agendamentos (
+  id              uuid primary key default gen_random_uuid(),
+  salao_id        uuid not null references public.saloes(id) on delete cascade,
+  cliente_id      uuid not null references public.clientes(id) on delete restrict,
+  profissional_id uuid not null references public.profissionais(id) on delete restrict,
+  inicio          timestamptz not null,
+  fim             timestamptz not null,
+  status          text not null default 'confirmado'
+                  check (status in ('pendente','confirmado','em_atendimento',
+                                    'concluido','cancelado','faltou')),
+  origem          text not null default 'recepcao'
+                  check (origem in ('online','recepcao','whatsapp','profissional')),
+  valor_previsto  numeric(10,2) not null default 0,
+  obs             text,
+  cancelado_motivo text,
+  -- Campos do sinal. Ficam aqui desde já, vazios, porque adicionar coluna em
+  -- tabela grande depois é bem mais caro que criar junto.
+  sinal_exigido   numeric(10,2) not null default 0,
+  sinal_pago      numeric(10,2) not null default 0,
+  sinal_ref       text,
+
+  -- Quem senta na cadeira, quando não é o titular da ficha. Barbearia vive
+  -- disso: o pai marca e leva o filho. O nome do menor fica aqui, como texto,
+  -- vinculado ao responsável — de propósito.
+  --
+  -- Cadastrar criança seria criar um titular de dados menor de idade, com
+  -- tudo o que a LGPD exige junto (consentimento do responsável, tratamento
+  -- específico). Guardar só o primeiro nome dentro do agendamento do pai
+  -- resolve a operação sem abrir esse capítulo. O telefone continua sendo o
+  -- do responsável, e é para ele que o lembrete vai.
+  atendido_nome   text,
+
+  criado_por      uuid references public.perfis(id) on delete set null,
+  criado_em       timestamptz not null default now(),
+  check (fim > inicio),
+
+  -- ── A TRAVA ──────────────────────────────────────────────────────────────
+  -- Aqui está a diferença mais importante em relação ao AdminPro. Lá o
+  -- conflito de horário é conferido no JavaScript (`hrConflita`), então duas
+  -- recepcionistas clicando ao mesmo tempo conseguem marcar o mesmo horário
+  -- com o mesmo profissional — o navegador de uma não sabe da outra.
+  --
+  -- Aqui quem recusa é o banco. Não tem como furar: nem por corrida entre
+  -- duas telas, nem chamando a API direto, nem com o JavaScript desligado.
+  -- '[)' = fim exclusivo, então 09:00-10:00 e 10:00-11:00 NÃO se chocam.
+  --
+  -- Cancelado e faltou saem da regra: o horário volta a ficar livre.
+  constraint agenda_sem_choque exclude using gist (
+    profissional_id with =,
+    tstzrange(inicio, fim, '[)') with &&
+  ) where (status in ('pendente','confirmado','em_atendimento','concluido'))
+);
+
+create index if not exists ix_agend_dia     on public.agendamentos(salao_id, inicio);
+create index if not exists ix_agend_prof    on public.agendamentos(profissional_id, inicio);
+create index if not exists ix_agend_cliente on public.agendamentos(cliente_id, inicio desc);
+
+-- Um atendimento pode ter vários serviços: corte + barba + sobrancelha.
+-- A soma das durações é o que define o `fim` do agendamento.
+--
+-- Nesta fase, o agendamento inteiro é de UM profissional (a trava acima é por
+-- profissional). Serviço com profissional diferente no mesmo horário — a
+-- manicure enquanto a tinta age — fica para a fase 2 e vai exigir mover a
+-- trava para cá.
+create table if not exists public.agendamento_servicos (
+  id             uuid primary key default gen_random_uuid(),
+  agendamento_id uuid not null references public.agendamentos(id) on delete cascade,
+  servico_id     uuid not null references public.servicos(id) on delete restrict,
+  ordem          smallint not null default 1,
+  -- Copiados no momento da marcação: se o preço da tabela mudar amanhã, o que
+  -- foi combinado com o cliente continua valendo.
+  duracao_min    int not null check (duracao_min > 0),
+  preco          numeric(10,2) not null default 0,
+  comissao_pct   numeric(5,2) not null default 0
+);
+
+create index if not exists ix_ags_agend on public.agendamento_servicos(agendamento_id);
+
+-- ---------------------------------------------------------------------------
+-- 6b) LISTA DE ESPERA
+--
+-- Dia cheio é o momento em que a maioria dos sistemas perde o cliente: mostra
+-- "sem horário" e o cara fecha a página. Aqui ele deixa o nome, e quando
+-- alguém cancela o salão já sabe para quem oferecer.
+--
+-- Vale dos dois lados: o cliente não some, e a cadeira vaga não fica vazia —
+-- que é o buraco de faturamento que ninguém enxerga, porque cancelamento não
+-- aparece em relatório nenhum.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.lista_espera (
+  id              uuid primary key default gen_random_uuid(),
+  salao_id        uuid not null references public.saloes(id) on delete cascade,
+  cliente_id      uuid not null references public.clientes(id) on delete cascade,
+  -- Nulo = aceita qualquer profissional. Quem aceita qualquer um entra na
+  -- frente na hora de oferecer, porque a vaga que surgir serve para ele.
+  profissional_id uuid references public.profissionais(id) on delete cascade,
+  -- O que a pessoa queria fazer, para o salão saber se a vaga cabe.
+  servicos        jsonb not null default '[]'::jsonb,
+  duracao_min     int not null default 30 check (duracao_min > 0),
+  -- Faixa de interesse. Mesma data nos dois campos = "só esse dia".
+  de              date not null,
+  ate             date not null,
+  -- Turno preferido: 'manha', 'tarde', 'noite' ou 'qualquer'.
+  turno           text not null default 'qualquer'
+                  check (turno in ('manha','tarde','noite','qualquer')),
+  obs             text,
+  status          text not null default 'aguardando'
+                  check (status in ('aguardando','avisado','atendido','desistiu','expirou')),
+  avisado_em      timestamptz,
+  criado_em       timestamptz not null default now(),
+  check (ate >= de)
+);
+
+-- A ordem de atendimento é a ordem de chegada. Índice parcial porque só
+-- interessa quem ainda está esperando.
+create index if not exists ix_espera_fila
+  on public.lista_espera(salao_id, de, criado_em)
+  where status = 'aguardando';
+
+create index if not exists ix_espera_cliente on public.lista_espera(cliente_id);
+
+-- Quem está esperando por uma vaga que acabou de abrir. O salão chama esta
+-- função depois de um cancelamento; ela devolve a fila em ordem de chegada,
+-- já filtrada por quem serve para aquele buraco.
+-- ⚠ TUDO AQUI ACONTECE NO FUSO DO SALÃO, e isso não é detalhe.
+--
+-- `inicio` é timestamptz, guardado em UTC. `extract(hour from ...)` e o cast
+-- `::date` usam o fuso da SESSÃO, não o do salão — e a sessão do PostgREST
+-- roda em UTC. Escrito do jeito ingênuo, um horário das 9h de São Paulo vira
+-- 12h para o Postgres, e quem pediu "manhã" nunca é chamado.
+--
+-- Foi assim que este bug apareceu: o teste "vaga de manhã chama quem pediu
+-- manhã" falhou na primeira execução. Na produção ele não falharia alto —
+-- só chamaria as pessoas erradas, calado, para sempre.
+--
+-- Por isso a conversão explícita com `at time zone`, que transforma o
+-- timestamptz no horário de parede daquele salão.
+create or replace function public.espera_para_vaga(
+  p_salao uuid, p_profissional uuid, p_inicio timestamptz, p_fim timestamptz)
+returns setof public.lista_espera
+language sql stable as $$
+  with tz as (
+    select coalesce(nullif(fuso, ''), 'America/Sao_Paulo') as nome
+      from public.saloes where id = p_salao
+  ),
+  parede as (   -- o horário como quem está no salão o lê no relógio
+    select (p_inicio at time zone (select nome from tz)) as quando
+  )
+  select e.*
+    from public.lista_espera e
+   where e.salao_id = p_salao
+     and e.status = 'aguardando'
+     and (e.profissional_id is null or e.profissional_id = p_profissional)
+     and (select quando from parede)::date between e.de and e.ate
+     -- O serviço precisa caber no buraco que abriu.
+     and e.duracao_min <= extract(epoch from (p_fim - p_inicio)) / 60
+     and (e.turno = 'qualquer'
+          or (e.turno = 'manha'
+              and extract(hour from (select quando from parede)) < 12)
+          or (e.turno = 'tarde'
+              and extract(hour from (select quando from parede)) between 12 and 17)
+          or (e.turno = 'noite'
+              and extract(hour from (select quando from parede)) >= 18))
+   order by
+     -- Quem aceita qualquer profissional primeiro: a vaga serve para ele com
+     -- certeza, e chamar quem só quer a Ana quando vagou o Zé é perder tempo.
+     (e.profissional_id is null) desc,
+     e.criado_em
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 7) COMANDA, PAGAMENTO E COMISSÃO
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.produtos (
+  id           uuid primary key default gen_random_uuid(),
+  salao_id     uuid not null references public.saloes(id) on delete cascade,
+  nome         text not null,
+  marca        text,
+  preco        numeric(10,2) not null default 0 check (preco >= 0),
+  custo        numeric(10,2) not null default 0 check (custo >= 0),
+  estoque      numeric(10,2) not null default 0,
+  comissao_pct numeric(5,2) not null default 0
+               check (comissao_pct between 0 and 100),
+  ativo        boolean not null default true
+);
+
+-- Numeração por salão (comanda 1, 2, 3... em cada salão, não global).
+-- Contador com UPDATE atômico: dois caixas fechando junto não tiram o mesmo
+-- número, que é o que aconteceria com "select max(numero)+1".
+create table if not exists public.contadores (
+  salao_id uuid not null references public.saloes(id) on delete cascade,
+  nome     text not null,
+  valor    bigint not null default 0,
+  primary key (salao_id, nome)
+);
+
+create or replace function public.proximo_numero(p_salao uuid, p_nome text)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare v bigint;
+begin
+  insert into public.contadores (salao_id, nome, valor)
+       values (p_salao, p_nome, 1)
+  on conflict (salao_id, nome)
+    do update set valor = contadores.valor + 1
+  returning valor into v;
+  return v;
+end $$;
+
+create table if not exists public.comandas (
+  id             uuid primary key default gen_random_uuid(),
+  salao_id       uuid not null references public.saloes(id) on delete cascade,
+  agendamento_id uuid references public.agendamentos(id) on delete set null,
+  cliente_id     uuid not null references public.clientes(id) on delete restrict,
+  numero         bigint not null,
+  status         text not null default 'aberta'
+                 check (status in ('aberta','fechada','cancelada')),
+  desconto       numeric(10,2) not null default 0 check (desconto >= 0),
+  desconto_motivo text,
+  aberta_em      timestamptz not null default now(),
+  fechada_em     timestamptz,
+  aberta_por     uuid references public.perfis(id) on delete set null,
+  unique (salao_id, numero)
+);
+
+create index if not exists ix_comanda_salao on public.comandas(salao_id, aberta_em desc);
+
+create or replace function public.comanda_numera()
+returns trigger language plpgsql as $$
+begin
+  if new.numero is null then
+    new.numero := public.proximo_numero(new.salao_id, 'comanda');
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists tg_comanda_numera on public.comandas;
+create trigger tg_comanda_numera before insert on public.comandas
+  for each row execute function public.comanda_numera();
+
+create table if not exists public.comanda_itens (
+  id              uuid primary key default gen_random_uuid(),
+  comanda_id      uuid not null references public.comandas(id) on delete cascade,
+  tipo            text not null check (tipo in ('servico','produto')),
+  servico_id      uuid references public.servicos(id) on delete set null,
+  produto_id      uuid references public.produtos(id) on delete set null,
+  descricao       text not null,
+  qtd             numeric(10,2) not null default 1 check (qtd > 0),
+  preco_unit      numeric(10,2) not null default 0 check (preco_unit >= 0),
+  -- Quem executou. É por item, não por comanda: o corte é do João, a
+  -- escova é da Ana, e a comissão de cada um sai certa no fim do mês.
+  profissional_id uuid references public.profissionais(id) on delete set null,
+  comissao_pct    numeric(5,2) not null default 0
+                  check (comissao_pct between 0 and 100),
+  -- Calculados pelo banco: ninguém soma errado, e não dá pra divergir da tela.
+  total           numeric(10,2)
+                  generated always as (round(qtd * preco_unit, 2)) stored,
+  comissao_valor  numeric(10,2)
+                  generated always as (round(qtd * preco_unit * comissao_pct / 100, 2)) stored,
+  -- Item tem que apontar para o cadastro certo do seu tipo.
+  check ((tipo = 'servico' and produto_id is null)
+      or (tipo = 'produto' and servico_id is null))
+);
+
+create index if not exists ix_item_comanda on public.comanda_itens(comanda_id);
+create index if not exists ix_item_prof on public.comanda_itens(profissional_id);
+
+create table if not exists public.pagamentos (
+  id          uuid primary key default gen_random_uuid(),
+  comanda_id  uuid not null references public.comandas(id) on delete cascade,
+  forma       text not null
+              check (forma in ('dinheiro','pix','debito','credito',
+                               'transferencia','cortesia','pacote')),
+  valor       numeric(10,2) not null check (valor > 0),
+  parcelas    smallint not null default 1 check (parcelas >= 1),
+  -- Taxa da maquininha: o salão recebe menos do que o cliente pagou.
+  taxa        numeric(10,2) not null default 0 check (taxa >= 0),
+  recebido_em timestamptz not null default now()
+);
+
+create index if not exists ix_pgto_comanda on public.pagamentos(comanda_id);
+
+-- Total da comanda: soma dos itens menos desconto. Vista, não coluna — assim
+-- não existe o caso de o total guardado discordar dos itens guardados.
+--
+-- security_invoker = true é OBRIGATÓRIO aqui. Sem isso a vista roda com os
+-- poderes de quem a criou (postgres) e passa por cima do RLS das tabelas de
+-- baixo — qualquer pessoa logada leria o faturamento de todos os salões.
+-- É o furo mais silencioso que existe no Supabase: a tabela está protegida,
+-- a vista sobre ela não está.
+create or replace view public.comandas_totais
+with (security_invoker = true) as
+  select c.id,
+         c.salao_id,
+         c.numero,
+         c.status,
+         coalesce(sum(i.total), 0)                 as subtotal,
+         c.desconto,
+         coalesce(sum(i.total), 0) - c.desconto    as total,
+         coalesce(sum(i.comissao_valor), 0)        as comissao_total
+    from public.comandas c
+    left join public.comanda_itens i on i.comanda_id = c.id
+   group by c.id;
+
+-- ###########################################################################
+-- ## 02_rls.sql
+-- ###########################################################################
+
+-- ===========================================================================
+-- AgendaPro — 02_rls.sql
+-- A segurança de verdade. Rodar DEPOIS do 01_schema.sql.
+--
+-- Mesma filosofia do AdminPro: quem protege o dado não é o JavaScript da
+-- página, é a regra dentro do banco. O Supabase expõe uma API REST pública
+-- sobre estas tabelas — qualquer pessoa com a chave anônima (que está no HTML,
+-- e tudo bem) pode chamar direto do navegador, sem passar pela nossa tela.
+-- Se o RLS deixar, o dado sai.
+--
+-- A mudança em relação ao AdminPro: lá a pergunta era "qual é o seu
+-- condomínio?", uma coluna só. Aqui é "você tem vínculo com ESTE salão, e em
+-- que papel?" — porque a mesma pessoa pode ser cliente em um e profissional
+-- em outro.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1) AS PERGUNTAS QUE AS POLICIES FAZEM
+--
+-- Todas são `security definer` porque precisam ler `vinculos` — e `vinculos`
+-- também tem RLS. Sem definer, a função cairia na própria regra que ela existe
+-- para responder (recursão infinita, erro na primeira consulta).
+-- `set search_path = public` fecha a porta de sequestro de nome de tabela.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.is_super() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select super_admin from public.perfis where id = auth.uid()), false)
+$$;
+
+-- Papel mais alto que a pessoa tem neste salão. Null = nenhum vínculo ativo.
+create or replace function public.papel_no_salao(p_salao uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select papel
+    from public.vinculos
+   where perfil_id = auth.uid()
+     and salao_id  = p_salao
+     and status    = 'ativo'
+   order by array_position(
+     array['dono','admin','recepcao','profissional','cliente'], papel)
+   limit 1
+$$;
+
+create or replace function public.tem_acesso(p_salao uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_super() or papel_no_salao(p_salao) is not null
+$$;
+
+-- Equipe = trabalha no salão. Cliente NÃO é equipe.
+create or replace function public.e_equipe(p_salao uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_super()
+      or papel_no_salao(p_salao) in ('dono','admin','recepcao','profissional')
+$$;
+
+-- Quem manda: mexe em serviço, preço, profissional e comissão.
+create or replace function public.e_gestor(p_salao uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_super() or papel_no_salao(p_salao) in ('dono','admin')
+$$;
+
+-- Recepção e gestão veem a agenda inteira; profissional vê a dele.
+create or replace function public.ve_agenda_toda(p_salao uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_super() or papel_no_salao(p_salao) in ('dono','admin','recepcao')
+$$;
+
+-- A ficha DESTA pessoa NESTE salão. É o que amarra o cliente logado aos
+-- próprios agendamentos, sem deixá-lo perto dos agendamentos dos outros.
+create or replace function public.meu_cliente_id(p_salao uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.clientes
+   where salao_id = p_salao and perfil_id = auth.uid()
+   limit 1
+$$;
+
+-- O profissional logado, dentro deste salão.
+create or replace function public.meu_profissional_id(p_salao uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.profissionais
+   where salao_id = p_salao and perfil_id = auth.uid() and ativo
+   limit 1
+$$;
+
+-- ── Três atalhos para a comanda, e o motivo de existirem ──────────────────
+--
+-- A policy de `comandas` precisa saber se o profissional tem item nela; a de
+-- `comanda_itens` precisa saber de que salão é a comanda. Escritas como
+-- subconsulta comum, uma dispara a policy da outra e o Postgres para com
+-- "infinite recursion detected in policy" — foi o que aconteceu aqui.
+--
+-- Sendo `security definer`, estas funções não passam pelo RLS, e o ciclo se
+-- rompe. São de leitura e devolvem um dado só, então não abrem porta nenhuma.
+create or replace function public.salao_da_comanda(p_comanda uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select salao_id from public.comandas where id = p_comanda
+$$;
+
+create or replace function public.cliente_da_comanda(p_comanda uuid) returns uuid
+language sql stable security definer set search_path = public as $$
+  select cliente_id from public.comandas where id = p_comanda
+$$;
+
+create or replace function public.tenho_item_na_comanda(p_comanda uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+      from public.comanda_itens i
+      join public.comandas c on c.id = i.comanda_id
+     where i.comanda_id = p_comanda
+       and i.profissional_id = meu_profissional_id(c.salao_id))
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 2) LIGAR O RLS EM TUDO
+--
+-- Tabela sem RLS no Supabase é tabela aberta na internet. A lista abaixo tem
+-- que cobrir TODA tabela do 01_schema.sql — se criar tabela nova, volte aqui.
+-- ---------------------------------------------------------------------------
+
+alter table public.saloes                 enable row level security;
+alter table public.perfis                 enable row level security;
+alter table public.vinculos               enable row level security;
+alter table public.profissionais          enable row level security;
+alter table public.servicos               enable row level security;
+alter table public.servicos_profissionais enable row level security;
+alter table public.jornadas               enable row level security;
+alter table public.bloqueios              enable row level security;
+alter table public.clientes               enable row level security;
+alter table public.agendamentos           enable row level security;
+alter table public.agendamento_servicos   enable row level security;
+alter table public.lista_espera           enable row level security;
+alter table public.produtos               enable row level security;
+alter table public.comandas               enable row level security;
+alter table public.comanda_itens          enable row level security;
+alter table public.pagamentos             enable row level security;
+alter table public.contadores             enable row level security;
+alter table public.planos                 enable row level security;
+alter table public.assinaturas            enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- 3) SALÃO
+-- ---------------------------------------------------------------------------
+
+drop policy if exists salao_ler on public.saloes;
+create policy salao_ler on public.saloes for select to authenticated
+  using ( tem_acesso(id) );
+
+drop policy if exists salao_gerir on public.saloes;
+create policy salao_gerir on public.saloes for update to authenticated
+  using ( e_gestor(id) ) with check ( e_gestor(id) );
+
+-- Criar e apagar salão é ato da plataforma, não do salão.
+drop policy if exists salao_criar on public.saloes;
+create policy salao_criar on public.saloes for insert to authenticated
+  with check ( is_super() );
+
+-- ---------------------------------------------------------------------------
+-- 3b) PLANO E ASSINATURA
+--
+-- A tabela de planos é vitrine: todo mundo logado pode ler, porque é o que a
+-- tela de "trocar de plano" mostra. Quem MEXE é só a plataforma.
+--
+-- A assinatura o dono lê — precisa saber até quando vai o teste e quanto
+-- paga — mas não escreve. Deixar o dono editar a própria assinatura é o
+-- mesmo que deixar o cliente digitar o preço: ele se põe no plano de 20
+-- profissionais em dois cliques.
+-- ---------------------------------------------------------------------------
+
+-- Preço é público. A página de cadastro mostra os planos ANTES de existir
+-- login — se `anon` não lê esta tabela, o visitante vê a tela de preços
+-- vazia e vai embora. Foi assim que este furo apareceu: a bancada de teste
+-- respondeu "permission denied for table planos" ao carregar a página.
+drop policy if exists plano_ler on public.planos;
+create policy plano_ler on public.planos for select to anon, authenticated
+  using ( ativo or is_super() );
+
+drop policy if exists plano_gerir on public.planos;
+create policy plano_gerir on public.planos for all to authenticated
+  using ( is_super() ) with check ( is_super() );
+
+drop policy if exists assin_ler on public.assinaturas;
+create policy assin_ler on public.assinaturas for select to authenticated
+  using ( e_gestor(salao_id) );
+
+drop policy if exists assin_gerir on public.assinaturas;
+create policy assin_gerir on public.assinaturas for all to authenticated
+  using ( is_super() ) with check ( is_super() );
+
+-- ---------------------------------------------------------------------------
+-- 4) PERFIL — a identidade global
+--
+-- Ninguém lê o perfil de ninguém. Nem a recepção: para ela existe a ficha do
+-- cliente (`clientes`), que é a cópia daquele salão. Assim o telefone que a
+-- pessoa deu na barbearia não aparece no salão do outro lado da rua.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists perfil_meu on public.perfis;
+create policy perfil_meu on public.perfis for select to authenticated
+  using ( id = auth.uid() or is_super() );
+
+drop policy if exists perfil_editar on public.perfis;
+create policy perfil_editar on public.perfis for update to authenticated
+  using ( id = auth.uid() )
+  -- Ninguém se promove a dono da plataforma editando o próprio perfil.
+  with check ( id = auth.uid()
+               and super_admin = (select p.super_admin from public.perfis p
+                                   where p.id = auth.uid()) );
+
+-- O cadastro em si é feito pelo gatilho do 03 (a partir do auth.users),
+-- não por INSERT vindo do navegador. Por isso não existe policy de insert.
+
+-- ---------------------------------------------------------------------------
+-- 5) VÍNCULOS — quem entra em qual salão
+-- ---------------------------------------------------------------------------
+
+drop policy if exists vinc_meus on public.vinculos;
+create policy vinc_meus on public.vinculos for select to authenticated
+  using ( perfil_id = auth.uid() or e_equipe(salao_id) );
+
+-- Virar CLIENTE de um salão é livre: é o que acontece quando a pessoa abre o
+-- link e agenda pela primeira vez. Virar equipe, não — o dono precisa liberar.
+drop policy if exists vinc_virar_cliente on public.vinculos;
+create policy vinc_virar_cliente on public.vinculos for insert to authenticated
+  with check ( perfil_id = auth.uid() and papel = 'cliente' and status = 'ativo' );
+
+drop policy if exists vinc_gerir on public.vinculos;
+create policy vinc_gerir on public.vinculos for all to authenticated
+  using ( e_gestor(salao_id) ) with check ( e_gestor(salao_id) );
+
+-- ---------------------------------------------------------------------------
+-- 6) CATÁLOGO — profissionais, serviços, jornada
+--
+-- Cliente logado LÊ (precisa escolher com quem e o quê), só a gestão ESCREVE.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists prof_ler on public.profissionais;
+create policy prof_ler on public.profissionais for select to authenticated
+  using ( tem_acesso(salao_id) );
+drop policy if exists prof_gerir on public.profissionais;
+create policy prof_gerir on public.profissionais for all to authenticated
+  using ( e_gestor(salao_id) ) with check ( e_gestor(salao_id) );
+
+drop policy if exists serv_ler on public.servicos;
+create policy serv_ler on public.servicos for select to authenticated
+  using ( tem_acesso(salao_id) );
+drop policy if exists serv_gerir on public.servicos;
+create policy serv_gerir on public.servicos for all to authenticated
+  using ( e_gestor(salao_id) ) with check ( e_gestor(salao_id) );
+
+drop policy if exists sp_ler on public.servicos_profissionais;
+create policy sp_ler on public.servicos_profissionais for select to authenticated
+  using ( exists (select 1 from public.servicos s
+                   where s.id = servico_id and tem_acesso(s.salao_id)) );
+drop policy if exists sp_gerir on public.servicos_profissionais;
+create policy sp_gerir on public.servicos_profissionais for all to authenticated
+  using ( exists (select 1 from public.servicos s
+                   where s.id = servico_id and e_gestor(s.salao_id)) )
+  with check ( exists (select 1 from public.servicos s
+                        where s.id = servico_id and e_gestor(s.salao_id)) );
+
+drop policy if exists jor_ler on public.jornadas;
+create policy jor_ler on public.jornadas for select to authenticated
+  using ( exists (select 1 from public.profissionais p
+                   where p.id = profissional_id and tem_acesso(p.salao_id)) );
+drop policy if exists jor_gerir on public.jornadas;
+create policy jor_gerir on public.jornadas for all to authenticated
+  using ( exists (select 1 from public.profissionais p
+                   where p.id = profissional_id
+                     and (e_gestor(p.salao_id) or p.perfil_id = auth.uid())) )
+  with check ( exists (select 1 from public.profissionais p
+                        where p.id = profissional_id
+                          and (e_gestor(p.salao_id) or p.perfil_id = auth.uid())) );
+
+-- Bloqueio é só da equipe: o motivo ("consulta médica") é assunto interno.
+-- O cliente descobre que o horário sumiu pela função de horários livres, sem
+-- saber por quê — que é exatamente o certo.
+drop policy if exists bloq_equipe on public.bloqueios;
+create policy bloq_equipe on public.bloqueios for select to authenticated
+  using ( e_equipe(salao_id) );
+drop policy if exists bloq_gerir on public.bloqueios;
+create policy bloq_gerir on public.bloqueios for all to authenticated
+  using ( e_gestor(salao_id)
+          or profissional_id = meu_profissional_id(salao_id) )
+  with check ( e_gestor(salao_id)
+               or profissional_id = meu_profissional_id(salao_id) );
+
+-- ---------------------------------------------------------------------------
+-- 7) CLIENTE — a ficha
+-- ---------------------------------------------------------------------------
+
+drop policy if exists cli_equipe on public.clientes;
+create policy cli_equipe on public.clientes for all to authenticated
+  using ( e_equipe(salao_id) ) with check ( e_equipe(salao_id) );
+
+-- O cliente vê e edita a PRÓPRIA ficha — e só os campos dele. Note que
+-- `obs`, `alergias` e `ficha` ficam visíveis para ele: é dado dele, LGPD
+-- manda deixar ver. Se um dia a equipe quiser anotação interna que o cliente
+-- não lê, isso vira outra tabela — não um campo escondido nesta.
+drop policy if exists cli_eu on public.clientes;
+create policy cli_eu on public.clientes for select to authenticated
+  using ( perfil_id = auth.uid() );
+
+-- Virar cliente de um salão é ato da própria pessoa: é o que acontece na
+-- primeira vez que ela marca pelo link. Sem esta policy o autoatendimento
+-- simplesmente não funciona — e era o caso: o furo só apareceu no teste
+-- ponta a ponta contra um Postgres de verdade, porque no modo demonstração
+-- não existe RLS para barrar.
+--
+-- É seguro: o `with check` amarra a ficha ao próprio perfil, então ninguém
+-- cria ficha em nome de outra pessoa. E o índice único impede duplicar.
+drop policy if exists cli_eu_criar on public.clientes;
+create policy cli_eu_criar on public.clientes for insert to authenticated
+  with check ( perfil_id = auth.uid() );
+
+drop policy if exists cli_eu_editar on public.clientes;
+create policy cli_eu_editar on public.clientes for update to authenticated
+  using ( perfil_id = auth.uid() )
+  with check ( perfil_id = auth.uid() );
+
+-- ---------------------------------------------------------------------------
+-- 8) AGENDA — a policy mais importante do sistema
+--
+-- Aqui é onde um erro custa caro. Uma policy generosa do tipo
+--   using ( tem_acesso(salao_id) )
+-- pareceria certa na tela (o app só mostra o que é do cliente), e vazaria
+-- nome, telefone e histórico de TODA a clientela para qualquer pessoa
+-- cadastrada — bastaria chamar a API REST direto do navegador.
+--
+-- Por isso o cliente enxerga exatamente os agendamentos cujo `cliente_id`
+-- é a ficha dele, e nada mais. Horário livre ele obtém pela função do
+-- 03_funcoes_agenda.sql, que devolve horários — não devolve linhas.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists agenda_ler on public.agendamentos;
+create policy agenda_ler on public.agendamentos for select to authenticated
+  using (
+       ve_agenda_toda(salao_id)                          -- dono, admin, recepção
+    or profissional_id = meu_profissional_id(salao_id)   -- o profissional, a dele
+    or cliente_id      = meu_cliente_id(salao_id)        -- o cliente, os dele
+  );
+
+-- ⚠ NUNCA use `for all` numa tabela onde a leitura é restrita.
+--
+-- `for all` vale também para SELECT, e o Postgres soma as policies permissivas
+-- com OU. Uma policy de escrita `for all using (e_equipe(salao_id))` colocada
+-- ao lado da `agenda_ler` acima ANULA a restrição de leitura: a profissional,
+-- que é equipe, volta a enxergar a agenda das colegas.
+--
+-- Foi exatamente isso que aconteceu na primeira versão deste arquivo, e quem
+-- pegou foi o caso 'a profissional vê a própria agenda' do 02_rls.test.sql.
+-- Por isso escrita vai separada, verbo por verbo.
+--
+-- Cliente não escreve aqui: ele passa pela função `agendar()`, que confere
+-- jornada, bloqueio e antecedência. Sem isso marcaria 3h da manhã de domingo,
+-- com o preço que ele mesmo escolhesse.
+drop policy if exists agenda_equipe on public.agendamentos;
+drop policy if exists agenda_criar on public.agendamentos;
+create policy agenda_criar on public.agendamentos for insert to authenticated
+  with check ( e_equipe(salao_id) );
+
+-- Remarcar o atendimento de outra pessoa é coisa da recepção. O profissional
+-- mexe no que é dele.
+drop policy if exists agenda_editar on public.agendamentos;
+create policy agenda_editar on public.agendamentos for update to authenticated
+  using ( ve_agenda_toda(salao_id)
+          or profissional_id = meu_profissional_id(salao_id) )
+  with check ( ve_agenda_toda(salao_id)
+               or profissional_id = meu_profissional_id(salao_id) );
+
+drop policy if exists agenda_apagar on public.agendamentos;
+create policy agenda_apagar on public.agendamentos for delete to authenticated
+  using ( ve_agenda_toda(salao_id) );
+
+drop policy if exists ags_ler on public.agendamento_servicos;
+create policy ags_ler on public.agendamento_servicos for select to authenticated
+  using ( exists (select 1 from public.agendamentos a
+                   where a.id = agendamento_id
+                     and ( ve_agenda_toda(a.salao_id)
+                        or a.profissional_id = meu_profissional_id(a.salao_id)
+                        or a.cliente_id      = meu_cliente_id(a.salao_id) )) );
+
+-- Mesma armadilha da tabela de cima: escrita separada, para não reabrir a
+-- leitura restrita da `ags_ler`.
+drop policy if exists ags_equipe on public.agendamento_servicos;
+drop policy if exists ags_criar on public.agendamento_servicos;
+create policy ags_criar on public.agendamento_servicos for insert to authenticated
+  with check ( exists (select 1 from public.agendamentos a
+                        where a.id = agendamento_id and e_equipe(a.salao_id)) );
+
+drop policy if exists ags_editar on public.agendamento_servicos;
+create policy ags_editar on public.agendamento_servicos for update to authenticated
+  using ( exists (select 1 from public.agendamentos a
+                   where a.id = agendamento_id and e_equipe(a.salao_id)) )
+  with check ( exists (select 1 from public.agendamentos a
+                        where a.id = agendamento_id and e_equipe(a.salao_id)) );
+
+drop policy if exists ags_apagar on public.agendamento_servicos;
+create policy ags_apagar on public.agendamento_servicos for delete to authenticated
+  using ( exists (select 1 from public.agendamentos a
+                   where a.id = agendamento_id and e_equipe(a.salao_id)) );
+
+-- ---------------------------------------------------------------------------
+-- 8b) LISTA DE ESPERA
+--
+-- Mesma regra da agenda: a equipe vê a fila inteira, o cliente vê só o lugar
+-- dele. Uma fila aberta diria a todo mundo quem mais quer horário naquele
+-- salão — e com nome e ficha junto, porque `cliente_id` leva a `clientes`.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists espera_ler on public.lista_espera;
+create policy espera_ler on public.lista_espera for select to authenticated
+  using ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+-- Entrar na fila é ato do próprio cliente, ou da recepção por telefone.
+drop policy if exists espera_entrar on public.lista_espera;
+create policy espera_entrar on public.lista_espera for insert to authenticated
+  with check ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+-- O cliente desiste; a equipe move o status conforme chama e atende.
+drop policy if exists espera_mexer on public.lista_espera;
+create policy espera_mexer on public.lista_espera for update to authenticated
+  using ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) )
+  with check ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+drop policy if exists espera_apagar on public.lista_espera;
+create policy espera_apagar on public.lista_espera for delete to authenticated
+  using ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+-- ---------------------------------------------------------------------------
+-- 9) DINHEIRO — comanda, itens, pagamento, produto
+--
+-- Profissional vê o que é dele (a comissão dele). Faturamento do salão é da
+-- gestão. Cliente vê a própria conta, que é o recibo dele.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists prod_ler on public.produtos;
+create policy prod_ler on public.produtos for select to authenticated
+  using ( e_equipe(salao_id) );
+drop policy if exists prod_gerir on public.produtos;
+create policy prod_gerir on public.produtos for all to authenticated
+  using ( e_gestor(salao_id) ) with check ( e_gestor(salao_id) );
+
+drop policy if exists com_ler on public.comandas;
+create policy com_ler on public.comandas for select to authenticated
+  using ( ve_agenda_toda(salao_id)
+          or cliente_id = meu_cliente_id(salao_id)
+          or tenho_item_na_comanda(id) );
+
+drop policy if exists com_caixa on public.comandas;
+create policy com_caixa on public.comandas for all to authenticated
+  using ( ve_agenda_toda(salao_id) ) with check ( ve_agenda_toda(salao_id) );
+
+drop policy if exists item_ler on public.comanda_itens;
+create policy item_ler on public.comanda_itens for select to authenticated
+  using ( ve_agenda_toda(salao_da_comanda(comanda_id))
+          or cliente_da_comanda(comanda_id)
+               = meu_cliente_id(salao_da_comanda(comanda_id))
+          or profissional_id
+               = meu_profissional_id(salao_da_comanda(comanda_id)) );
+
+-- Terceira ocorrência da mesma armadilha, e a de consequência mais
+-- constrangedora: com `for all` aqui, um profissional leria a comissão de
+-- todos os colegas — o item guarda `comissao_pct` e `comissao_valor`.
+drop policy if exists item_caixa on public.comanda_itens;
+drop policy if exists item_criar on public.comanda_itens;
+create policy item_criar on public.comanda_itens for insert to authenticated
+  with check ( e_equipe(salao_da_comanda(comanda_id)) );
+
+drop policy if exists item_editar on public.comanda_itens;
+create policy item_editar on public.comanda_itens for update to authenticated
+  using ( ve_agenda_toda(salao_da_comanda(comanda_id)) )
+  with check ( ve_agenda_toda(salao_da_comanda(comanda_id)) );
+
+drop policy if exists item_apagar on public.comanda_itens;
+create policy item_apagar on public.comanda_itens for delete to authenticated
+  using ( ve_agenda_toda(salao_da_comanda(comanda_id)) );
+
+drop policy if exists pgto_ler on public.pagamentos;
+create policy pgto_ler on public.pagamentos for select to authenticated
+  using ( ve_agenda_toda(salao_da_comanda(comanda_id))
+          or cliente_da_comanda(comanda_id)
+               = meu_cliente_id(salao_da_comanda(comanda_id)) );
+
+drop policy if exists pgto_caixa on public.pagamentos;
+create policy pgto_caixa on public.pagamentos for all to authenticated
+  using ( ve_agenda_toda(salao_da_comanda(comanda_id)) )
+  with check ( ve_agenda_toda(salao_da_comanda(comanda_id)) );
+
+-- `contadores` fica com RLS ligado e SEM nenhuma policy: ninguém alcança pelo
+-- navegador. Só a função `proximo_numero`, que é security definer, escreve
+-- ali. Se alguém pudesse editar, daria para repetir número de comanda.
+
+-- ---------------------------------------------------------------------------
+-- 10) A VITRINE PÚBLICA (sem login)
+--
+-- A página de agendamento precisa mostrar o salão, os serviços e quem atende
+-- ANTES de a pessoa se cadastrar. Isso sai por vistas de colunas escolhidas a
+-- dedo — nunca liberando a tabela para `anon`.
+--
+-- Repare no que NÃO está aqui: preço de custo, comissão, telefone de cliente,
+-- e nada de agendamento. O que é público é o cardápio, não a casa inteira.
+-- ---------------------------------------------------------------------------
+
+create or replace view public.saloes_publicos as
+  select id, slug, nome, tipo, logo, whatsapp, endereco, fuso
+    from public.saloes where status = 'ativo';
+
+create or replace view public.servicos_publicos as
+  select s.id, s.salao_id, s.nome, s.categoria, s.descricao,
+         s.duracao_min, s.preco
+    from public.servicos s
+    join public.saloes sa on sa.id = s.salao_id
+   where s.ativo and s.aceita_online and sa.status = 'ativo';
+
+create or replace view public.profissionais_publicos as
+  select p.id, p.salao_id, coalesce(p.apelido, p.nome) as nome, p.foto,
+         array(select sp.servico_id from public.servicos_profissionais sp
+                where sp.profissional_id = p.id) as servicos
+    from public.profissionais p
+    join public.saloes sa on sa.id = p.salao_id
+   where p.ativo and p.aceita_online and sa.status = 'ativo';
+
+grant select on public.saloes_publicos        to anon, authenticated;
+grant select on public.servicos_publicos      to anon, authenticated;
+grant select on public.profissionais_publicos to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 11) PERMISSÕES DE TABELA
+--
+-- O RLS filtra LINHA; o grant decide se a pessoa chega na TABELA. Precisa dos
+-- dois. `anon` não recebe nada: quem não fez login só enxerga as vistas acima.
+-- ---------------------------------------------------------------------------
+
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update, delete on
+  public.saloes, public.perfis, public.vinculos, public.profissionais,
+  public.servicos, public.servicos_profissionais, public.jornadas,
+  public.bloqueios, public.clientes, public.agendamentos,
+  public.agendamento_servicos, public.lista_espera, public.produtos,
+  public.comandas, public.comanda_itens, public.pagamentos
+  to authenticated;
+
+grant select on public.comandas_totais to authenticated;
+grant select on public.planos to anon, authenticated;
+grant select on public.assinaturas to authenticated;
+
+revoke all on public.contadores from anon, authenticated;
+
+-- ###########################################################################
+-- ## 03_onboarding.sql
+-- ###########################################################################
+
+-- ===========================================================================
+-- AgendaPro — 03_onboarding.sql
+-- O dono se cadastra sozinho. Rodar DEPOIS do 01 e do 02.
+--
+-- O problema que este arquivo resolve: a policy `salao_criar` só deixa
+-- `is_super()` inserir salão, e isso está certo — criar inquilino é ato da
+-- plataforma. Mas se só a plataforma cria, alguém precisa atender o telefone
+-- toda vez que um barbeiro quiser testar às 23h de domingo.
+--
+-- A saída é uma função `security definer`: ela passa por cima do RLS, mas
+-- faz exatamente uma coisa, com as regras todas dentro. O dono não ganha
+-- permissão de escrever em `saloes`; ele ganha permissão de chamar ESTA
+-- função, que escreve por ele do jeito certo.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1) O APELIDO DO SALÃO NO ENDEREÇO
+-- ---------------------------------------------------------------------------
+
+-- "Barbearia Os Meninos dá Vila" -> "barbearia-os-meninos-da-vila"
+-- `unaccent` resolveria isso, mas é extensão a mais para instalar; a
+-- tradução literal cobre o português e não deixa dependência pendurada.
+create or replace function public.virar_slug(p_texto text)
+returns text language sql immutable as $$
+  select trim(both '-' from
+    regexp_replace(
+      regexp_replace(
+        lower(translate(coalesce(p_texto,''),
+          'áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ',
+          'aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn')),
+        '[^a-z0-9]+', '-', 'g'),
+      '-{2,}', '-', 'g'))
+$$;
+
+-- O apelido está livre? A tela pergunta enquanto a pessoa digita, então
+-- precisa ser alcançável por quem ainda não fez login.
+create or replace function public.slug_disponivel(p_slug text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select p_slug ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'
+     and not exists (select 1 from public.saloes where slug = p_slug)
+$$;
+
+-- Sugere um apelido livre a partir do nome. Se "barbearia-do-ze" já existe,
+-- tenta "barbearia-do-ze-2", e assim por diante — em vez de devolver erro e
+-- deixar a pessoa adivinhando.
+create or replace function public.sugerir_slug(p_nome text)
+returns text language plpgsql stable security definer set search_path = public as $$
+declare base text; tentativa text; i int := 1;
+begin
+  base := left(public.virar_slug(p_nome), 40);
+  if length(base) < 3 then base := 'salao'; end if;
+  tentativa := base;
+  while exists (select 1 from public.saloes where slug = tentativa) loop
+    i := i + 1;
+    tentativa := base || '-' || i;
+    if i > 200 then                       -- rede, para não girar à toa
+      tentativa := base || '-' || substr(md5(random()::text), 1, 6);
+      exit;
+    end if;
+  end loop;
+  return tentativa;
+end $$;
+
+-- Documento fiscal fica separado, com RLS próprio: é o dado mais sensível
+-- do cadastro do dono e não tem por que morar perto do resto.
+create table if not exists public.documentos_cobranca (
+  salao_id  uuid primary key references public.saloes(id) on delete cascade,
+  documento text not null check (documento ~ '^[0-9]{11}$|^[0-9]{14}$'),
+  criado_em timestamptz not null default now()
+);
+
+alter table public.documentos_cobranca enable row level security;
+
+drop policy if exists doc_ler on public.documentos_cobranca;
+create policy doc_ler on public.documentos_cobranca for select to authenticated
+  using ( e_gestor(salao_id) );
+
+-- Só a plataforma escreve. O dono manda o documento pela função de cadastro;
+-- depois disso, mudar CPF de contrato é assunto de suporte, não de tela.
+drop policy if exists doc_gerir on public.documentos_cobranca;
+create policy doc_gerir on public.documentos_cobranca for all to authenticated
+  using ( is_super() ) with check ( is_super() );
+
+grant select on public.documentos_cobranca to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 2) CRIAR O SALÃO
+--
+-- Uma chamada faz tudo o que precisa acontecer junto: o salão, a assinatura
+-- em teste, o vínculo de dono e o primeiro profissional. Se qualquer parte
+-- falhar, nada fica pela metade — é uma função, logo uma transação.
+--
+-- Meia criação seria o pior resultado possível: um salão sem dono é um
+-- registro que ninguém alcança nem para apagar, porque o RLS pede vínculo.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.criar_salao(
+  p_nome_salao   text,
+  p_tipo         text default 'salao',
+  p_slug         text default null,
+  p_telefone     text default null,
+  p_documento    text default null,      -- CPF ou CNPJ, para a cobrança
+  p_origem       text default null,      -- por onde a pessoa nos achou
+  p_indicado_por text default null
+)
+returns table (salao_id uuid, slug text)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_perfil uuid := auth.uid();
+  v_slug   text;
+  v_salao  uuid;
+  v_dias   int := 7;                      -- duração do teste grátis
+begin
+  if v_perfil is null then
+    raise exception 'Faça login antes de criar o salão.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if not exists (select 1 from public.perfis where id = v_perfil) then
+    raise exception 'Complete seu cadastro antes de criar o salão.'
+      using errcode = 'foreign_key_violation';
+  end if;
+
+  if length(btrim(coalesce(p_nome_salao,''))) < 2 then
+    raise exception 'Dê um nome ao estabelecimento.'
+      using errcode = 'check_violation';
+  end if;
+
+  -- Uma pessoa dona de muitos salões é possível (rede de barbearias), mas
+  -- dezenas viram fábrica de teste grátis. O limite é folgado de propósito.
+  if (select count(*) from public.vinculos
+       where perfil_id = v_perfil and papel = 'dono') >= 10 then
+    raise exception 'Você já tem 10 estabelecimentos. Fale com a gente para abrir mais.'
+      using errcode = 'check_violation';
+  end if;
+
+  v_slug := coalesce(nullif(btrim(p_slug), ''), public.sugerir_slug(p_nome_salao));
+  v_slug := public.virar_slug(v_slug);
+
+  if not public.slug_disponivel(v_slug) then
+    -- Não devolve erro seco: escolhe o próximo livre e avisa qual ficou.
+    v_slug := public.sugerir_slug(v_slug);
+  end if;
+
+  insert into public.saloes (slug, nome, tipo, telefone, whatsapp, status)
+  values (v_slug, btrim(p_nome_salao),
+          coalesce(nullif(p_tipo,''), 'salao'),
+          p_telefone, p_telefone, 'ativo')
+  returning id into v_salao;
+
+  insert into public.assinaturas
+    (salao_id, plano, status, trial_ate, origem, indicado_por)
+  values (v_salao, 'trial', 'trial', current_date + v_dias,
+          p_origem, p_indicado_por);
+
+  insert into public.vinculos (perfil_id, salao_id, papel, status)
+  values (v_perfil, v_salao, 'dono', 'ativo');
+
+  -- O dono também atende, na esmagadora maioria dos casos. Já entra como o
+  -- primeiro profissional — e é justamente o 1 que o teste grátis permite.
+  insert into public.profissionais (salao_id, perfil_id, nome, comissao_pct)
+  select v_salao, v_perfil, p.nome, 100 from public.perfis p where p.id = v_perfil;
+
+  -- O documento é da COBRANÇA, não do salão: guardar CPF junto do cadastro
+  -- público seria expor documento em tabela que o cliente final lê.
+  --
+  -- ⚠ Repare no `documentos_cobranca.salao_id` escrito por extenso. Esta
+  -- função declara `returns table (salao_id …)`, e isso cria uma variável de
+  -- saída com o MESMO NOME da coluna. Um `where salao_id = …` solto aqui
+  -- dentro para o Postgres com "column reference is ambiguous" — foi
+  -- exatamente o que aconteceu na primeira versão. Dentro de plpgsql com
+  -- OUT params, qualifique sempre.
+  -- Insert simples, sem `on conflict`: o salão nasceu duas linhas acima,
+  -- então não existe documento para conflitar. E o alvo do `on conflict` é
+  -- um dos poucos lugares do SQL que NÃO aceita qualificação por tabela,
+  -- então ali a ambiguidade não teria conserto.
+  if p_documento is not null and btrim(p_documento) <> '' then
+    insert into public.documentos_cobranca (salao_id, documento)
+    values (v_salao, regexp_replace(p_documento, '\D', '', 'g'));
+  end if;
+
+  return query select v_salao, v_slug;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 3) QUEM PODE CHAMAR O QUÊ
+--
+-- `criar_salao` é a única porta pela qual alguém de fora cria inquilino, e
+-- é por isso que ela é curta e fechada. Já a consulta de apelido precisa
+-- abrir para quem ainda não entrou: a tela de cadastro pergunta enquanto a
+-- pessoa digita, antes de existir login.
+-- ---------------------------------------------------------------------------
+
+revoke all on function public.criar_salao(text,text,text,text,text,text,text) from public;
+grant execute on function public.criar_salao(text,text,text,text,text,text,text)
+  to authenticated;
+
+grant execute on function public.slug_disponivel(text) to anon, authenticated;
+grant execute on function public.sugerir_slug(text)    to anon, authenticated;
+grant execute on function public.virar_slug(text)      to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 4) O QUE O DONO VÊ DA PRÓPRIA CONTA
+--
+-- Uma vista só, para a tela de assinatura não precisar de quatro consultas.
+-- `security_invoker` é obrigatório: sem isso a vista roda com os poderes de
+-- quem a criou e um dono leria a conta do outro.
+-- ---------------------------------------------------------------------------
+
+create or replace view public.minha_assinatura
+with (security_invoker = true) as
+  select a.salao_id,
+         s.nome        as salao_nome,
+         s.slug,
+         s.tipo,
+         a.plano,
+         pl.nome       as plano_nome,
+         pl.preco_mes,
+         pl.max_profissionais,
+         a.status,
+         a.trial_ate,
+         a.vence_em,
+         (select count(*) from public.profissionais p
+           where p.salao_id = a.salao_id and p.ativo) as profissionais_ativos,
+         case when a.status = 'trial' and a.trial_ate is not null
+              then greatest(a.trial_ate - current_date, 0) end as dias_de_teste
+    from public.assinaturas a
+    join public.saloes s  on s.id = a.salao_id
+    join public.planos pl on pl.codigo = a.plano;
+
+grant select on public.minha_assinatura to authenticated;
