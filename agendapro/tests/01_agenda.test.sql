@@ -304,3 +304,169 @@ do $$ begin perform t_ok('pagamento dividido em duas formas na mesma comanda'); 
 
 \echo ''
 \echo '── Todos os casos passaram ──'
+
+
+\echo ''
+\echo 'Lista de espera — a vaga que abre e a fila que espera'
+
+-- Sábado 22/08: a Ana está cheia. Três pessoas na fila.
+insert into public.lista_espera (id, salao_id, cliente_id, profissional_id,
+                                 duracao_min, de, ate, turno, criado_em) values
+  -- 1ª a chegar, mas só aceita a Ana
+  ('11100000-0000-0000-0000-000000000001',
+   'aaaaaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001',
+   'bbbbbbbb-0000-0000-0000-000000000001', 60, '2026-08-22', '2026-08-22',
+   'qualquer', '2026-08-15 10:00-03'),
+  -- 2ª a chegar, aceita qualquer profissional
+  ('11100000-0000-0000-0000-000000000002',
+   'aaaaaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001',
+   null, 60, '2026-08-22', '2026-08-22', 'qualquer', '2026-08-15 11:00-03'),
+  -- 3ª: só de manhã
+  ('11100000-0000-0000-0000-000000000003',
+   'aaaaaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001',
+   null, 60, '2026-08-22', '2026-08-22', 'manha', '2026-08-15 12:00-03'),
+  -- 4ª: serviço longo, não cabe num buraco de 1h
+  ('11100000-0000-0000-0000-000000000004',
+   'aaaaaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001',
+   null, 180, '2026-08-22', '2026-08-22', 'qualquer', '2026-08-15 13:00-03');
+
+-- Abriu um buraco de 1h à TARDE com a Ana (alguém cancelou às 14h).
+do $$
+declare fila uuid[];
+begin
+  select array_agg(id order by ord) into fila from (
+    select id, row_number() over () as ord
+      from public.espera_para_vaga(
+        'aaaaaaaa-0000-0000-0000-000000000001',
+        'bbbbbbbb-0000-0000-0000-000000000001',
+        '2026-08-22 14:00-03', '2026-08-22 15:00-03')) x;
+
+  -- Quem aceita qualquer profissional vem primeiro, mesmo tendo chegado depois:
+  -- a vaga serve para ele com certeza.
+  if fila[1] = '11100000-0000-0000-0000-000000000002' then
+    perform t_ok('quem aceita qualquer profissional é chamado primeiro');
+  else perform t_falha('ordem da fila errada: veio ' || coalesce(fila[1]::text,'nada'));
+  end if;
+
+  -- Depois dele, quem pediu a Ana especificamente.
+  if fila[2] = '11100000-0000-0000-0000-000000000001' then
+    perform t_ok('depois vem quem pediu justamente essa profissional');
+  else perform t_falha('segunda posição errada');
+  end if;
+
+  -- A de manhã não entra numa vaga das 14h.
+  if not ('11100000-0000-0000-0000-000000000003' = any(fila)) then
+    perform t_ok('quem só pode de manhã não é chamado para vaga da tarde');
+  else perform t_falha('CHAMOU quem só pode de manhã para uma vaga das 14h');
+  end if;
+
+  -- Mecha de 3h não cabe num buraco de 1h.
+  if not ('11100000-0000-0000-0000-000000000004' = any(fila)) then
+    perform t_ok('serviço que não cabe no buraco não é chamado');
+  else perform t_falha('CHAMOU alguém cujo serviço não cabe na vaga');
+  end if;
+
+  if array_length(fila,1) = 2 then
+    perform t_ok('a fila devolveu exatamente as 2 pessoas que servem');
+  else perform t_falha('a fila devolveu ' || coalesce(array_length(fila,1),0) || ' em vez de 2');
+  end if;
+end $$;
+
+-- Vaga de manhã: agora a terceira entra.
+do $$
+declare n int;
+begin
+  select count(*) into n from public.espera_para_vaga(
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-000000000001',
+    '2026-08-22 09:00-03', '2026-08-22 10:00-03')
+   where id = '11100000-0000-0000-0000-000000000003';
+  if n = 1 then perform t_ok('vaga de manhã chama quem pediu manhã');
+  else perform t_falha('quem pediu manhã não foi chamado para vaga das 9h');
+  end if;
+end $$;
+
+-- Quem já foi avisado sai da fila de chamada.
+do $$
+declare n int;
+begin
+  update public.lista_espera set status = 'avisado', avisado_em = now()
+   where id = '11100000-0000-0000-0000-000000000002';
+  select count(*) into n from public.espera_para_vaga(
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-000000000001',
+    '2026-08-22 14:00-03', '2026-08-22 15:00-03');
+  if n = 1 then perform t_ok('quem já foi avisado sai da fila');
+  else perform t_falha('avisado continua sendo chamado (' || n || ' na fila)');
+  end if;
+end $$;
+
+do $$
+begin
+  if recusado($q$insert into public.lista_espera
+                   (salao_id, cliente_id, de, ate)
+                 values ('aaaaaaaa-0000-0000-0000-000000000001',
+                         'dddddddd-0000-0000-0000-000000000001',
+                         '2026-08-30', '2026-08-20')$q$)
+  then perform t_ok('faixa de datas invertida é recusada');
+  else perform t_falha('ACEITOU faixa terminando antes de começar');
+  end if;
+end $$;
+
+
+\echo ''
+\echo 'Atendimento para outra pessoa (o pai que leva o filho)'
+
+do $$
+declare a uuid;
+begin
+  insert into public.agendamentos (salao_id, cliente_id, profissional_id,
+                                   inicio, fim, atendido_nome)
+  values ('aaaaaaaa-0000-0000-0000-000000000001',
+          'dddddddd-0000-0000-0000-000000000001',
+          'bbbbbbbb-0000-0000-0000-000000000002',
+          '2026-08-25 10:00-03', '2026-08-25 10:30-03', 'João')
+  returning id into a;
+
+  if (select atendido_nome from public.agendamentos where id = a) = 'João'
+  then perform t_ok('o filho é atendido sem virar cadastro próprio');
+  else perform t_falha('não guardou quem seria atendido');
+  end if;
+
+  -- O responsável continua sendo o titular: é para o telefone dele que vai
+  -- o lembrete, e é a ficha dele que guarda o histórico.
+  if (select cliente_id from public.agendamentos where id = a)
+     = 'dddddddd-0000-0000-0000-000000000001'
+  then perform t_ok('o responsável segue como titular do agendamento');
+  else perform t_falha('o vínculo com o responsável se perdeu');
+  end if;
+end $$;
+
+-- O teste que impede o bug de fuso de voltar.
+--
+-- O PostgREST roda a sessão em UTC. Se a função usar o fuso da sessão em vez
+-- do fuso do salão, "manhã" em São Paulo vira "tarde" para o banco. Aqui
+-- forçamos UTC de propósito: a resposta tem que ser a mesma.
+do $$
+declare n_utc int; n_sp int;
+begin
+  set local timezone = 'UTC';
+  select count(*) into n_utc from public.espera_para_vaga(
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-000000000001',
+    '2026-08-22 09:00-03', '2026-08-22 10:00-03')
+   where id = '11100000-0000-0000-0000-000000000003';
+
+  set local timezone = 'America/Sao_Paulo';
+  select count(*) into n_sp from public.espera_para_vaga(
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    'bbbbbbbb-0000-0000-0000-000000000001',
+    '2026-08-22 09:00-03', '2026-08-22 10:00-03')
+   where id = '11100000-0000-0000-0000-000000000003';
+
+  if n_utc = 1 and n_sp = 1 then
+    perform t_ok('o turno sai do fuso do SALÃO, não do fuso da sessão');
+  else perform t_falha(format(
+    'a fila mudou com o fuso da sessão: UTC=%s, São Paulo=%s', n_utc, n_sp));
+  end if;
+end $$;

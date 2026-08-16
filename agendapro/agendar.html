@@ -31,6 +31,27 @@
   --txt:#E8EAF0; --txt2:#A0A7B8; --txt3:#6B7385;
   --sombra:0 1px 3px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
 }
+
+/* Barbearia é outro público e outro gosto: escuro com dourado, do jeito que
+   a categoria inteira se apresenta. Sai do tipo do salão, não de preferência
+   do aparelho — o cliente tem que reconhecer a casa ao abrir o link. */
+[data-estilo="barbearia"]{
+  --roxo:#D4AF37; --roxo-esc:#B8952E; --rosa:#8B6914;
+  --bg:#0D0D0F; --painel:#17171A; --borda:#2E2E33;
+  --txt:#F2F2F0; --txt2:#A8A69E; --txt3:#6E6C66;
+  --sombra:0 1px 3px rgba(0,0,0,.5), 0 10px 30px rgba(0,0,0,.4);
+}
+[data-estilo="barbearia"] .cabeca{
+  background:linear-gradient(135deg,#1C1C20 0%,#26241C 100%);
+  border-bottom:1px solid #3A3628;
+}
+[data-estilo="barbearia"] .cabeca h1{color:#F2F2F0}
+[data-estilo="barbearia"] .b{color:#17171A}
+[data-estilo="barbearia"] .hora.sel,
+[data-estilo="barbearia"] .dia.sel,
+[data-estilo="barbearia"] .opcao.sel .marca{color:#17171A}
+[data-estilo="barbearia"] .selo{background:#D4AF37;color:#17171A}
+[data-estilo="barbearia"] .pub-topo{color:#F2F2F0}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -209,6 +230,66 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
     border:1.5px solid var(--borda);background:var(--painel)}
 .bp.perigo{color:var(--erro);border-color:rgba(239,68,68,.35)}
 
+/* ── Busca, selos e segmentado ───────────────────────────────────────── */
+.busca{
+  width:100%;padding:13px 14px 13px 40px;border:1.5px solid var(--borda);
+  border-radius:99px;background:var(--bg);font-size:15px;margin-bottom:14px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' \
+viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linecap='round'>\
+<circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>");
+  background-repeat:no-repeat;background-position:14px center;background-size:17px;
+}
+.busca:focus{outline:none;border-color:var(--roxo);background-color:var(--painel)}
+.selo-combo{
+  display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;
+  font-size:10px;font-weight:800;letter-spacing:.03em;
+  background:rgba(124,58,237,.16);color:var(--roxo);vertical-align:middle;
+}
+.segmento{display:flex;gap:7px;margin-bottom:6px}
+.segmento button{
+  flex:1;padding:11px 6px;border:1.5px solid var(--borda);border-radius:11px;
+  background:var(--painel);font-weight:700;font-size:13.5px;line-height:1.25;
+}
+.segmento button.sel{background:var(--roxo);border-color:var(--roxo);color:#fff}
+[data-estilo="barbearia"] .segmento button.sel{color:#17171A}
+.bloco{
+  border:1.5px solid var(--borda);border-radius:var(--r);padding:14px;
+  margin-bottom:15px;
+}
+.bloco > .rot{font-size:14px;font-weight:700;margin-bottom:9px}
+
+/* ── Lista de espera ─────────────────────────────────────────────────── */
+.espera{
+  width:100%;display:block;text-align:center;padding:16px;border-radius:var(--r);
+  background:linear-gradient(135deg,#F59E0B,#F97316);color:#111;font-weight:800;
+  font-size:16px;margin:14px 0;box-shadow:0 4px 18px rgba(245,158,11,.32);
+}
+.espera small{display:block;font-weight:600;font-size:12.5px;opacity:.82;margin-top:2px}
+.espera:active{transform:scale(.99)}
+.na-fila{
+  border:1.5px solid rgba(245,158,11,.5);background:rgba(245,158,11,.09);
+  border-radius:var(--r);padding:13px;margin:14px 0;font-size:13.5px;
+}
+.na-fila b{display:block;margin-bottom:2px}
+
+/* ── Aviso de janela e próximo horário ───────────────────────────────── */
+.janela{
+  display:flex;gap:11px;align-items:flex-start;padding:12px 14px;
+  border:1.5px solid var(--borda);border-radius:var(--r);margin-bottom:14px;
+  font-size:13.5px;
+}
+.janela .ii{font-size:19px;line-height:1;flex:none;color:var(--roxo)}
+.janela b{display:block}
+.janela span{color:var(--txt2);font-size:12.5px}
+.proximo{
+  display:flex;gap:11px;align-items:center;padding:13px 14px;
+  border:1.5px solid var(--roxo);border-radius:var(--r);margin-bottom:15px;
+  background:rgba(124,58,237,.06);
+}
+.proximo .ii{font-size:19px;flex:none;color:var(--roxo)}
+.proximo b{display:block;font-size:14px}
+.proximo span{color:var(--txt2);font-size:13px}
+
 .nada{text-align:center;padding:40px 20px;color:var(--txt3)}
 .nada b{display:block;font-size:16px;color:var(--txt2);margin-bottom:5px}
 .recado{
@@ -272,6 +353,31 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
     <section class="passo" id="p-servico">
       <h2>O que você quer fazer?</h2>
       <p class="sub">Pode escolher mais de um — a gente soma o tempo.</p>
+
+      <!-- "Para quem" fica AQUI, antes do horário, e não depois como faz a
+           concorrência. O motivo é prático: "eu e meu filho" dobra a duração,
+           e perguntar isso depois faria a pessoa escolher um horário que não
+           cabe nos dois. -->
+      <div class="bloco" id="blocoParaQuem">
+        <div class="rot">Para quem é o atendimento?</div>
+        <div class="segmento">
+          <button id="pq-mim"   onclick="escolherPara('mim')">Para mim</button>
+          <button id="pq-filho" onclick="escolherPara('filho')">Meu filho</button>
+          <button id="pq-ambos" onclick="escolherPara('ambos')">Eu e meu filho</button>
+        </div>
+        <div id="campoFilho" style="display:none;margin-top:11px">
+          <div class="campo" style="margin:0">
+            <label>Nome dele</label>
+            <input id="fFilho" placeholder="Ex.: João" oninput="escolha.filhoNome=this.value">
+          </div>
+          <p style="font-size:12.5px;color:var(--txt2);margin-top:7px">
+            Sem cadastro separado — fica vinculado a você, e o WhatsApp
+            continua sendo o seu.</p>
+        </div>
+      </div>
+
+      <input class="busca" id="buscaServico" placeholder="Buscar serviço…"
+             oninput="desenharServicos()">
       <div id="listaServicos"></div>
     </section>
 
@@ -286,15 +392,65 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
     <section class="passo" id="p-quando">
       <h2>Quando fica bom?</h2>
       <p class="sub" id="subQuando">—</p>
+      <div id="avisoJanela"></div>
       <div class="dias" id="listaDias"></div>
+      <div id="cardProximo"></div>
       <div id="listaHoras"></div>
+      <div id="areaEspera"></div>
     </section>
 
-    <!-- ══════ 4 · TELEFONE ══════ -->
+    <!-- ══════ 4 · SEUS DADOS (sem código — marcar não pede verificação) ══════ -->
+    <section class="passo" id="p-dados">
+      <h2>Seus dados</h2>
+      <p class="sub">Só o necessário para o salão te reconhecer e avisar.</p>
+      <div id="reconhecido"></div>
+      <div class="campo">
+        <label>Nome completo</label>
+        <input id="dNome" placeholder="Nome e sobrenome" autocomplete="name">
+      </div>
+      <div class="campo">
+        <label>WhatsApp</label>
+        <input id="dTel" type="tel" inputmode="numeric" placeholder="(11) 99999-9999"
+               autocomplete="tel" oninput="mascaraTelefone(this)">
+        <p style="font-size:12.5px;color:var(--txt2);margin-top:6px">
+          É por aqui que chega a confirmação e o lembrete.</p>
+      </div>
+      <div id="avisoDados"></div>
+    </section>
+
+    <!-- ══════ LISTA DE ESPERA ══════ -->
+    <section class="passo" id="p-fila">
+      <h2>Entrar na lista de espera</h2>
+      <p class="sub">Quando alguém cancelar no período que você escolher, o
+        salão te chama. Quem entrou primeiro é chamado primeiro.</p>
+      <div class="resumo" id="resumoFila"></div>
+      <div class="dupla" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="campo"><label>A partir de</label><input type="date" id="filaDe"></div>
+        <div class="campo"><label>Até</label><input type="date" id="filaAte"></div>
+      </div>
+      <div class="campo">
+        <label>Turno que te serve</label>
+        <select id="filaTurno" style="width:100%;padding:14px;border:1.5px solid var(--borda);
+                border-radius:12px;background:var(--bg);font-size:16px">
+          <option value="qualquer">Qualquer horário</option>
+          <option value="manha">Só de manhã</option>
+          <option value="tarde">Só à tarde</option>
+          <option value="noite">Só à noite</option>
+        </select>
+      </div>
+      <div class="campo"><label>Seu nome</label>
+        <input id="filaNome" placeholder="Nome e sobrenome" autocomplete="name"></div>
+      <div class="campo"><label>Seu WhatsApp</label>
+        <input id="filaTel" type="tel" inputmode="numeric" placeholder="(11) 99999-9999"
+               autocomplete="tel" oninput="mascaraTelefone(this)"></div>
+      <div id="avisoFila"></div>
+    </section>
+
+    <!-- ══════ TELEFONE — só para entrar na área de "meus horários" ══════ -->
     <section class="passo" id="p-telefone">
       <h2>Seu WhatsApp</h2>
-      <p class="sub">Mandamos um código para confirmar que o número é seu.
-        É com ele que você entra da próxima vez — sem senha.</p>
+      <p class="sub">Para ver, remarcar ou cancelar seus horários, mandamos um
+        código de confirmação. É o que impede alguém de mexer na sua agenda.</p>
       <div class="campo">
         <label>Número com DDD</label>
         <input id="fTelefone" type="tel" inputmode="numeric" placeholder="(11) 99999-9999"
@@ -415,7 +571,8 @@ let tela = 'saloes';
 let historico = [];
 
 // O que a pessoa está escolhendo agora
-let escolha = { servicos: [], profissionalId: null, data: null, inicio: null };
+let escolha = { servicos: [], profissionalId: null, data: null, inicio: null,
+                para: 'mim', filhoNome: '' };
 let agendamentoARemarcar = null;   // preenchido quando a pessoa clica em Remarcar
 // Estado do código de verificação
 let otp = { codigo: null, telefone: null, enviadoEm: 0, tentativas: 0 };
@@ -495,6 +652,20 @@ function horariosLivres(profId, data, duracao){
   return livres;
 }
 
+/* ── Janela de agenda liberada ───────────────────────────────────────────
+   O salão decide até quando aceita marcação. Serve para dois problemas reais:
+   quem marca para daqui a seis meses quase sempre falta, e agenda aberta até
+   o infinito tira do dono a liberdade de mudar jornada, preço ou equipe.
+
+   Mostrar a data para o cliente é parte da ideia — "liberada até 15/09" faz
+   ele voltar, em vez de achar que o salão fechou.
+   ──────────────────────────────────────────────────────────────────────── */
+function diasLiberados(){
+  const n = salao && salao.cfg && salao.cfg.diasLiberados;
+  return Number.isFinite(n) && n > 0 ? n : 30;
+}
+function ultimoDiaLiberado(){ return somarDias(hoje(), diasLiberados()); }
+
 /* ── Consultas ───────────────────────────────────────────────────────── */
 const servicosDoSalao = () => bd.servicos.filter(s =>
   s.salaoId === salao.id && s.ativo);
@@ -516,11 +687,25 @@ function profsQueAtendem(idsServicos){
   });
 }
 
+// Duração de UM atendimento.
 function duracaoEscolhida(){
   return escolha.servicos.reduce((s,i) => {
     const sv = acharServico(i);
     return s + sv.duracaoMin + (sv.intervaloMin||0);
   }, 0);
+}
+
+// Duração que precisa estar livre na agenda. "Eu e meu filho" são dois
+// atendimentos seguidos com o mesmo profissional, então o buraco tem que
+// caber os dois — senão o cliente escolhe um horário que não existe.
+function duracaoNaAgenda(){
+  return duracaoEscolhida() * (escolha.para === 'ambos' ? 2 : 1);
+}
+
+function escolherPara(v){
+  escolha.para = v;
+  escolha.data = null; escolha.inicio = null;   // a duração mudou
+  desenhar();
 }
 function precoEscolhido(){
   return escolha.servicos.reduce((s,i) => s + acharServico(i).preco, 0);
@@ -556,8 +741,6 @@ function meusOutrosSaloes(){
 }
 
 /* ── Navegação ───────────────────────────────────────────────────────── */
-const SEQUENCIA = ['servico','prof','quando','telefone','codigo','nome','confirmar'];
-
 function irPara(nova, semHistorico){
   if(!semHistorico && tela !== nova) historico.push(tela);
   tela = nova;
@@ -601,15 +784,25 @@ function desenhar(){
 
   if(tela === 'saloes')      { desenharSaloes();    rodape.style.display='none'; trilhaAte(0); }
   if(tela === 'capa')        { desenharCapa();      bp.textContent='Agendar horário'; trilhaAte(0); }
-  if(tela === 'servico')     { desenharServicos();  bp.textContent='Continuar';
-                               bp.disabled = !escolha.servicos.length; trilhaAte(1); }
-  if(tela === 'prof')        { desenharProfs();     bp.textContent='Continuar';
-                               bp.disabled = !escolha.profissionalId; trilhaAte(2); }
-  if(tela === 'quando')      { desenharQuando();    bp.textContent='Continuar';
-                               bp.disabled = escolha.inicio === null; trilhaAte(3); }
-  if(tela === 'telefone')    { desenharTelefone();  bp.textContent='Enviar código'; trilhaAte(4); }
-  if(tela === 'codigo')      { desenharCodigo();    bp.textContent='Confirmar código'; trilhaAte(4); }
-  if(tela === 'nome')        { desenharNome();      bp.textContent='Continuar'; trilhaAte(4); }
+  // Botão desabilitado que DIZ o que falta. Cinza mudo faz a pessoa procurar
+  // o que não fez; o rótulo resolve sem ela precisar adivinhar.
+  if(tela === 'servico')     { desenharServicos();  trilhaAte(1);
+                               bp.disabled = !escolha.servicos.length;
+                               bp.textContent = escolha.servicos.length
+                                 ? 'Continuar' : 'Selecione pelo menos 1 serviço'; }
+  if(tela === 'prof')        { desenharProfs();     trilhaAte(2);
+                               bp.disabled = !escolha.profissionalId;
+                               bp.textContent = escolha.profissionalId
+                                 ? 'Continuar' : 'Escolha com quem'; }
+  if(tela === 'quando')      { desenharQuando();    trilhaAte(3);
+                               bp.disabled = escolha.inicio === null;
+                               bp.textContent = escolha.inicio === null
+                                 ? 'Escolha um horário' : 'Continuar'; }
+  if(tela === 'fila')        { bp.textContent='Entrar na lista'; trilhaAte(0); }
+  if(tela === 'dados')       { desenharDados();     bp.textContent='Continuar'; trilhaAte(4); }
+  if(tela === 'telefone')    { desenharTelefone();  bp.textContent='Enviar código'; trilhaAte(0); }
+  if(tela === 'codigo')      { desenharCodigo();    bp.textContent='Confirmar código'; trilhaAte(0); }
+  if(tela === 'nome')        { desenharNome();      bp.textContent='Continuar'; trilhaAte(0); }
   if(tela === 'confirmar')   { desenharConfirmar(); bp.textContent='Confirmar agendamento'; trilhaAte(4); }
   if(tela === 'pronto')      { bp.textContent='Ver meus horários'; trilhaAte(0);
                                bs.style.display=''; bs.textContent='Marcar outro'; }
@@ -666,27 +859,69 @@ function resumoJornada(p){
   return dias.map(d => DIAS_CURTOS[d]).join(', ');
 }
 
+// Um serviço é "combo" quando o nome já diz que são dois — é como o salão
+// cadastra na prática ("corte + barba"), então lemos disso em vez de exigir
+// uma coluna nova que ninguém vai preencher.
+function ehCombo(sv){
+  return /\+|\be\b|combo/i.test(sv.nome) && /corte|barba|escova|unha|p[ée]/i.test(sv.nome);
+}
+
+// Busca sem acento: quem digita "pe" tem que achar "pedicure", e quem digita
+// "sobrancelha" não pode ficar sem resultado por causa do til.
+function semAcento(t){
+  return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+
 function desenharServicos(){
-  const svs = servicosDoSalao();
+  // Marca o segmentado do "para quem".
+  for(const v of ['mim','filho','ambos']){
+    const b = document.getElementById('pq-' + v);
+    if(b) b.classList.toggle('sel', escolha.para === v);
+  }
+  const cf = document.getElementById('campoFilho');
+  if(cf) cf.style.display = (escolha.para === 'mim') ? 'none' : 'block';
+
+  const termo = semAcento((document.getElementById('buscaServico')||{}).value);
+  const todos = servicosDoSalao();
+  const svs = termo
+    ? todos.filter(x => semAcento(x.nome).includes(termo)
+                     || semAcento(x.categoria).includes(termo))
+    : todos;
+
+  // A busca só aparece quando a lista é longa o bastante para justificar.
+  const cx = document.getElementById('buscaServico');
+  if(cx) cx.style.display = todos.length >= 6 ? '' : 'none';
+
+  const alvo = document.getElementById('listaServicos');
+  if(!svs.length){
+    alvo.innerHTML = '<div class="nada"><b>Nada com esse nome</b>'
+                   + 'Tente outra palavra, ou limpe a busca.</div>';
+    return;
+  }
+
   const porCat = {};
   for(const s of svs){ (porCat[s.categoria || 'Serviços'] ||= []).push(s); }
 
-  document.getElementById('listaServicos').innerHTML =
+  alvo.innerHTML =
     Object.entries(porCat).map(([cat, lista]) => `
       <div class="cat">${cat}</div>
       ${lista.map(s => {
         const sel = escolha.servicos.includes(s.id);
         return `<button class="opcao ${sel?'sel':''}" onclick="alternarServico('${s.id}')">
           <span class="marca">${sel ? '✓' : ''}</span>
-          <span class="txt"><span class="tt">${s.nome}</span>
+          <span class="txt"><span class="tt">${s.nome}${
+            ehCombo(s) ? '<span class="selo-combo">COMBO</span>' : ''}</span>
             <span class="dd">${s.duracaoMin} min</span></span>
           <span class="vv">${real(s.preco)}</span>
         </button>`;
       }).join('')}`).join('')
-    + (escolha.servicos.length > 1
+    + (escolha.servicos.length
         ? `<div class="recado" style="margin-top:14px">
-             ${escolha.servicos.length} serviços · ${duracaoEscolhida()} min no total
-             · ${real(precoEscolhido())}</div>` : '');
+             ${escolha.servicos.length > 1 ? escolha.servicos.length + ' serviços · ' : ''}
+             ${duracaoEscolhida()} min · ${real(precoEscolhido())}
+             ${escolha.para === 'ambos'
+               ? '<br>Como são dois atendimentos, a agenda precisa de '
+                 + duracaoNaAgenda() + ' min seguidos.' : ''}</div>` : '');
 }
 
 function alternarServico(id){
@@ -702,7 +937,8 @@ function alternarServico(id){
 function desenharProfs(){
   const aptos = profsQueAtendem(escolha.servicos);
   document.getElementById('subProf').textContent =
-    nomesEscolhidos() + ' · ' + duracaoEscolhida() + ' min';
+    nomesEscolhidos() + ' · ' + duracaoNaAgenda() + ' min'
+    + (escolha.para === 'ambos' ? ' (dois atendimentos)' : '');
 
   if(!aptos.length){
     document.getElementById('listaProfs').innerHTML =
@@ -712,9 +948,9 @@ function desenharProfs(){
   }
 
   // "Sem preferência" é o que mais converte: a pessoa quer horário, não pessoa.
-  const dur = duracaoEscolhida();
+  const dur = duracaoNaAgenda();
   const primeiroLivre = p => {
-    for(let i = 0; i <= 14; i++){
+    for(let i = 0; i <= diasLiberados(); i++){
       const d = somarDias(hoje(), i);
       const h = horariosLivres(p.id, d, dur);
       if(h.length) return {data:d, min:h[0]};
@@ -756,7 +992,7 @@ function escolherProf(id){
 let donoDoHorario = {};
 
 function desenharQuando(){
-  const dur = duracaoEscolhida();
+  const dur = duracaoNaAgenda();
   const aptos = escolha.profissionalId === '*'
     ? profsQueAtendem(escolha.servicos)
     : [acharProf(escolha.profissionalId)];
@@ -765,9 +1001,16 @@ function desenharQuando(){
     nomesEscolhidos() + ' · ' + (escolha.profissionalId === '*'
       ? 'qualquer profissional' : acharProf(escolha.profissionalId).nome);
 
-  // Faixa de 14 dias, marcando quais têm vaga.
+  // Até onde o salão liberou. Dizer isso evita o cliente achar que a casa
+  // fechou quando o calendário acaba.
+  document.getElementById('avisoJanela').innerHTML = `
+    <div class="janela"><span class="ii">🗓</span>
+      <span><b>Agenda liberada até ${dataLonga(ultimoDiaLiberado())}</b>
+      <span>Mais horários abrem conforme os dias passam.</span></span></div>`;
+
+  // Faixa de dias dentro da janela, marcando quais têm vaga.
   const dias = [];
-  for(let i = 0; i <= 13; i++){
+  for(let i = 0; i <= Math.min(diasLiberados(), 27); i++){
     const d = somarDias(hoje(), i);
     let qtd = 0;
     for(const p of aptos) qtd += horariosLivres(p.id, d, dur).length;
@@ -781,8 +1024,12 @@ function desenharQuando(){
   document.getElementById('listaDias').innerHTML = dias.map(d => {
     const [a,m,dd] = d.data.split('-').map(Number);
     const sem = DIAS_CURTOS[new Date(a,m-1,dd).getDay()];
+    // Dia cheio continua CLICÁVEL, e isso é de propósito. Desabilitar parece
+    // mais limpo e esconde a saída: é justamente ao abrir um dia lotado que a
+    // pessoa recebe a oferta da lista de espera. Dia sem vaga desabilitado
+    // deixa o cliente sem nada para fazer a não ser fechar a página.
     return `<button class="dia ${d.data===escolha.data?'sel':''} ${d.qtd?'':'sem'}"
-              onclick="escolherDia('${d.data}')" ${d.qtd?'':'disabled'}>
+              onclick="escolherDia('${d.data}')">
       <small>${sem}</small><b>${String(dd).padStart(2,'0')}</b>
       <i>${d.qtd ? d.qtd + ' vagas' : 'cheio'}</i></button>`;
   }).join('');
@@ -798,9 +1045,26 @@ function desenharQuando(){
   donoDoHorario = mapa;
   const horas = Object.keys(mapa).map(Number).sort((a,b) => a-b);
 
+  // O primeiro dia com vaga, para não obrigar a pessoa a caçar no calendário.
+  const proximo = dias.find(d => d.qtd > 0);
+  document.getElementById('cardProximo').innerHTML =
+    (proximo && proximo.data !== escolha.data)
+      ? `<button class="proximo" style="width:100%;text-align:left"
+                 onclick="escolherDia('${proximo.data}')">
+           <span class="ii">⏱</span>
+           <span><b>Próximo horário disponível</b>
+           <span>${dataLonga(proximo.data)} às ${hm(
+             (() => { for(const p of aptos){ const h = horariosLivres(p.id, proximo.data, dur);
+                      if(h.length) return h[0]; } return 0; })())}</span></span>
+         </button>`
+      : '';
+
+  desenharEspera(horas.length === 0);
+
   if(!horas.length){
     document.getElementById('listaHoras').innerHTML =
-      '<div class="recado">Sem horário livre neste dia. Escolha outro acima.</div>';
+      '<div class="nada"><b>Sem horário livre neste dia</b>'
+      + 'Escolha outra data acima — ou entre na lista de espera.</div>';
     return;
   }
 
@@ -819,8 +1083,193 @@ function desenharQuando(){
     .join('');
 }
 
+/* ── Lista de espera ─────────────────────────────────────────────────────
+   O dia cheio é onde o sistema comum perde o cliente: mostra "sem horário" e
+   a pessoa fecha a página. Aqui ela deixa o nome, e a cadeira que vagar tem
+   para quem ser oferecida.
+
+   Vale para os dois: o cliente não precisa ficar tentando, e o salão para de
+   perder o horário que alguém cancelou em cima da hora.
+   ──────────────────────────────────────────────────────────────────────── */
+function jaNaFila(){
+  const f = minhaFicha();
+  if(!f) return null;
+  return (bd.listaEspera||[]).find(e =>
+    e.clienteId === f.id && e.status === 'aguardando'
+    && escolha.data >= e.de && escolha.data <= e.ate) || null;
+}
+
+function desenharEspera(diaCheio){
+  const alvo = document.getElementById('areaEspera');
+  const fila = jaNaFila();
+
+  if(fila){
+    alvo.innerHTML = `<div class="na-fila">
+      <b>🔔 Você está na lista de espera</b>
+      Avisamos no WhatsApp assim que abrir vaga
+      ${fila.de === fila.ate ? 'em ' + dataLonga(fila.de)
+                             : 'entre ' + dataCurta(fila.de) + ' e ' + dataCurta(fila.ate)}.
+      <div style="margin-top:9px">
+        <button class="bp" onclick="sairDaFila('${fila.id}')">Sair da lista</button>
+      </div></div>`;
+    return;
+  }
+
+  // Só oferece quando faz sentido: dia cheio, ou pouquíssima vaga.
+  alvo.innerHTML = diaCheio ? `
+    <button class="espera" onclick="entrarNaFila()">
+      🔔 Entrar na lista de espera
+      <small>Avisamos assim que surgir uma vaga</small>
+    </button>` : '';
+}
+
+function entrarNaFila(){
+  abrirModalFila();
+}
+
+function abrirModalFila(){
+  const dur = duracaoNaAgenda();
+  irPara('fila');
+  document.getElementById('resumoFila').innerHTML = `
+    <div class="l"><span>Serviço</span><b>${nomesEscolhidos()}</b></div>
+    <div class="l"><span>Duração</span><b>${dur} min</b></div>
+    <div class="l"><span>Profissional</span><b>${
+      escolha.profissionalId === '*' ? 'qualquer um'
+        : acharProf(escolha.profissionalId).nome}</b></div>`;
+  document.getElementById('filaDe').value = escolha.data;
+  document.getElementById('filaAte').value = somarDias(escolha.data, 7) <= ultimoDiaLiberado()
+    ? somarDias(escolha.data, 7) : ultimoDiaLiberado();
+}
+
+function sairDaFila(id){
+  if(!confirm('Sair da lista de espera?')) return;
+  bd.listaEspera = (bd.listaEspera||[]).filter(e => e.id !== id);
+  salvar(); desenhar();
+}
+
+function confirmarFila(){
+  const nome = (document.getElementById('filaNome').value || '').trim();
+  const tel  = (document.getElementById('filaTel').value || '').trim();
+  if(nome.length < 2 || soDigitos(tel).length < 10){
+    document.getElementById('avisoFila').innerHTML =
+      '<div class="recado erro">Precisamos do seu nome e de um WhatsApp válido para avisar.</div>';
+    return;
+  }
+
+  const ficha = garantirFicha(nome, tel);
+  bd.listaEspera = bd.listaEspera || [];
+  bd.listaEspera.push({
+    id: novoId(), salaoId: salao.id, clienteId: ficha.id,
+    profissionalId: escolha.profissionalId === '*' ? null : escolha.profissionalId,
+    servicos: escolha.servicos.slice(),
+    duracaoMin: duracaoNaAgenda(),
+    de: document.getElementById('filaDe').value,
+    ate: document.getElementById('filaAte').value,
+    turno: document.getElementById('filaTurno').value,
+    status: 'aguardando', criadoEm: new Date().toISOString(),
+  });
+  salvar();
+
+  alert('Pronto! Você está na lista.\n\nAssim que alguém cancelar nesse período, '
+      + 'o salão te chama no WhatsApp.');
+  historico = [];
+  irPara('quando', true);
+}
+
 function escolherDia(d){ escolha.data = d; escolha.inicio = null; desenhar(); }
 function escolherHora(h){ escolha.inicio = h; desenhar(); }
+
+/* ── A ficha desta pessoa neste salão ────────────────────────────────────
+   Um caminho só para criar ou reencontrar. Se já existe ficha com aquele
+   telefone — porque a recepção cadastrou um dia — a pessoa reencontra o
+   próprio histórico em vez de virar cliente nova do zero.
+   ──────────────────────────────────────────────────────────────────────── */
+function garantirFicha(nome, tel){
+  bd.perfis = bd.perfis || [];
+  const e164 = paraE164(tel);
+
+  let perfil = bd.perfis.find(x => x.telefone === e164);
+  if(!perfil){
+    perfil = { id: novoId(), nome, telefone: e164 };
+    bd.perfis.push(perfil);
+  } else if(!perfil.nome){ perfil.nome = nome; }
+
+  // Ficha solta com esse telefone (cadastro antigo da recepção) passa a
+  // apontar para o perfil, em todos os salões.
+  for(const c of bd.clientes){
+    if(!c.perfilId && soDigitos(c.telefone) === soDigitos(tel)) c.perfilId = perfil.id;
+  }
+
+  let ficha = bd.clientes.find(c => c.salaoId === salao.id && c.perfilId === perfil.id);
+  if(!ficha){
+    ficha = { id: novoId(), salaoId: salao.id, perfilId: perfil.id,
+              nome, telefone: tel, obs: '', criadoEm: new Date().toISOString() };
+    bd.clientes.push(ficha);
+  }
+
+  // Sessão do aparelho. `verificado: false` porque marcar não pede código —
+  // é lembrança do aparelho, não prova de identidade. Ver ou cancelar
+  // horário exige o código, e é lá que `verificado` vira true.
+  if(!sessao || !sessao.verificado){
+    sessao = { perfilId: perfil.id, nome, telefone: tel, verificado: false };
+    guardarSessao();
+  }
+  return ficha;
+}
+
+/* ── Tela "seus dados" — o caminho sem código ─────────────────────────────
+   Aqui está a diferença de postura em relação à concorrência, que não pede
+   código nenhum e deixa o histórico preso ao aparelho.
+
+   Marcar não pede verificação: atrito na primeira vez custa cliente, e o
+   estrago de uma marcação falsa é pequeno. Mas VER, CANCELAR ou REMARCAR
+   pede o código, porque aí se está mexendo em dado de alguém — e sem isso
+   qualquer um cancela o corte do vizinho sabendo o telefone dele.
+   ──────────────────────────────────────────────────────────────────────── */
+function desenharDados(){
+  const nome = document.getElementById('dNome');
+  const tel  = document.getElementById('dTel');
+
+  if(sessao && !nome.value){
+    nome.value = sessao.nome || '';
+    tel.value = sessao.telefone || '';
+  }
+
+  document.getElementById('reconhecido').innerHTML = (sessao && sessao.nome)
+    ? `<div class="recado">Este aparelho lembra de <b>${sessao.nome}</b>.
+        Se não for você, é só trocar os campos abaixo.</div>` : '';
+
+  const resumo = `${nomesEscolhidos()} · ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}`;
+  document.getElementById('avisoDados').innerHTML =
+    `<div class="recado ok">${resumo}${
+      escolha.para === 'ambos' ? '<br>Dois atendimentos seguidos.' :
+      escolha.para === 'filho' ? '<br>Atendimento para ' + (escolha.filhoNome || 'seu filho') + '.' : ''}</div>`;
+}
+
+function salvarDados(){
+  const nome = (document.getElementById('dNome').value || '').trim();
+  const tel  = (document.getElementById('dTel').value || '').trim();
+
+  if(nome.length < 2){
+    document.getElementById('avisoDados').innerHTML =
+      '<div class="recado erro">Escreva seu nome para o salão saber quem chega.</div>';
+    return;
+  }
+  if(soDigitos(tel).length < 10){
+    document.getElementById('avisoDados').innerHTML =
+      '<div class="recado erro">Falta o WhatsApp com DDD — é por onde vem a confirmação.</div>';
+    return;
+  }
+  if(escolha.para !== 'mim' && !(escolha.filhoNome||'').trim()){
+    document.getElementById('avisoDados').innerHTML =
+      '<div class="recado erro">Diga o nome do seu filho para o barbeiro chamar certo.</div>';
+    return;
+  }
+
+  garantirFicha(nome, tel);
+  salvar();
+  irPara('confirmar');
+}
 
 function desenharTelefone(){
   const el = document.getElementById('fTelefone');
@@ -920,7 +1369,8 @@ function desenharMeus(){
       const total = (a.servicos||[]).reduce((s,x) => s + (x.preco||0), 0);
       return `<div class="item ${passado?'passado':''}">
         <div class="item-topo">
-          <div><h3>${svs || 'Atendimento'}</h3>
+          <div><h3>${svs || 'Atendimento'}${
+            a.atendidoNome ? ` <span class="selo-combo">${a.atendidoNome}</span>` : ''}</h3>
             <div class="q">${dataLonga(a.data)} · ${hm(a.inicio)}</div>
             <div class="q">${p ? 'com ' + p.nome : ''} · ${real(total)}</div></div>
           <span class="selo-st ${classe[a.status]}">${rotulo[a.status]}</span>
@@ -960,15 +1410,28 @@ function acaoPrincipal(){
   if(tela === 'capa')      return irPara('servico');
   if(tela === 'servico')   return irPara('prof');
   if(tela === 'prof')      return irPara('quando');
-  if(tela === 'quando')    return sessao ? irPara('confirmar') : irPara('telefone');
+  if(tela === 'quando')    return irPara('dados');
+  if(tela === 'dados')     return salvarDados();
+  if(tela === 'fila')      return confirmarFila();
   if(tela === 'telefone')  return enviarCodigo();
   if(tela === 'codigo')    return conferirCodigo();
   if(tela === 'nome')      return salvarNome();
   if(tela === 'confirmar') return confirmarAgendamento();
-  if(tela === 'pronto')    return irPara('meus', true);
-  if(tela === 'meus')      { escolha = {servicos:[], profissionalId:null, data:null, inicio:null};
+  if(tela === 'pronto')    return abrirMeus();
+  if(tela === 'meus')      { escolha = {servicos:[], profissionalId:null, data:null,
+                                        inicio:null, para:'mim', filhoNome:''};
                              return irPara('servico'); }
 }
+
+// Ver a própria agenda exige o código. Marcar não exigiu — e é justamente
+// por isso que aqui exige: sem prova de identidade, bastaria saber o telefone
+// de alguém para cancelar o horário dessa pessoa.
+function abrirMeus(){
+  if(sessao && sessao.verificado) return irPara('meus');
+  destinoAposCodigo = 'meus';
+  irPara('telefone');
+}
+let destinoAposCodigo = 'confirmar';
 
 function acaoSecundaria(){
   if(tela === 'pronto'){
@@ -1073,7 +1536,10 @@ function conferirCodigo(){
     perfil = { id: novoId(), nome: fichaSolta ? fichaSolta.nome : '', telefone: e164 };
     bd.perfis.push(perfil);
   }
-  sessao = { perfilId: perfil.id, nome: perfil.nome, telefone: otp.telefone };
+  // Agora sim: código conferido, a sessão vira verificada e libera o
+  // histórico, o cancelamento e o remarcar.
+  sessao = { perfilId: perfil.id, nome: perfil.nome,
+             telefone: otp.telefone, verificado: true };
   guardarSessao();
 
   // Amarra as fichas soltas deste telefone ao perfil, em todos os salões.
@@ -1083,7 +1549,7 @@ function conferirCodigo(){
   salvar();
 
   if(!perfil.nome) irPara('nome');
-  else irPara('confirmar');
+  else { historico = []; irPara(destinoAposCodigo, true); }
 }
 
 function salvarNome(){
@@ -1098,7 +1564,8 @@ function salvarNome(){
   perfil.nascimento = document.getElementById('fNasc').value || '';
   sessao.nome = nome;
   guardarSessao(); salvar();
-  irPara('confirmar');
+  historico = [];
+  irPara(destinoAposCodigo, true);
 }
 
 /* ── Gravar o agendamento ────────────────────────────────────────────── */
@@ -1117,31 +1584,36 @@ function confirmarAgendamento(){
     return;
   }
 
-  // Ficha desta pessoa NESTE salão. Não existe? Cria — é o momento em que a
-  // pessoa vira cliente deste salão, sem deixar de ser do outro.
-  let ficha = minhaFicha();
-  if(!ficha){
-    ficha = {
-      id: novoId(), salaoId: salao.id, perfilId: sessao.perfilId,
-      nome: sessao.nome, telefone: sessao.telefone, obs: '',
-      criadoEm: new Date().toISOString(),
-    };
-    bd.clientes.push(ficha);
-  }
-
+  const ficha = garantirFicha(sessao.nome, sessao.telefone);
   const recado = (document.getElementById('fRecado').value || '').trim();
-  const ag = {
+  const unit = duracaoEscolhida();
+
+  const montar = (inicio, atendido) => ({
     id: novoId(), salaoId: salao.id, clienteId: ficha.id, profissionalId: profId,
-    data: escolha.data, inicio: escolha.inicio, fim: escolha.inicio + dur,
+    data: escolha.data, inicio, fim: inicio + unit,
     status: 'confirmado', origem: 'online',
+    atendidoNome: atendido || null,
     servicos: escolha.servicos.map(i => {
       const sv = acharServico(i);
       return {servicoId:i, duracaoMin:sv.duracaoMin, preco:sv.preco,
               comissaoPct: sv.comissaoPct != null ? sv.comissaoPct : prof.comissaoPct};
     }),
     obs: recado,
-  };
-  bd.agendamentos.push(ag);
+  });
+
+  const filho = (escolha.filhoNome || '').trim();
+
+  // "Eu e meu filho" são DOIS agendamentos seguidos, não um em dobro. Assim a
+  // agenda do barbeiro mostra duas cadeiras ocupadas, a comanda sai certa e a
+  // comissão conta os dois atendimentos — que é o que de fato aconteceu.
+  if(escolha.para === 'ambos'){
+    bd.agendamentos.push(montar(escolha.inicio, null));
+    bd.agendamentos.push(montar(escolha.inicio + unit, filho));
+  } else if(escolha.para === 'filho'){
+    bd.agendamentos.push(montar(escolha.inicio, filho));
+  } else {
+    bd.agendamentos.push(montar(escolha.inicio, null));
+  }
 
   // Remarcar = marcar o novo e só então soltar o antigo. Nesta ordem: se o
   // horário novo falhar, a pessoa não fica sem nenhum dos dois.
@@ -1157,7 +1629,11 @@ function confirmarAgendamento(){
   salvar();
 
   document.getElementById('prontoTexto').innerHTML =
-    `${dataLonga(escolha.data)} às <b>${hm(escolha.inicio)}</b>, com ${prof.nome}.`;
+    `${dataLonga(escolha.data)} às <b>${hm(escolha.inicio)}</b>, com ${prof.nome}.`
+    + (escolha.para === 'ambos'
+        ? `<br>Dois horários seguidos: você às ${hm(escolha.inicio)} e `
+          + `${filho || 'seu filho'} às ${hm(escolha.inicio + unit)}.`
+        : escolha.para === 'filho' ? `<br>Atendimento de ${filho}.` : '');
   document.getElementById('resumoPronto').innerHTML =
     document.getElementById('resumoFinal').innerHTML;
 
@@ -1181,6 +1657,7 @@ function confirmarAgendamento(){
 
 /* ── Cancelar e remarcar ─────────────────────────────────────────────── */
 function cancelar(agId){
+  if(!exigirVerificacao()) return;
   const a = bd.agendamentos.find(x => x.id === agId);
   if(!a) return;
   if(!confirm('Cancelar este horário?\n\nSe faltar menos de 24h, o salão pode '
@@ -1192,6 +1669,7 @@ function cancelar(agId){
 }
 
 function remarcar(agId){
+  if(!exigirVerificacao()) return;
   const a = bd.agendamentos.find(x => x.id === agId);
   if(!a) return;
   // Remarcar é marcar de novo e cancelar o antigo — só que já com as escolhas
@@ -1202,6 +1680,14 @@ function remarcar(agId){
   };
   agendamentoARemarcar = agId;
   irPara('quando');
+}
+
+// Porta única para as ações que mexem no que já existe.
+function exigirVerificacao(){
+  if(sessao && sessao.verificado) return true;
+  destinoAposCodigo = 'meus';
+  irPara('telefone');
+  return false;
 }
 
 /* ── Entrada e sessão ────────────────────────────────────────────────── */
@@ -1219,6 +1705,11 @@ function entrarNoSalao(slug){
   const url = new URL(location.href);
   url.searchParams.set('salao', slug);
   history.replaceState(null, '', url);
+
+  // Barbearia abre escura e dourada; salão, claro e rosado. O cliente tem
+  // que reconhecer a casa no primeiro segundo.
+  document.documentElement.setAttribute('data-estilo',
+    s.tipo === 'barbearia' ? 'barbearia' : 'salao');
 
   document.getElementById('tituloSalao').textContent = s.nome;
   document.getElementById('subSalao').textContent =
@@ -1268,6 +1759,7 @@ function carregar(){
     d.bloqueios = d.bloqueios || [];
     d.comandas = d.comandas || [];
     d.servicosProfissionais = d.servicosProfissionais || [];
+    d.listaEspera = d.listaEspera || [];
     return d;
   }catch(e){
     console.error('Dados guardados estão corrompidos:', e);

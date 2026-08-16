@@ -219,6 +219,18 @@ create table if not exists public.agendamentos (
   sinal_exigido   numeric(10,2) not null default 0,
   sinal_pago      numeric(10,2) not null default 0,
   sinal_ref       text,
+
+  -- Quem senta na cadeira, quando não é o titular da ficha. Barbearia vive
+  -- disso: o pai marca e leva o filho. O nome do menor fica aqui, como texto,
+  -- vinculado ao responsável — de propósito.
+  --
+  -- Cadastrar criança seria criar um titular de dados menor de idade, com
+  -- tudo o que a LGPD exige junto (consentimento do responsável, tratamento
+  -- específico). Guardar só o primeiro nome dentro do agendamento do pai
+  -- resolve a operação sem abrir esse capítulo. O telefone continua sendo o
+  -- do responsável, e é para ele que o lembrete vai.
+  atendido_nome   text,
+
   criado_por      uuid references public.perfis(id) on delete set null,
   criado_em       timestamptz not null default now(),
   check (fim > inicio),
@@ -264,6 +276,99 @@ create table if not exists public.agendamento_servicos (
 );
 
 create index if not exists ix_ags_agend on public.agendamento_servicos(agendamento_id);
+
+-- ---------------------------------------------------------------------------
+-- 6b) LISTA DE ESPERA
+--
+-- Dia cheio é o momento em que a maioria dos sistemas perde o cliente: mostra
+-- "sem horário" e o cara fecha a página. Aqui ele deixa o nome, e quando
+-- alguém cancela o salão já sabe para quem oferecer.
+--
+-- Vale dos dois lados: o cliente não some, e a cadeira vaga não fica vazia —
+-- que é o buraco de faturamento que ninguém enxerga, porque cancelamento não
+-- aparece em relatório nenhum.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.lista_espera (
+  id              uuid primary key default gen_random_uuid(),
+  salao_id        uuid not null references public.saloes(id) on delete cascade,
+  cliente_id      uuid not null references public.clientes(id) on delete cascade,
+  -- Nulo = aceita qualquer profissional. Quem aceita qualquer um entra na
+  -- frente na hora de oferecer, porque a vaga que surgir serve para ele.
+  profissional_id uuid references public.profissionais(id) on delete cascade,
+  -- O que a pessoa queria fazer, para o salão saber se a vaga cabe.
+  servicos        jsonb not null default '[]'::jsonb,
+  duracao_min     int not null default 30 check (duracao_min > 0),
+  -- Faixa de interesse. Mesma data nos dois campos = "só esse dia".
+  de              date not null,
+  ate             date not null,
+  -- Turno preferido: 'manha', 'tarde', 'noite' ou 'qualquer'.
+  turno           text not null default 'qualquer'
+                  check (turno in ('manha','tarde','noite','qualquer')),
+  obs             text,
+  status          text not null default 'aguardando'
+                  check (status in ('aguardando','avisado','atendido','desistiu','expirou')),
+  avisado_em      timestamptz,
+  criado_em       timestamptz not null default now(),
+  check (ate >= de)
+);
+
+-- A ordem de atendimento é a ordem de chegada. Índice parcial porque só
+-- interessa quem ainda está esperando.
+create index if not exists ix_espera_fila
+  on public.lista_espera(salao_id, de, criado_em)
+  where status = 'aguardando';
+
+create index if not exists ix_espera_cliente on public.lista_espera(cliente_id);
+
+-- Quem está esperando por uma vaga que acabou de abrir. O salão chama esta
+-- função depois de um cancelamento; ela devolve a fila em ordem de chegada,
+-- já filtrada por quem serve para aquele buraco.
+-- ⚠ TUDO AQUI ACONTECE NO FUSO DO SALÃO, e isso não é detalhe.
+--
+-- `inicio` é timestamptz, guardado em UTC. `extract(hour from ...)` e o cast
+-- `::date` usam o fuso da SESSÃO, não o do salão — e a sessão do PostgREST
+-- roda em UTC. Escrito do jeito ingênuo, um horário das 9h de São Paulo vira
+-- 12h para o Postgres, e quem pediu "manhã" nunca é chamado.
+--
+-- Foi assim que este bug apareceu: o teste "vaga de manhã chama quem pediu
+-- manhã" falhou na primeira execução. Na produção ele não falharia alto —
+-- só chamaria as pessoas erradas, calado, para sempre.
+--
+-- Por isso a conversão explícita com `at time zone`, que transforma o
+-- timestamptz no horário de parede daquele salão.
+create or replace function public.espera_para_vaga(
+  p_salao uuid, p_profissional uuid, p_inicio timestamptz, p_fim timestamptz)
+returns setof public.lista_espera
+language sql stable as $$
+  with tz as (
+    select coalesce(nullif(fuso, ''), 'America/Sao_Paulo') as nome
+      from public.saloes where id = p_salao
+  ),
+  parede as (   -- o horário como quem está no salão o lê no relógio
+    select (p_inicio at time zone (select nome from tz)) as quando
+  )
+  select e.*
+    from public.lista_espera e
+   where e.salao_id = p_salao
+     and e.status = 'aguardando'
+     and (e.profissional_id is null or e.profissional_id = p_profissional)
+     and (select quando from parede)::date between e.de and e.ate
+     -- O serviço precisa caber no buraco que abriu.
+     and e.duracao_min <= extract(epoch from (p_fim - p_inicio)) / 60
+     and (e.turno = 'qualquer'
+          or (e.turno = 'manha'
+              and extract(hour from (select quando from parede)) < 12)
+          or (e.turno = 'tarde'
+              and extract(hour from (select quando from parede)) between 12 and 17)
+          or (e.turno = 'noite'
+              and extract(hour from (select quando from parede)) >= 18))
+   order by
+     -- Quem aceita qualquer profissional primeiro: a vaga serve para ele com
+     -- certeza, e chamar quem só quer a Ana quando vagou o Zé é perder tempo.
+     (e.profissional_id is null) desc,
+     e.criado_em
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 7) COMANDA, PAGAMENTO E COMISSÃO

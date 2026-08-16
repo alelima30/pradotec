@@ -20,7 +20,7 @@ esperadas(nome) as (
   values ('saloes'),('perfis'),('vinculos'),('profissionais'),('servicos'),
          ('servicos_profissionais'),('jornadas'),('bloqueios'),('clientes'),
          ('agendamentos'),('agendamento_servicos'),('produtos'),('comandas'),
-         ('comanda_itens'),('pagamentos'),('contadores')
+         ('comanda_itens'),('pagamentos'),('contadores'),('lista_espera')
 ),
 
 faltando_tabela as (
@@ -136,7 +136,7 @@ select * from (
   select 1 as ord,
          case when (select count(*) from faltando_tabela) = 0
               then '✓' else '✗' end as ok,
-         'As 16 tabelas existem' as verificacao,
+         'As 17 tabelas existem' as verificacao,
          coalesce((select string_agg(nome, ', ') from faltando_tabela),
                   'todas presentes') as detalhe
 

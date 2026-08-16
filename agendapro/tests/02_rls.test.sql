@@ -326,3 +326,75 @@ rollback;
 
 \echo ''
 \echo '── Isolamento verificado ──'
+
+
+\echo ''
+\echo 'Lista de espera — a fila não é pública'
+
+insert into public.lista_espera (id, salao_id, cliente_id, de, ate) values
+  ('ee000000-0000-0000-0000-00000000000a', '5a100000-0000-0000-0000-00000000000a',
+   'c1100000-0000-0000-0000-00000000000a', '2026-09-10', '2026-09-20'),  -- Maria
+  ('ee000000-0000-0000-0000-00000000000d', '5a100000-0000-0000-0000-00000000000a',
+   'c1100000-0000-0000-0000-00000000000d', '2026-09-10', '2026-09-20');  -- Joana
+
+begin;
+  set local role authenticated;
+  set local request.jwt.claim.sub = 'c0000000-0000-0000-0000-00000000000c';  -- Maria
+
+  do $$ begin perform t_igual(
+    'a cliente vê só o próprio lugar na fila',
+    (select count(*) from public.lista_espera), 1); end $$;
+
+  do $$ begin perform t_igual(
+    'não descobre quem mais está esperando',
+    (select count(*) from public.lista_espera
+      where cliente_id = 'c1100000-0000-0000-0000-00000000000d'), 0); end $$;
+
+  -- Desistir é dela; tirar a concorrente da fila, não.
+  --
+  -- Repare COMO isto é medido. O RLS não levanta erro num DELETE que não
+  -- casa: ele simplesmente não apaga nada. Então a prova é o número de
+  -- linhas afetadas, não a ausência de exceção.
+  --
+  -- A primeira versão deste caso conferia com `exists(...)` depois do
+  -- delete — e acusou falso positivo, porque o `exists` também roda sob o
+  -- RLS da Maria: ela nunca enxerga a linha da Joana, apagada ou não.
+  -- "Não vejo" tinha sido lido como "apaguei".
+  do $$
+  declare n int;
+  begin
+    delete from public.lista_espera where id = 'ee000000-0000-0000-0000-00000000000d';
+    get diagnostics n = row_count;
+    if n = 0 then perform t_ok('não consegue tirar outra pessoa da fila');
+    else perform t_falha('APAGOU o lugar de outra cliente na fila');
+    end if;
+  end $$;
+
+  do $$
+  declare n int;
+  begin
+    delete from public.lista_espera where id = 'ee000000-0000-0000-0000-00000000000a';
+    get diagnostics n = row_count;
+    if n = 1 then perform t_ok('mas desiste do lugar dela quando quiser');
+    else perform t_falha('não conseguiu sair da própria fila');
+    end if;
+  end $$;
+rollback;
+
+begin;
+  set local role authenticated;
+  set local request.jwt.claim.sub = 'a0000000-0000-0000-0000-00000000000a';  -- Ana, dona
+
+  do $$ begin perform t_igual(
+    'a dona vê a fila inteira do salão dela',
+    (select count(*) from public.lista_espera), 2); end $$;
+rollback;
+
+begin;
+  set local role authenticated;
+  set local request.jwt.claim.sub = 'e0000000-0000-0000-0000-00000000000e';  -- Zé, salão B
+
+  do $$ begin perform t_igual(
+    'o salão vizinho não vê a fila de espera do outro',
+    (select count(*) from public.lista_espera), 0); end $$;
+rollback;

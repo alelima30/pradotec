@@ -129,6 +129,7 @@ alter table public.bloqueios              enable row level security;
 alter table public.clientes               enable row level security;
 alter table public.agendamentos           enable row level security;
 alter table public.agendamento_servicos   enable row level security;
+alter table public.lista_espera           enable row level security;
 alter table public.produtos               enable row level security;
 alter table public.comandas               enable row level security;
 alter table public.comanda_itens          enable row level security;
@@ -354,6 +355,33 @@ create policy ags_apagar on public.agendamento_servicos for delete to authentica
                    where a.id = agendamento_id and e_equipe(a.salao_id)) );
 
 -- ---------------------------------------------------------------------------
+-- 8b) LISTA DE ESPERA
+--
+-- Mesma regra da agenda: a equipe vê a fila inteira, o cliente vê só o lugar
+-- dele. Uma fila aberta diria a todo mundo quem mais quer horário naquele
+-- salão — e com nome e ficha junto, porque `cliente_id` leva a `clientes`.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists espera_ler on public.lista_espera;
+create policy espera_ler on public.lista_espera for select to authenticated
+  using ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+-- Entrar na fila é ato do próprio cliente, ou da recepção por telefone.
+drop policy if exists espera_entrar on public.lista_espera;
+create policy espera_entrar on public.lista_espera for insert to authenticated
+  with check ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+-- O cliente desiste; a equipe move o status conforme chama e atende.
+drop policy if exists espera_mexer on public.lista_espera;
+create policy espera_mexer on public.lista_espera for update to authenticated
+  using ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) )
+  with check ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+drop policy if exists espera_apagar on public.lista_espera;
+create policy espera_apagar on public.lista_espera for delete to authenticated
+  using ( e_equipe(salao_id) or cliente_id = meu_cliente_id(salao_id) );
+
+-- ---------------------------------------------------------------------------
 -- 9) DINHEIRO — comanda, itens, pagamento, produto
 --
 -- Profissional vê o que é dele (a comissão dele). Faturamento do salão é da
@@ -464,8 +492,8 @@ grant select, insert, update, delete on
   public.saloes, public.perfis, public.vinculos, public.profissionais,
   public.servicos, public.servicos_profissionais, public.jornadas,
   public.bloqueios, public.clientes, public.agendamentos,
-  public.agendamento_servicos, public.produtos, public.comandas,
-  public.comanda_itens, public.pagamentos
+  public.agendamento_servicos, public.lista_espera, public.produtos,
+  public.comandas, public.comanda_itens, public.pagamentos
   to authenticated;
 
 grant select on public.comandas_totais to authenticated;
