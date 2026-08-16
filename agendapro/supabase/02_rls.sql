@@ -135,6 +135,8 @@ alter table public.comandas               enable row level security;
 alter table public.comanda_itens          enable row level security;
 alter table public.pagamentos             enable row level security;
 alter table public.contadores             enable row level security;
+alter table public.planos                 enable row level security;
+alter table public.assinaturas            enable row level security;
 
 -- ---------------------------------------------------------------------------
 -- 3) SALÃO
@@ -152,6 +154,34 @@ create policy salao_gerir on public.saloes for update to authenticated
 drop policy if exists salao_criar on public.saloes;
 create policy salao_criar on public.saloes for insert to authenticated
   with check ( is_super() );
+
+-- ---------------------------------------------------------------------------
+-- 3b) PLANO E ASSINATURA
+--
+-- A tabela de planos é vitrine: todo mundo logado pode ler, porque é o que a
+-- tela de "trocar de plano" mostra. Quem MEXE é só a plataforma.
+--
+-- A assinatura o dono lê — precisa saber até quando vai o teste e quanto
+-- paga — mas não escreve. Deixar o dono editar a própria assinatura é o
+-- mesmo que deixar o cliente digitar o preço: ele se põe no plano de 20
+-- profissionais em dois cliques.
+-- ---------------------------------------------------------------------------
+
+drop policy if exists plano_ler on public.planos;
+create policy plano_ler on public.planos for select to authenticated
+  using ( ativo or is_super() );
+
+drop policy if exists plano_gerir on public.planos;
+create policy plano_gerir on public.planos for all to authenticated
+  using ( is_super() ) with check ( is_super() );
+
+drop policy if exists assin_ler on public.assinaturas;
+create policy assin_ler on public.assinaturas for select to authenticated
+  using ( e_gestor(salao_id) );
+
+drop policy if exists assin_gerir on public.assinaturas;
+create policy assin_gerir on public.assinaturas for all to authenticated
+  using ( is_super() ) with check ( is_super() );
 
 -- ---------------------------------------------------------------------------
 -- 4) PERFIL — a identidade global
@@ -497,5 +527,7 @@ grant select, insert, update, delete on
   to authenticated;
 
 grant select on public.comandas_totais to authenticated;
+grant select on public.planos to authenticated;
+grant select on public.assinaturas to authenticated;
 
 revoke all on public.contadores from anon, authenticated;

@@ -345,7 +345,7 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
       <p class="sub" id="capaEnd">—</p>
       <div class="cat">O que oferecemos</div>
       <div id="capaServicos"></div>
-      <div class="cat">Quem atende</div>
+      <div class="cat" id="rotuloEquipe">Quem atende</div>
       <div id="capaEquipe"></div>
     </section>
 
@@ -563,6 +563,36 @@ const PASSO_MIN = 15;
 const DIAS_CURTOS = ['dom','seg','ter','qua','qui','sex','sáb'];
 const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 const ATIVOS = ['pendente','confirmado','em_atendimento','concluido'];
+
+/* ── O vocabulário sai do tipo do negócio ────────────────────────────────
+   A ideia é de um concorrente e é boa demais para não usar: um produto só,
+   e a palavra muda conforme o nicho. Quem abre uma barbearia lê "barbeiro",
+   não "profissional" — e sente que o sistema foi feito para ele.
+
+   Barato de manter: é um mapa, não um segundo produto.
+   ──────────────────────────────────────────────────────────────────────── */
+const VOCABULARIO = {
+  barbearia: { casa:'Barbearia',       quem:'barbeiro',     atende:'Quem corta',
+               acao:'Agendar corte' },
+  salao:     { casa:'Salão de beleza', quem:'profissional', atende:'Quem atende',
+               acao:'Agendar horário' },
+  manicure:  { casa:'Esmalteria',      quem:'manicure',     atende:'Quem atende',
+               acao:'Agendar horário' },
+  estetica:  { casa:'Estética',        quem:'esteticista',  atende:'Quem atende',
+               acao:'Agendar sessão' },
+  clinica:   { casa:'Clínica',         quem:'profissional', atende:'Quem atende',
+               acao:'Agendar consulta' },
+  tatuagem:  { casa:'Estúdio',         quem:'tatuador',     atende:'Quem tatua',
+               acao:'Agendar sessão' },
+  pet:       { casa:'Pet shop',        quem:'tosador',      atende:'Quem atende',
+               acao:'Agendar banho' },
+  outro:     { casa:'Atendimento',     quem:'profissional', atende:'Quem atende',
+               acao:'Agendar horário' },
+};
+function voc(chave){
+  const v = VOCABULARIO[(salao && salao.tipo) || 'salao'] || VOCABULARIO.salao;
+  return v[chave] || VOCABULARIO.salao[chave];
+}
 
 let bd = null;
 let salao = null;            // salão deste link
@@ -783,7 +813,7 @@ function desenhar(){
   bp.disabled = false;
 
   if(tela === 'saloes')      { desenharSaloes();    rodape.style.display='none'; trilhaAte(0); }
-  if(tela === 'capa')        { desenharCapa();      bp.textContent='Agendar horário'; trilhaAte(0); }
+  if(tela === 'capa')        { desenharCapa();      bp.textContent=voc('acao'); trilhaAte(0); }
   // Botão desabilitado que DIZ o que falta. Cinza mudo faz a pessoa procurar
   // o que não fez; o rótulo resolve sem ela precisar adivinhar.
   if(tela === 'servico')     { desenharServicos();  trilhaAte(1);
@@ -839,6 +869,7 @@ function desenharCapa(){
           <span class="vv">${real(s.preco)}</span>
         </div>`).join('')}`).join('');
 
+  document.getElementById('rotuloEquipe').textContent = voc('atende');
   document.getElementById('capaEquipe').innerHTML = profsDoSalao().map(p => `
     <div class="opcao" style="cursor:default">
       <span class="ic" style="background:${p.cor}">${p.nome[0]}</span>
@@ -942,7 +973,7 @@ function desenharProfs(){
 
   if(!aptos.length){
     document.getElementById('listaProfs').innerHTML =
-      '<div class="recado erro">Ninguém deste salão faz essa combinação de serviços. '
+      '<div class="recado erro">Nenhum ' + voc('quem') + ' faz essa combinação. '
       + 'Tente separar em dois agendamentos.</div>';
     return;
   }
@@ -963,7 +994,7 @@ function desenharProfs(){
   html += `<button class="opcao ${qualquer?'sel':''}" onclick="escolherProf('*')">
       <span class="ic" style="background:linear-gradient(135deg,#7C3AED,#EC4899)">?</span>
       <span class="txt"><span class="tt">Tanto faz</span>
-        <span class="dd">Mostra o horário mais cedo de qualquer profissional</span></span>
+        <span class="dd">Mostra o horário mais cedo de qualquer ${voc('quem')}</span></span>
       <span class="marca">${qualquer?'✓':''}</span>
     </button>`;
 
@@ -999,7 +1030,7 @@ function desenharQuando(){
 
   document.getElementById('subQuando').textContent =
     nomesEscolhidos() + ' · ' + (escolha.profissionalId === '*'
-      ? 'qualquer profissional' : acharProf(escolha.profissionalId).nome);
+      ? 'qualquer ' + voc('quem') : acharProf(escolha.profissionalId).nome);
 
   // Até onde o salão liberou. Dizer isso evita o cliente achar que a casa
   // fechou quando o calendário acaba.
@@ -1712,8 +1743,7 @@ function entrarNoSalao(slug){
     s.tipo === 'barbearia' ? 'barbearia' : 'salao');
 
   document.getElementById('tituloSalao').textContent = s.nome;
-  document.getElementById('subSalao').textContent =
-    s.tipo === 'barbearia' ? 'Barbearia' : 'Salão de beleza';
+  document.getElementById('subSalao').textContent = voc('casa');
   document.getElementById('avatarSalao').textContent = s.tipo === 'barbearia' ? '✄' : '✂';
   document.getElementById('notaRodape').innerHTML =
     `Link deste salão: <code>?salao=${s.slug}</code> · AgendaPro`;

@@ -26,8 +26,12 @@ create table if not exists public.saloes (
   -- slug é o endereço público: agendapro.app/agendar/salao-da-ana
   slug      text unique not null check (slug ~ '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'),
   nome      text not null,
+  -- O tipo não é só rótulo: ele define o VOCABULÁRIO do sistema. Barbearia
+  -- diz "barbeiro", esmalteria diz "manicure", clínica diz "paciente". Um
+  -- produto só, cinco nichos, sem manter cinco produtos.
   tipo      text not null default 'salao'
-            check (tipo in ('salao','barbearia','estetica','manicure','outro')),
+            check (tipo in ('salao','barbearia','estetica','manicure',
+                            'clinica','tatuagem','pet','outro')),
   logo      text,
   telefone  text,
   whatsapp  text,
@@ -41,6 +45,69 @@ create table if not exists public.saloes (
   cfg       jsonb not null default '{}'::jsonb,
   criado_em timestamptz not null default now()
 );
+
+-- ---------------------------------------------------------------------------
+-- 1b) O QUE O SALÃO PAGA
+--
+-- O AdminPro não tem isso, e a documentação dele reconhece: "o sistema não
+-- sabe quem é o cliente, só qual é o condomínio". Com poucos clientes e Pix
+-- na mão aquilo passava. Aqui não passa, porque o preço é por profissional —
+-- sem controle, o dono assina o plano de um e cadastra oito.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.planos (
+  codigo           text primary key,
+  nome             text not null,
+  max_profissionais int not null check (max_profissionais > 0),
+  preco_mes        numeric(10,2) not null default 0 check (preco_mes >= 0),
+  -- Quais módulos o plano libera. Fica em JSON porque é configuração da
+  -- plataforma, mexida por nós, não dado que se cruza em relatório.
+  recursos         jsonb not null default '{}'::jsonb,
+  ativo            boolean not null default true,
+  ordem            smallint not null default 0
+);
+
+create table if not exists public.assinaturas (
+  salao_id     uuid primary key references public.saloes(id) on delete cascade,
+  plano        text not null references public.planos(codigo),
+  status       text not null default 'trial'
+               check (status in ('trial','ativa','inadimplente','cancelada')),
+  -- Fim do teste grátis. Passou disso sem virar 'ativa', o salão para.
+  trial_ate    date,
+  vence_em     date,
+  -- Por onde o dono chegou até nós. É a única forma de saber qual parceria
+  -- ou anúncio trouxe cliente que paga, em vez de cliente que só olhou.
+  origem       text,
+  indicado_por text,
+  criado_em    timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+
+-- Quantos profissionais este salão pode ter, agora. Sem assinatura, trata-se
+-- como trial de um — nunca como ilimitado: o padrão de um sistema de cobrança
+-- tem que ser o mais restrito, senão a falha de cadastro vira plano grátis.
+create or replace function public.limite_profissionais(p_salao uuid)
+returns int language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select pl.max_profissionais
+       from public.assinaturas a
+       join public.planos pl on pl.codigo = a.plano
+      where a.salao_id = p_salao
+        and a.status in ('trial','ativa')
+        and (a.status <> 'trial' or a.trial_ate is null or a.trial_ate >= current_date)),
+    1)
+$$;
+
+-- Os planos de partida. Preço é decisão comercial e muda com um UPDATE —
+-- por isso está em tabela, não espalhado pelo código.
+insert into public.planos (codigo, nome, max_profissionais, preco_mes, ordem) values
+  ('trial',      'Teste grátis', 1,  0.00, 0),
+  ('individual', 'Individual',   1, 47.00, 1),
+  ('duo',        'Duo',          2, 87.00, 2),
+  ('time',       'Time',         3,127.00, 3),
+  ('equipe',     'Equipe',       5,187.00, 4),
+  ('salao',      'Salão',       20,297.00, 5)
+on conflict (codigo) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- 2) QUEM É A PESSOA (global) E ONDE ELA ENTRA (por salão)
@@ -99,6 +166,51 @@ create table if not exists public.profissionais (
 
 create index if not exists ix_prof_salao on public.profissionais(salao_id)
   where ativo;
+
+-- ⚠ A TRAVA DO PLANO MORA AQUI, e não na tela.
+--
+-- Limite conferido em JavaScript não é limite: o dono abre o console, chama a
+-- API REST do Supabase com a chave que está no HTML e cadastra quantos
+-- profissionais quiser no plano de um. Receita vazando sem ninguém ver.
+--
+-- Como gatilho, a recusa vale para a tela, para a API e para o SQL escrito à
+-- mão. A mensagem diz o número e o plano, para o dono saber o que fazer em
+-- vez de achar que quebrou.
+create or replace function public.checar_limite_profissionais()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare usados int; limite int; nome_plano text;
+begin
+  -- Só conta quem está ativo: desativar um barbeiro é a forma legítima de
+  -- abrir vaga sem apagar o histórico dele.
+  if not new.ativo then return new; end if;
+  if tg_op = 'UPDATE' and old.ativo and new.salao_id = old.salao_id then
+    return new;   -- já contava antes, nada muda
+  end if;
+
+  select count(*) into usados
+    from public.profissionais
+   where salao_id = new.salao_id and ativo
+     and (tg_op = 'INSERT' or id <> new.id);
+
+  limite := public.limite_profissionais(new.salao_id);
+
+  if usados >= limite then
+    select pl.nome into nome_plano
+      from public.assinaturas a join public.planos pl on pl.codigo = a.plano
+     where a.salao_id = new.salao_id;
+    raise exception
+      'O plano % permite % profissional(is) ativo(s), e o salão já tem %. '
+      'Troque de plano ou desative alguém antes de cadastrar mais.',
+      coalesce(nome_plano, 'atual'), limite, usados
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists tg_limite_prof on public.profissionais;
+create trigger tg_limite_prof
+  before insert or update on public.profissionais
+  for each row execute function public.checar_limite_profissionais();
 
 create table if not exists public.servicos (
   id            uuid primary key default gen_random_uuid(),

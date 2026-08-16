@@ -27,6 +27,10 @@ insert into public.saloes (id, slug, nome) values
   ('5a100000-0000-0000-0000-00000000000a', 'salao-a', 'Salão A'),
   ('5a100000-0000-0000-0000-00000000000b', 'salao-b', 'Barbearia B');
 
+insert into public.assinaturas (salao_id, plano, status) values
+  ('5a100000-0000-0000-0000-00000000000a', 'time', 'ativa'),
+  ('5a100000-0000-0000-0000-00000000000b', 'time', 'ativa');
+
 insert into public.perfis (id, nome, telefone) values
   ('a0000000-0000-0000-0000-00000000000a', 'Ana',   '+5511900000001'),
   ('b0000000-0000-0000-0000-00000000000b', 'Bia',   '+5511900000002'),

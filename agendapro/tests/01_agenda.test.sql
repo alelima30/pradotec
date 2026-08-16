@@ -21,6 +21,12 @@ insert into public.saloes (id, slug, nome, tipo) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'salao-da-ana', 'Salão da Ana', 'salao'),
   ('aaaaaaaa-0000-0000-0000-000000000002', 'barbearia-do-ze', 'Barbearia do Zé', 'barbearia');
 
+-- Os salões do cenário assinam um plano que comporta a equipe. Sem isto o
+-- gatilho de limite recusaria o segundo profissional — e recusaria certo.
+insert into public.assinaturas (salao_id, plano, status) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'time', 'ativa'),
+  ('aaaaaaaa-0000-0000-0000-000000000002', 'time', 'ativa');
+
 insert into public.perfis (id, nome, telefone) values
   ('11111111-1111-1111-1111-111111111111', 'Ana Souza',   '+5511988887777'),
   ('22222222-2222-2222-2222-222222222222', 'Maria Silva', '+5511977776666');
@@ -468,5 +474,101 @@ begin
     perform t_ok('o turno sai do fuso do SALÃO, não do fuso da sessão');
   else perform t_falha(format(
     'a fila mudou com o fuso da sessão: UTC=%s, São Paulo=%s', n_utc, n_sp));
+  end if;
+end $$;
+
+
+\echo ''
+\echo 'Limite do plano — a trava que protege a receita'
+
+-- Salão novo, sem assinatura nenhuma. O padrão TEM que ser o mais restrito.
+insert into public.saloes (id, slug, nome, tipo) values
+  ('aaaaaaaa-0000-0000-0000-000000000009', 'salao-novo', 'Salão Novo', 'barbearia');
+
+do $$
+begin
+  if public.limite_profissionais('aaaaaaaa-0000-0000-0000-000000000009') = 1
+  then perform t_ok('salão sem assinatura vale como 1 profissional, não ilimitado');
+  else perform t_falha('salão sem assinatura ficou com limite '
+    || public.limite_profissionais('aaaaaaaa-0000-0000-0000-000000000009'));
+  end if;
+end $$;
+
+insert into public.assinaturas (salao_id, plano, status, trial_ate)
+values ('aaaaaaaa-0000-0000-0000-000000000009', 'trial', 'trial',
+        current_date + 7);
+
+insert into public.profissionais (id, salao_id, nome) values
+  ('bbbbbbbb-0000-0000-0000-000000000009',
+   'aaaaaaaa-0000-0000-0000-000000000009', 'Único');
+do $$ begin perform t_ok('o primeiro profissional entra no teste grátis'); end $$;
+
+do $$
+begin
+  if recusado($q$insert into public.profissionais (salao_id, nome)
+                 values ('aaaaaaaa-0000-0000-0000-000000000009', 'Segundo')$q$)
+  then perform t_ok('o segundo é RECUSADO PELO BANCO, não pela tela');
+  else perform t_falha('DEIXOU passar do limite do plano — receita vazando');
+  end if;
+end $$;
+
+-- Desativar abre vaga sem apagar o histórico de quem saiu.
+do $$
+declare n int;
+begin
+  update public.profissionais set ativo = false
+   where id = 'bbbbbbbb-0000-0000-0000-000000000009';
+  insert into public.profissionais (salao_id, nome)
+  values ('aaaaaaaa-0000-0000-0000-000000000009', 'Substituto');
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('desativar alguém abre vaga sem perder o histórico');
+  else perform t_falha('não consegui trocar de profissional dentro do limite');
+  end if;
+end $$;
+
+-- Subir de plano libera de verdade.
+update public.assinaturas set plano = 'duo', status = 'ativa', trial_ate = null
+ where salao_id = 'aaaaaaaa-0000-0000-0000-000000000009';
+
+do $$
+declare n int;
+begin
+  insert into public.profissionais (salao_id, nome)
+  values ('aaaaaaaa-0000-0000-0000-000000000009', 'Segundo de verdade');
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('assinando o Duo, o segundo profissional entra');
+  else perform t_falha('trocar de plano não liberou a vaga');
+  end if;
+end $$;
+
+do $$
+begin
+  if recusado($q$insert into public.profissionais (salao_id, nome)
+                 values ('aaaaaaaa-0000-0000-0000-000000000009', 'Terceiro')$q$)
+  then perform t_ok('mas o terceiro esbarra no limite do Duo');
+  else perform t_falha('o Duo aceitou 3 profissionais');
+  end if;
+end $$;
+
+-- Teste vencido volta ao limite mínimo. Sem isso, quem nunca pagou continua
+-- usando para sempre.
+do $$
+begin
+  update public.assinaturas
+     set plano = 'duo', status = 'trial', trial_ate = current_date - 1
+   where salao_id = 'aaaaaaaa-0000-0000-0000-000000000009';
+  if public.limite_profissionais('aaaaaaaa-0000-0000-0000-000000000009') = 1
+  then perform t_ok('teste vencido volta a valer 1 profissional');
+  else perform t_falha('teste vencido continuou com o limite do plano pago');
+  end if;
+end $$;
+
+do $$
+begin
+  update public.assinaturas set status = 'cancelada'
+   where salao_id = 'aaaaaaaa-0000-0000-0000-000000000009';
+  if public.limite_profissionais('aaaaaaaa-0000-0000-0000-000000000009') = 1
+  then perform t_ok('assinatura cancelada também volta ao mínimo');
+  else perform t_falha('cancelada seguiu liberando o plano inteiro');
   end if;
 end $$;
