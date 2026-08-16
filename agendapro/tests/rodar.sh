@@ -43,6 +43,7 @@ preparar() {
   carregar "$AQUI/00_stub_supabase.sql"
   carregar "$RAIZ/supabase/01_schema.sql"
   carregar "$RAIZ/supabase/02_rls.sql"
+  carregar "$RAIZ/supabase/03_onboarding.sql"
   carregar "$AQUI/00_ajuda.sql"
 }
 

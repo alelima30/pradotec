@@ -346,6 +346,17 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
     <div id="listaComissao"></div>
   </section>
 
+  <!-- ══════════ PLANO E ASSINATURA ══════════ -->
+  <section class="tela" id="tela-plano">
+    <div class="barra"><h2>Seu plano</h2></div>
+    <div id="painelPlano"></div>
+    <h2 style="margin:24px 0 6px;font-size:16px">Trocar de plano</h2>
+    <p style="color:var(--txt2);font-size:14px;margin-bottom:14px">
+      Quantos profissionais você precisa ter na agenda ao mesmo tempo?</p>
+    <div id="reguaPlanos"></div>
+    <div id="cartaoPlano"></div>
+  </section>
+
   <!-- ══════════ VER COMO CLIENTE ══════════ -->
   <section class="tela" id="tela-publico">
     <div class="publico">
@@ -582,6 +593,7 @@ const TELAS = [
   ['equipe',   'Equipe'],
   ['caixa',    'Caixa'],
   ['publico',  'Ver como cliente'],
+  ['plano',    'Plano'],
 ];
 
 function montarAbas(){
@@ -1542,6 +1554,130 @@ function pintar(){
   if(telaAtual === 'equipe')   pintarEquipe();
   if(telaAtual === 'caixa')    pintarCaixa();
   if(telaAtual === 'publico')  prepararPublico();
+  if(telaAtual === 'plano')    pintarPlano();
+}
+
+/* ── Plano e assinatura ──────────────────────────────────────────────────
+   A tela existe por um motivo comercial: o dono precisa VER o limite antes
+   de esbarrar nele. Descobrir que não cabe mais gente na hora de cadastrar
+   o barbeiro novo é a pior hora possível — ele fica bravo com o sistema, e
+   não com o próprio plano.
+   ──────────────────────────────────────────────────────────────────────── */
+let planoEscolhido = null;
+
+function assinaturaAtual(){
+  return (bd.assinaturas || []).find(a => a.salaoId === salaoAtual) || null;
+}
+function planoDe(codigo){
+  return (bd.planos || []).find(p => p.codigo === codigo) || null;
+}
+function limiteDoSalao(){
+  const a = assinaturaAtual();
+  if(!a) return 1;
+  const vencido = a.status === 'trial' && a.trialAte && a.trialAte < hoje();
+  if(vencido || !['trial','ativa'].includes(a.status)) return 1;
+  const p = planoDe(a.plano);
+  return p ? p.maxProfissionais : 1;
+}
+function diasDeTeste(){
+  const a = assinaturaAtual();
+  if(!a || a.status !== 'trial' || !a.trialAte) return null;
+  const [y,m,d] = a.trialAte.split('-').map(Number);
+  const [y2,m2,d2] = hoje().split('-').map(Number);
+  return Math.max(Math.round((new Date(y,m-1,d) - new Date(y2,m2-1,d2)) / 86400000), 0);
+}
+
+function pintarPlano(){
+  const a = assinaturaAtual();
+  const p = a ? planoDe(a.plano) : null;
+  const usados = profsAtivos().length;
+  const limite = limiteDoSalao();
+  const dias = diasDeTeste();
+  const cheio = usados >= limite;
+
+  document.getElementById('painelPlano').innerHTML = `
+    <div class="card" style="border-color:${cheio ? 'var(--alerta)' : 'var(--borda)'}">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="font-size:18px">${p ? p.nome : 'Sem plano'}</h3>
+          <p>${a && a.status === 'trial'
+              ? (dias > 0 ? `Teste grátis — faltam ${dias} dia(s)`
+                          : 'Teste grátis encerrado')
+              : a && a.status === 'ativa' ? 'Assinatura ativa'
+              : 'Sem assinatura ativa'}</p>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800">${
+            p && p.precoMes ? real(p.precoMes) : 'Grátis'}</div>
+          <div style="font-size:12px;color:var(--txt2)">${p && p.precoMes ? 'por mês' : ''}</div>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+          <span style="color:var(--txt2)">Profissionais na agenda</span>
+          <b>${usados} de ${limite}</b>
+        </div>
+        <div style="height:8px;background:var(--bg);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(usados/limite*100,100)}%;
+                      background:${cheio ? 'var(--alerta)' : 'var(--roxo)'};
+                      border-radius:99px"></div>
+        </div>
+      </div>
+      ${cheio ? `<div class="aviso" style="margin-top:13px;margin-bottom:0">
+        <b>Você chegou ao limite do plano.</b><br>
+        Para cadastrar mais alguém, troque de plano ou desative um profissional.
+        Desativar não apaga o histórico dele.</div>` : ''}
+      ${dias !== null && dias <= 2 ? `<div class="aviso" style="margin-top:13px;margin-bottom:0">
+        <b>O teste acaba ${dias === 0 ? 'hoje' : 'em ' + dias + ' dia(s)'}.</b><br>
+        Depois disso a agenda continua no ar, mas volta ao limite de 1
+        profissional até você assinar.</div>` : ''}
+    </div>`;
+
+  // A régua de profissionais, que é a ideia boa da concorrência: em vez de
+  // uma tabela comparativa, o dono responde "quantos somos?" e o plano
+  // aparece. Ele se classifica sozinho.
+  const planos = (bd.planos||[]).filter(x => x.codigo !== 'trial')
+                   .sort((a,b) => a.maxProfissionais - b.maxProfissionais);
+  if(planoEscolhido === null) planoEscolhido = Math.max(usados, 1);
+
+  const max = planos.length ? planos[planos.length-1].maxProfissionais : 1;
+  const passos = [1,2,3,4,5,6];
+  document.getElementById('reguaPlanos').innerHTML = `
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${passos.map(n => `<button class="btn ${n===planoEscolhido?'btn-p':''}"
+          style="min-width:52px" onclick="planoEscolhido=${n};pintarPlano()">
+          ${n === 6 ? '6+' : n}</button>`).join('')}
+    </div>`;
+
+  const recomendado = planos.find(x => x.maxProfissionais >= planoEscolhido)
+                   || planos[planos.length-1];
+  document.getElementById('cartaoPlano').innerHTML = recomendado ? `
+    <div class="card" style="margin-top:14px;border-color:var(--roxo)">
+      <div style="font-size:12px;font-weight:800;color:var(--roxo);letter-spacing:.05em">
+        PLANO RECOMENDADO</div>
+      <h3 style="font-size:20px;margin-top:4px">${recomendado.nome}</h3>
+      <div style="font-size:26px;font-weight:800;margin:6px 0">
+        ${real(recomendado.precoMes)}<span style="font-size:14px;font-weight:600;
+        color:var(--txt2)"> /mês</span></div>
+      <p>Até ${recomendado.maxProfissionais} profissional(is) na agenda.</p>
+      <div class="card-acoes">
+        <button class="btn btn-p" onclick="assinar('${recomendado.codigo}')">
+          Assinar ${recomendado.nome}</button>
+      </div>
+      <p style="font-size:12px;color:var(--txt3);margin-top:10px">
+        Nesta demonstração o botão troca o plano na hora. No sistema de
+        verdade ele leva ao pagamento, e quem muda a assinatura é a
+        plataforma — o dono não edita o próprio plano, senão assinaria o
+        maior de graça.</p>
+    </div>` : '';
+}
+
+function assinar(codigo){
+  const a = assinaturaAtual();
+  if(!a) return;
+  a.plano = codigo; a.status = 'ativa'; a.trialAte = null;
+  salvar();
+  pintar();
 }
 
 /* ===========================================================================
@@ -1658,6 +1794,21 @@ function semear(){
   marcar('c5','p5','v9', 11*60,     'confirmado');
 
   return {
+    planos: [
+      {codigo:'trial',      nome:'Teste grátis', maxProfissionais:1,  precoMes:0},
+      {codigo:'individual', nome:'Individual',   maxProfissionais:1,  precoMes:47},
+      {codigo:'duo',        nome:'Duo',          maxProfissionais:2,  precoMes:87},
+      {codigo:'time',       nome:'Time',         maxProfissionais:3,  precoMes:127},
+      {codigo:'equipe',     nome:'Equipe',       maxProfissionais:5,  precoMes:187},
+      {codigo:'salao',      nome:'Salão',        maxProfissionais:20, precoMes:297},
+    ],
+    // O Studio Bella tem 3 profissionais e assina o Time; a barbearia está
+    // no teste grátis com 2 — de propósito, para a tela mostrar o aviso de
+    // limite estourado, que é o caso que o dono precisa entender.
+    assinaturas: [
+      {salaoId:s1, plano:'time',  status:'ativa', trialAte:null},
+      {salaoId:s2, plano:'trial', status:'trial', trialAte:somarDias(hoje(), 2)},
+    ],
     saloes: [
       {id:s1, slug:'studio-bella', nome:'Studio Bella', tipo:'salão',
        endereco:'Rua das Flores, 210 — Itu/SP'},

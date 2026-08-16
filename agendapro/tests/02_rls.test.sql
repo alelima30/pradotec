@@ -402,3 +402,157 @@ begin;
     'o salão vizinho não vê a fila de espera do outro',
     (select count(*) from public.lista_espera), 0); end $$;
 rollback;
+
+
+\echo ''
+\echo 'Autoatendimento — o dono se cadastra sozinho'
+
+insert into auth.users (id) values ('f0000000-0000-0000-0000-00000000000f');
+insert into public.perfis (id, nome, telefone)
+values ('f0000000-0000-0000-0000-00000000000f', 'Rogério Alves', '+5511900000009');
+
+begin;
+  set local role authenticated;
+  set local request.jwt.claim.sub = 'f0000000-0000-0000-0000-00000000000f';
+
+  -- Sem a função, ele não cria salão nenhum: a policy só deixa is_super().
+  do $$
+  begin
+    if recusado($q$insert into public.saloes (slug, nome)
+                   values ('na-marra', 'Na Marra')$q$)
+    then perform t_ok('inserir salão direto na tabela é barrado');
+    else perform t_falha('CRIOU salão passando por cima da policy');
+    end if;
+  end $$;
+
+  -- Mas pela função, sim.
+  do $$
+  declare r record;
+  begin
+    select * into r from public.criar_salao(
+      'Barbearia Os Meninos dá Vila', 'barbearia', null,
+      '(11) 90000-0009', '123.456.789-09', 'indicacao', 'Barbeiro Responde');
+
+    if r.slug = 'barbearia-os-meninos-da-vila'
+    then perform t_ok('o apelido sai do nome, sem acento e sem espaço');
+    else perform t_falha('apelido saiu como ' || r.slug);
+    end if;
+
+    if (select count(*) from public.saloes where id = r.salao_id) = 1
+    then perform t_ok('o salão é criado pela função');
+    else perform t_falha('o salão não apareceu');
+    end if;
+
+    if (select papel from public.vinculos
+         where salao_id = r.salao_id
+           and perfil_id = 'f0000000-0000-0000-0000-00000000000f') = 'dono'
+    then perform t_ok('quem criou já entra como dono');
+    else perform t_falha('o criador não virou dono — salão órfão');
+    end if;
+
+    if (select count(*) from public.profissionais where salao_id = r.salao_id) = 1
+    then perform t_ok('o dono já entra como o primeiro profissional');
+    else perform t_falha('não criou o primeiro profissional');
+    end if;
+
+    if (select status from public.assinaturas where salao_id = r.salao_id) = 'trial'
+    then perform t_ok('a assinatura nasce em teste grátis');
+    else perform t_falha('assinatura não nasceu em trial');
+    end if;
+
+    if (select trial_ate from public.assinaturas where salao_id = r.salao_id)
+       = current_date + 7
+    then perform t_ok('o teste tem prazo de 7 dias');
+    else perform t_falha('prazo do teste saiu errado');
+    end if;
+
+    if (select indicado_por from public.assinaturas where salao_id = r.salao_id)
+       = 'Barbeiro Responde'
+    then perform t_ok('a origem da indicação fica registrada');
+    else perform t_falha('perdeu de onde veio o cliente');
+    end if;
+
+    -- E o limite do trial vale desde o primeiro minuto.
+    if recusado(format($q$insert into public.profissionais (salao_id, nome)
+                          values (%L, 'Segundo barbeiro')$q$, r.salao_id))
+    then perform t_ok('o teste grátis já nasce limitado a 1 profissional');
+    else perform t_falha('o trial aceitou o segundo profissional');
+    end if;
+  end $$;
+
+  -- Nome repetido não quebra: ganha apelido livre.
+  do $$
+  declare r record;
+  begin
+    select * into r from public.criar_salao('Barbearia Os Meninos dá Vila', 'barbearia');
+    if r.slug = 'barbearia-os-meninos-da-vila-2'
+    then perform t_ok('nome repetido vira apelido-2, sem erro na cara do dono');
+    else perform t_falha('segundo apelido saiu como ' || r.slug);
+    end if;
+  end $$;
+
+  -- A vista da própria conta.
+  do $$
+  declare a record;
+  begin
+    select * into a from public.minha_assinatura limit 1;
+    if a.dias_de_teste = 7 and a.max_profissionais = 1 and a.profissionais_ativos = 1
+    then perform t_ok('a vista mostra plano, uso e dias de teste restantes');
+    else perform t_falha(format('vista trouxe dias=%s max=%s usados=%s',
+      a.dias_de_teste, a.max_profissionais, a.profissionais_ativos));
+    end if;
+  end $$;
+
+  do $$
+  begin
+    if recusado($q$update public.assinaturas set plano = 'salao'$q$)
+    then perform t_ok('o dono não se promove sozinho para o plano maior');
+    else
+      if (select plano from public.assinaturas
+           where salao_id in (select salao_id from public.vinculos
+                               where perfil_id = auth.uid() and papel = 'dono')
+           limit 1) = 'salao'
+      then perform t_falha('TROCOU o próprio plano sem pagar');
+      else perform t_ok('o dono não se promove sozinho para o plano maior');
+      end if;
+    end if;
+  end $$;
+rollback;
+
+begin;
+  set local role authenticated;
+  set local request.jwt.claim.sub = 'e0000000-0000-0000-0000-00000000000e';  -- Zé
+
+  do $$ begin perform t_igual(
+    'o dono de um salão não lê o documento fiscal de outro',
+    (select count(*) from public.documentos_cobranca), 0); end $$;
+rollback;
+
+begin;
+  set local role anon;
+  -- A tela de cadastro consulta o apelido enquanto a pessoa digita, antes
+  -- de existir login. Isso precisa funcionar sem expor a tabela.
+  do $$
+  begin
+    if public.slug_disponivel('um-nome-que-ninguem-usou')
+    then perform t_ok('quem não fez login consegue conferir se o apelido está livre');
+    else perform t_falha('a consulta de apelido não funciona sem login');
+    end if;
+  end $$;
+
+  do $$
+  begin
+    if not public.slug_disponivel('salao-a')
+    then perform t_ok('apelido já usado é recusado');
+    else perform t_falha('deixou usar apelido ocupado');
+    end if;
+  end $$;
+
+  do $$
+  begin
+    if recusado($q$select public.criar_salao('Sem Login')$q$)
+    then perform t_ok('criar salão sem login é barrado');
+    else perform t_falha('CRIOU salão sem ninguém logado');
+    end if;
+  end $$;
+rollback;
