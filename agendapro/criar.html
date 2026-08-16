@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="escuro">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Criar conta — AgendaPro</title>
+<meta name="description" content="Crie seu link de agendamento e teste 7 dias grátis, sem cartão." />
+<meta name="theme-color" content="#0D0D0F" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" href="icones/icone-192.png" />
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
+<style>
+/* ===========================================================================
+   AgendaPro — cadastro do dono
+   Escuro e dourado porque é a linguagem visual da categoria, e é o dono de
+   barbearia que chega aqui primeiro.
+   =========================================================================== */
+:root{
+  --ouro:#D4AF37; --ouro-claro:#F0CF5B; --ouro-esc:#A88824;
+  --bg:#0D0D0F; --painel:#17171A; --painel2:#1E1E22; --borda:#2E2E33;
+  --txt:#F2F2F0; --txt2:#A8A69E; --txt3:#6E6C66;
+  --ok:#10B981; --erro:#EF4444; --info:#3B82F6;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--txt); -webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+
+/* ── Topo ────────────────────────────────────────────────────────────── */
+.topo{
+  position:sticky;top:0;z-index:30;background:rgba(13,13,15,.93);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--borda);
+  padding:calc(12px + env(safe-area-inset-top)) 18px 12px;
+}
+.topo-in{max-width:620px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em;font-size:18px}
+.logo i{
+  width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--ouro-claro),var(--ouro-esc));
+  color:#17171A;font-style:normal;font-size:17px;font-weight:900;
+}
+.logo b{color:var(--ouro)}
+.entrar{margin-left:auto;color:var(--txt2);font-size:14px;font-weight:600}
+.entrar:hover{color:var(--ouro)}
+
+/* ── Passos ──────────────────────────────────────────────────────────── */
+.trilho{max-width:620px;margin:0 auto;padding:18px 18px 0;text-align:center}
+.bolas{display:flex;gap:9px;justify-content:center;margin-bottom:7px}
+.bolas i{width:9px;height:9px;border-radius:50%;background:var(--borda);transition:.2s}
+.bolas i.on{background:var(--ouro)}
+.trilho p{font-size:13.5px;color:var(--txt2)}
+
+.wrap{max-width:620px;margin:0 auto;padding:20px 18px 60px}
+.passo{display:none}
+.passo.on{display:block;animation:sobe .25s ease}
+@keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.voltar{display:inline-flex;align-items:center;gap:8px;color:var(--txt2);
+        font-size:15px;font-weight:600;margin-bottom:16px}
+.voltar:hover{color:var(--txt)}
+
+h1{font-size:32px;font-weight:900;letter-spacing:-.03em;line-height:1.12;margin-bottom:8px}
+h1 span{color:var(--ouro)}
+.sub{color:var(--txt2);font-size:16px;margin-bottom:20px}
+h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+
+/* ── Caixas de aviso ─────────────────────────────────────────────────── */
+.aviso{
+  display:flex;gap:11px;padding:14px 15px;border-radius:var(--r);
+  margin-bottom:18px;font-size:14px;line-height:1.5;
+  border:1px solid var(--info);background:rgba(59,130,246,.09);
+}
+.aviso .ic{flex:none;font-size:17px;line-height:1.3}
+.aviso b{display:block;color:#7EB0FF;margin-bottom:3px}
+.aviso.verde{border-color:rgba(16,185,129,.45);background:rgba(16,185,129,.07)}
+.aviso.verde b{color:#4ADE9A}
+.aviso.ruim{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.09);color:#FCA5A5}
+.aviso.ruim b{color:#FCA5A5}
+
+/* ── Preço ───────────────────────────────────────────────────────────── */
+.ciclo{
+  display:flex;gap:4px;padding:5px;border:1px solid var(--borda);
+  border-radius:99px;background:var(--painel);margin-bottom:20px;position:relative;
+}
+.ciclo button{flex:1;padding:12px;border-radius:99px;font-weight:800;font-size:15px;
+              color:var(--txt2);transition:.18s}
+.ciclo button.on{background:var(--ouro);color:#17171A}
+.desc10{
+  position:absolute;top:-9px;right:14px;background:var(--ok);color:#062E22;
+  font-size:11px;font-weight:900;padding:2px 9px;border-radius:99px;
+}
+
+.caixa{
+  border:1px solid var(--borda);border-radius:var(--r);
+  background:var(--painel);padding:20px;margin-bottom:18px;
+}
+.pergunta{text-align:center;color:var(--txt2);font-size:14.5px}
+.quantos{text-align:center;font-size:30px;font-weight:900;letter-spacing:-.03em;margin:4px 0 16px}
+.regua{display:flex;gap:6px;justify-content:center;align-items:center}
+.regua button{
+  width:46px;height:46px;border-radius:50%;font-weight:800;font-size:17px;
+  color:var(--txt3);transition:.18s;
+}
+.regua button.on{
+  background:var(--ouro);color:#17171A;
+  box-shadow:0 0 0 6px rgba(212,175,55,.14);
+}
+.linha-fina{height:1px;background:var(--borda);margin:18px 0}
+.recomendado{text-align:center}
+.recomendado small{color:var(--txt2);font-size:13.5px;display:block;margin-bottom:3px}
+.recomendado b{color:var(--ouro);font-size:21px;font-weight:900}
+
+/* ── Cards de plano ──────────────────────────────────────────────────── */
+.dica-desliza{text-align:center;color:var(--ouro);font-size:13.5px;font-weight:700;
+              margin-bottom:11px}
+.carrossel{display:flex;gap:13px;overflow-x:auto;padding:4px 0 14px;
+           scroll-snap-type:x mandatory}
+.carrossel::-webkit-scrollbar{height:0}
+.plano{
+  flex:none;width:280px;scroll-snap-align:center;border:1px solid var(--borda);
+  border-radius:var(--r);background:var(--painel);padding:20px;position:relative;
+}
+.plano.pop{border-color:var(--ouro);box-shadow:0 0 26px rgba(212,175,55,.14)}
+.plano .fita{
+  position:absolute;top:-1px;left:-1px;right:-1px;background:var(--ouro);color:#17171A;
+  font-size:11.5px;font-weight:900;text-align:center;padding:5px;
+  border-radius:var(--r) var(--r) 0 0;letter-spacing:.05em;
+}
+.plano.pop{padding-top:38px}
+.plano .ic{
+  width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+  background:rgba(212,175,55,.14);color:var(--ouro);font-size:19px;margin-bottom:11px;
+}
+.plano.pop .ic{background:var(--ouro);color:#17171A}
+.plano h3{font-size:19px;font-weight:800}
+.plano .quem{color:var(--txt2);font-size:13.5px;margin-bottom:11px}
+.plano .valor{font-size:32px;font-weight:900;letter-spacing:-.03em}
+.plano .valor s{font-size:15px;font-weight:600;color:var(--txt3);margin-right:7px}
+.plano .valor small{font-size:14px;font-weight:600;color:var(--txt2)}
+.plano ul{list-style:none;margin:15px 0;border-top:1px solid var(--borda);padding-top:14px}
+.plano li{display:flex;gap:9px;font-size:14.5px;padding:5px 0;color:var(--txt)}
+.plano li i{color:var(--ok);font-style:normal;font-weight:900}
+.plano .btn-plano{
+  width:100%;padding:13px;border-radius:11px;font-weight:800;font-size:15px;
+  border:1.5px solid var(--ouro);color:var(--ouro);
+}
+.plano.pop .btn-plano{background:var(--ouro);color:#17171A;border-color:var(--ouro)}
+.plano .btn-plano:active{transform:scale(.99)}
+
+.garantia{
+  display:flex;gap:12px;align-items:flex-start;border:1px solid rgba(16,185,129,.4);
+  background:rgba(16,185,129,.06);border-radius:var(--r);padding:15px;margin-top:6px;
+}
+.garantia .ic{font-size:22px;line-height:1;flex:none}
+.garantia b{display:block;color:#4ADE9A;margin-bottom:2px}
+.garantia p{font-size:14px;color:var(--txt2)}
+
+/* ── Formulário ──────────────────────────────────────────────────────── */
+.campo{margin-bottom:17px}
+.campo label{display:block;font-size:14px;font-weight:700;margin-bottom:7px}
+.campo label em{color:var(--ouro);font-style:normal}
+.campo label span{font-weight:500;color:var(--txt3);font-size:13px}
+.entrada{position:relative}
+.entrada input,.entrada select{
+  width:100%;padding:15px 15px 15px 44px;border:1.5px solid var(--borda);
+  border-radius:12px;background:var(--painel2);font-size:16px;transition:.15s;
+}
+.entrada.sem-ic input,.entrada.sem-ic select{padding-left:15px}
+.entrada input:focus,.entrada select:focus{
+  outline:none;border-color:var(--ouro);background:var(--painel);
+  box-shadow:0 0 0 3px rgba(212,175,55,.15);
+}
+.entrada .ic{
+  position:absolute;left:15px;top:50%;transform:translateY(-50%);
+  color:var(--txt3);font-size:16px;pointer-events:none;
+}
+.entrada .olho{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  color:var(--txt3);font-size:17px;padding:5px;
+}
+.ajuda{font-size:13px;color:var(--txt3);margin-top:6px}
+.erro-campo{font-size:13px;color:#FCA5A5;margin-top:6px;font-weight:600}
+input.ruim,select.ruim{border-color:var(--erro)!important}
+input.bom{border-color:rgba(16,185,129,.55)!important}
+
+.forca{display:flex;gap:4px;margin-top:8px}
+.forca i{height:4px;flex:1;border-radius:99px;background:var(--borda);transition:.2s}
+.forca i.n1{background:var(--erro)} .forca i.n2{background:#F59E0B}
+.forca i.n3{background:var(--ok)}
+
+.previa-link{
+  margin-top:8px;padding:11px 13px;border-radius:11px;background:var(--painel2);
+  border:1px dashed var(--borda);font-size:13.5px;word-break:break-all;
+}
+.previa-link b{color:var(--ouro)}
+.previa-link .st{float:right;font-size:12px;font-weight:700}
+.st.livre{color:#4ADE9A} .st.ocupado{color:#FCA5A5}
+
+.grande{
+  width:100%;padding:17px;border-radius:13px;font-weight:900;font-size:17px;
+  background:linear-gradient(135deg,var(--ouro-claro),var(--ouro));color:#17171A;
+  box-shadow:0 6px 22px rgba(212,175,55,.24);
+}
+.grande:active{transform:scale(.99)}
+.grande:disabled{opacity:.45;box-shadow:none;pointer-events:none}
+.sob-botao{text-align:center;font-size:13px;color:var(--txt3);margin-top:11px}
+
+/* ── Pronto ──────────────────────────────────────────────────────────── */
+.selo-ok{
+  width:84px;height:84px;border-radius:50%;background:var(--ok);color:#062E22;
+  display:grid;place-items:center;font-size:42px;margin:6px auto 18px;
+  box-shadow:0 0 0 10px rgba(16,185,129,.13);
+}
+.centro{text-align:center}
+.link-final{
+  display:flex;gap:8px;align-items:center;border:1.5px solid var(--ouro);
+  border-radius:12px;padding:13px 15px;background:rgba(212,175,55,.07);
+  margin:18px 0;word-break:break-all;font-size:14.5px;font-weight:700;
+}
+.link-final button{flex:none;color:var(--ouro);font-weight:800;font-size:13.5px}
+.proximos{border:1px solid var(--borda);border-radius:var(--r);padding:18px;margin-top:18px}
+.proximos ol{margin:10px 0 0 20px;color:var(--txt2);font-size:14.5px}
+.proximos li{padding:4px 0}
+.rodape{max-width:620px;margin:0 auto;padding:0 18px 40px;
+        font-size:12.5px;color:var(--txt3);text-align:center}
+@media(max-width:420px){ h1{font-size:27px} .plano{width:252px} }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <span class="logo"><i>◷</i>Agenda<b>Pro</b></span>
+    <a class="entrar" href="app.html">Já tem conta? Entrar</a>
+  </div>
+</header>
+
+<div class="trilho">
+  <div class="bolas"><i id="b1" class="on"></i><i id="b2"></i><i id="b3"></i></div>
+  <p id="rotuloPasso">Passo 1 de 3: Escolha o tamanho</p>
+</div>
+
+<main class="wrap">
+
+  <!-- ══════════ PASSO 1 · PLANOS ══════════ -->
+  <section class="passo on" id="p-planos">
+    <h1>Seu link de agendamento, <span>pronto hoje</span></h1>
+    <p class="sub">O cliente marca sozinho pelo link. Teste 7 dias sem cartão.</p>
+
+    <div class="ciclo">
+      <span class="desc10">−10%</span>
+      <button id="c-mensal" class="on" onclick="trocarCiclo('mensal')">Mensal</button>
+      <button id="c-anual" onclick="trocarCiclo('anual')">Anual</button>
+    </div>
+
+    <div class="caixa">
+      <div class="pergunta">Quantos profissionais atendem?</div>
+      <div class="quantos" id="quantos">1 profissional</div>
+      <div class="regua" id="regua"></div>
+      <div class="linha-fina"></div>
+      <div class="recomendado">
+        <small>Plano recomendado</small>
+        <b id="recomendado">—</b>
+      </div>
+    </div>
+
+    <div class="dica-desliza">‹ &nbsp;Deslize para ver todos os planos&nbsp; ›</div>
+    <div class="carrossel" id="carrossel"></div>
+
+    <div class="garantia">
+      <span class="ic">🛡</span>
+      <div><b>Garantia de 30 dias</b>
+      <p>Se não servir para o seu negócio, devolvemos tudo. Sem perguntas.</p></div>
+    </div>
+  </section>
+
+  <!-- ══════════ PASSO 2 · SEUS DADOS ══════════ -->
+  <section class="passo" id="p-dados">
+    <button class="voltar" onclick="irPasso(1)">← Voltar para planos</button>
+    <h1>Criar conta grátis</h1>
+    <p class="sub">Preencha seus dados para começar o teste de 7 dias.</p>
+
+    <div class="aviso">
+      <span class="ic">ⓘ</span>
+      <div><b>Teste: até 1 profissional</b>
+      O teste grátis permite cadastrar apenas 1 profissional — você. Para
+      colocar a equipe inteira, assine um plano durante ou depois do teste.</div>
+    </div>
+
+    <div class="aviso verde">
+      <span class="ic">👋</span>
+      <div><b>Como você nos conheceu? <span style="font-weight:500;color:var(--txt3)">
+        (opcional)</span></b>
+      <div class="entrada sem-ic" style="margin-top:9px">
+        <select id="fOrigem">
+          <option value="">Prefiro não dizer</option>
+          <option>Indicação de outro profissional</option>
+          <option>Instagram</option>
+          <option>Google</option>
+          <option>WhatsApp de um cliente</option>
+          <option>Feira ou evento</option>
+          <option>Outro</option>
+        </select>
+      </div></div>
+    </div>
+
+    <div class="caixa">
+      <div class="campo">
+        <label>Nome completo <em>*</em></label>
+        <div class="entrada"><span class="ic">👤</span>
+          <input id="fNome" placeholder="Seu nome" autocomplete="name"
+                 oninput="validarCampo('fNome')"></div>
+        <div class="erro-campo" id="e-fNome" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>Email <em>*</em></label>
+        <div class="entrada"><span class="ic">✉</span>
+          <input id="fEmail" type="email" placeholder="seu@email.com"
+                 autocomplete="email" oninput="validarCampo('fEmail')"></div>
+        <div class="erro-campo" id="e-fEmail" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>Senha <em>*</em></label>
+        <div class="entrada"><span class="ic">🔒</span>
+          <input id="fSenha" type="password" placeholder="Mínimo 8 caracteres"
+                 autocomplete="new-password" oninput="validarCampo('fSenha')">
+          <button class="olho" onclick="verSenha('fSenha')" type="button">👁</button></div>
+        <div class="forca"><i id="s1"></i><i id="s2"></i><i id="s3"></i></div>
+        <div class="ajuda">Mínimo 8 caracteres, com letras e números.</div>
+        <div class="erro-campo" id="e-fSenha" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>Confirmar senha <em>*</em></label>
+        <div class="entrada"><span class="ic">🔒</span>
+          <input id="fSenha2" type="password" placeholder="Digite a senha novamente"
+                 autocomplete="new-password" oninput="validarCampo('fSenha2')">
+          <button class="olho" onclick="verSenha('fSenha2')" type="button">👁</button></div>
+        <div class="erro-campo" id="e-fSenha2" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>WhatsApp <em>*</em></label>
+        <div class="entrada"><span class="ic">📱</span>
+          <input id="fZap" type="tel" inputmode="numeric" placeholder="(00) 00000-0000"
+                 autocomplete="tel" oninput="mascaraTel(this);validarCampo('fZap')"></div>
+        <div class="erro-campo" id="e-fZap" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>CPF ou CNPJ <em>*</em></label>
+        <div class="entrada"><span class="ic">🪪</span>
+          <input id="fDoc" inputmode="numeric" placeholder="000.000.000-00"
+                 oninput="mascaraDoc(this);validarCampo('fDoc')"></div>
+        <div class="ajuda">Necessário para emitir a cobrança quando você assinar.</div>
+        <div class="erro-campo" id="e-fDoc" style="display:none"></div>
+      </div>
+
+      <div class="campo">
+        <label>Tipo de negócio <em>*</em></label>
+        <div class="entrada sem-ic">
+          <select id="fTipo" onchange="mudouTipo()">
+            <option value="">Selecione o tipo de negócio</option>
+            <option value="barbearia">Barbearia</option>
+            <option value="salao">Salão de beleza</option>
+            <option value="manicure">Esmalteria / manicure</option>
+            <option value="estetica">Clínica de estética</option>
+            <option value="clinica">Clínica</option>
+            <option value="tatuagem">Estúdio de tatuagem</option>
+            <option value="pet">Pet shop</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="ajuda" id="ajudaTipo">Define o vocabulário do sistema. Dá para
+          mudar depois em Configurações.</div>
+        <div class="erro-campo" id="e-fTipo" style="display:none"></div>
+      </div>
+
+      <div class="campo" style="margin-bottom:0">
+        <label>Nome do estabelecimento <em>*</em></label>
+        <div class="entrada"><span class="ic">🏠</span>
+          <input id="fSalao" placeholder="Ex.: Barbearia do Zé"
+                 oninput="mudouNomeSalao()"></div>
+        <div class="previa-link" id="previaLink" style="display:none"></div>
+        <div class="erro-campo" id="e-fSalao" style="display:none"></div>
+      </div>
+    </div>
+
+    <div id="avisoGeral"></div>
+    <button class="grande" onclick="criarConta()">Criar conta grátis</button>
+    <p class="sob-botao">✓ Pronto em 2 minutos &nbsp;•&nbsp; ✓ Sem cartão de crédito</p>
+  </section>
+
+  <!-- ══════════ PASSO 3 · PRONTO ══════════ -->
+  <section class="passo" id="p-pronto">
+    <div class="centro">
+      <div class="selo-ok">✓</div>
+      <h1>Sua conta está no ar</h1>
+      <p class="sub" id="textoPronto">—</p>
+    </div>
+
+    <div class="link-final">
+      <span id="linkFinal">—</span>
+      <button onclick="copiarLink()" id="btCopiar">Copiar</button>
+    </div>
+    <p class="ajuda" style="margin-top:-8px">Coloque na bio do Instagram, mande
+      no WhatsApp, imprima como QR no espelho. É por aqui que o cliente marca.</p>
+
+    <div style="margin-top:20px">
+      <a class="grande" id="irAgenda" href="app.html"
+         style="display:block;text-align:center;text-decoration:none">
+        Abrir minha agenda</a>
+    </div>
+
+    <div class="proximos">
+      <b>Para o link funcionar de verdade, faltam 3 coisas:</b>
+      <ol>
+        <li>Cadastrar seus serviços, com duração e preço — é a duração que monta a agenda</li>
+        <li>Definir sua jornada: que dias e horas você atende</li>
+        <li>Mandar o link para os primeiros clientes</li>
+      </ol>
+    </div>
+  </section>
+
+</main>
+
+<p class="rodape" id="rodape">
+  AgendaPro · demonstração com dados no próprio navegador. Nada é enviado
+  para servidor nenhum.
+</p>
+
+<script>
+/* ===========================================================================
+   AgendaPro — cadastro do dono
+   ---------------------------------------------------------------------------
+   Três passos, na ordem que faz a pessoa avançar: primeiro ela vê o preço e
+   se classifica sozinha, depois preenche, depois recebe o link.
+
+   Mostrar preço ANTES do formulário parece contraintuitivo, mas evita o
+   pior desfecho: alguém preencher oito campos e desistir ao descobrir
+   quanto custa. Quem chega no formulário já aceitou o preço.
+
+   MODO DEMONSTRAÇÃO: grava no mesmo localStorage do app.html, então o salão
+   criado aqui aparece lá. No sistema de verdade este arquivo chama
+   `supabase.auth.signUp()` e depois a função `criar_salao()`
+   (supabase/03_onboarding.sql), que faz tudo numa transação só.
+   =========================================================================== */
+
+const CHAVE = 'agendapro.demo.v1';
+let ciclo = 'mensal';
+let quantos = 1;
+let planoEscolhido = null;
+let bd = null;
+
+const PLANOS = [
+  {codigo:'trial',      nome:'Teste grátis', quem:'Para conhecer',    max:1,  preco:0,
+   ic:'🎁', recursos:['1 profissional','Todos os recursos','Sem cartão de crédito',
+                      'Suporte no WhatsApp','Configuração em 5 min']},
+  {codigo:'individual', nome:'Individual',   quem:'Para 1 profissional', max:1, preco:47,
+   ic:'👤', recursos:['1 profissional','Agenda ilimitada','Lembrete no WhatsApp',
+                      'Comanda e comissão','Relatórios básicos']},
+  {codigo:'duo',        nome:'Duo',          quem:'Para 2 profissionais', max:2, preco:87,
+   ic:'👥', pop:true,
+   recursos:['2 profissionais','Agenda ilimitada','Lembrete no WhatsApp',
+             'Comanda e comissão','Relatórios completos']},
+  {codigo:'time',       nome:'Time',         quem:'Para 3 profissionais', max:3, preco:127,
+   ic:'👨‍👩‍👦', recursos:['3 profissionais','Tudo do Duo','Lista de espera',
+                      'Metas por profissional','Relatórios completos']},
+  {codigo:'equipe',     nome:'Equipe',       quem:'Para até 5',        max:5, preco:187,
+   ic:'🏢', recursos:['5 profissionais','Tudo do Time','Vários caixas',
+                      'Controle de estoque','Suporte prioritário']},
+  {codigo:'salao',      nome:'Salão',        quem:'Para até 20',       max:20, preco:297,
+   ic:'🏛', recursos:['20 profissionais','Tudo do Equipe','Múltiplas unidades',
+                      'Exportação de dados','Atendimento dedicado']},
+];
+
+// Anual com 10% de desconto, cobrado por mês. É a conta que o cliente faz
+// de cabeça, então mostramos o valor mensal e não o total do ano.
+function preco(p){
+  return ciclo === 'anual' ? Math.round(p.preco * 0.9 * 100) / 100 : p.preco;
+}
+function real(v){
+  return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function novoId(){ return 'x' + Math.random().toString(36).slice(2,10); }
+function hoje(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
+       + '-' + String(d.getDate()).padStart(2,'0');
+}
+function somarDias(iso, n){
+  const [a,m,d] = iso.split('-').map(Number);
+  const dt = new Date(a, m-1, d + n);
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0')
+       + '-' + String(dt.getDate()).padStart(2,'0');
+}
+
+/* ── Passos ──────────────────────────────────────────────────────────── */
+const ROTULOS = ['Passo 1 de 3: Escolha o tamanho',
+                 'Passo 2 de 3: Seus dados',
+                 'Passo 3 de 3: Tudo pronto'];
+
+function irPasso(n){
+  document.querySelectorAll('.passo').forEach(p => p.classList.remove('on'));
+  document.getElementById(['p-planos','p-dados','p-pronto'][n-1]).classList.add('on');
+  for(let i = 1; i <= 3; i++)
+    document.getElementById('b'+i).classList.toggle('on', i <= n);
+  document.getElementById('rotuloPasso').textContent = ROTULOS[n-1];
+  document.querySelector('.trilho').style.display = '';
+  window.scrollTo(0,0);
+}
+
+/* ── Passo 1: preço ──────────────────────────────────────────────────── */
+function trocarCiclo(c){
+  ciclo = c;
+  document.getElementById('c-mensal').classList.toggle('on', c === 'mensal');
+  document.getElementById('c-anual').classList.toggle('on', c === 'anual');
+  pintarPlanos();
+}
+
+function escolherQuantos(n){ quantos = n; pintarPlanos(); }
+
+function pintarPlanos(){
+  document.getElementById('regua').innerHTML = [1,2,3,4,5,6].map(n =>
+    `<button class="${n===quantos?'on':''}" onclick="escolherQuantos(${n})">
+       ${n === 6 ? '6+' : n}</button>`).join('');
+
+  document.getElementById('quantos').textContent =
+    quantos === 6 ? '6 ou mais profissionais'
+                  : quantos + (quantos === 1 ? ' profissional' : ' profissionais');
+
+  const pagos = PLANOS.filter(p => p.codigo !== 'trial');
+  const rec = pagos.find(p => p.max >= quantos) || pagos[pagos.length-1];
+  document.getElementById('recomendado').textContent =
+    rec.nome + ' — ' + real(preco(rec)) + '/mês';
+
+  document.getElementById('carrossel').innerHTML = PLANOS.map(p => {
+    const destaque = p.codigo === rec.codigo || p.pop;
+    const cheio = preco(p);
+    return `<div class="plano ${p.codigo === rec.codigo ? 'pop' : ''}">
+      ${p.codigo === rec.codigo ? '<div class="fita">RECOMENDADO PARA VOCÊ</div>' : ''}
+      <div class="ic">${p.ic}</div>
+      <h3>${p.nome}</h3>
+      <div class="quem">${p.quem}</div>
+      <div class="valor">${p.preco
+        ? (ciclo === 'anual' ? `<s>${real(p.preco)}</s>` : '') + real(cheio)
+          + '<small> /mês</small>'
+        : 'Grátis<small> 7 dias</small>'}</div>
+      <ul>${p.recursos.map(r => `<li><i>✓</i>${r}</li>`).join('')}</ul>
+      <button class="btn-plano" onclick="escolherPlano('${p.codigo}')">
+        ${p.preco ? 'Assinar ' + p.nome : 'Testar grátis'}</button>
+    </div>`;
+  }).join('');
+}
+
+function escolherPlano(codigo){
+  planoEscolhido = codigo;
+  // Mesmo quem escolhe um plano pago começa no teste: cobrar antes de a
+  // pessoa ver a própria agenda funcionando derruba a conversão, e ela
+  // ainda tem 7 dias para desistir sem pagar nada.
+  irPasso(2);
+  setTimeout(() => document.getElementById('fNome').focus(), 250);
+}
+
+/* ── Validações ──────────────────────────────────────────────────────────
+   Validação de verdade, não só máscara. Máscara aceita 111.111.111-11, que
+   é um CPF impossível — e o problema só aparece na hora de emitir a
+   cobrança, quando a pessoa já é cliente e está esperando.
+   ──────────────────────────────────────────────────────────────────────── */
+function soDigitos(t){ return String(t||'').replace(/\D/g,''); }
+
+function mascaraTel(el){
+  let v = soDigitos(el.value).slice(0,11);
+  if(v.length > 6)      v = `(${v.slice(0,2)}) ${v.slice(2,7)}-${v.slice(7)}`;
+  else if(v.length > 2) v = `(${v.slice(0,2)}) ${v.slice(2)}`;
+  else if(v.length)     v = `(${v}`;
+  el.value = v;
+}
+
+function mascaraDoc(el){
+  let v = soDigitos(el.value).slice(0,14);
+  if(v.length <= 11){
+    v = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2')
+         .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  } else {
+    v = v.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+         .replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+  }
+  el.value = v;
+}
+
+function cpfValido(cpf){
+  cpf = soDigitos(cpf);
+  if(cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  for(const [ate, pos] of [[9,10],[10,11]]){
+    let soma = 0;
+    for(let i = 0; i < ate; i++) soma += Number(cpf[i]) * (pos - i);
+    let d = (soma * 10) % 11;
+    if(d === 10) d = 0;
+    if(d !== Number(cpf[ate])) return false;
+  }
+  return true;
+}
+
+function cnpjValido(cnpj){
+  cnpj = soDigitos(cnpj);
+  if(cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+  const calc = tam => {
+    let soma = 0, pos = tam - 7;
+    for(let i = tam; i >= 1; i--){
+      soma += Number(cnpj[tam - i]) * pos--;
+      if(pos < 2) pos = 9;
+    }
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === Number(cnpj[12]) && calc(13) === Number(cnpj[13]);
+}
+
+function forcaSenha(s){
+  let n = 0;
+  if(s.length >= 8) n++;
+  if(/[a-zA-Z]/.test(s) && /\d/.test(s)) n++;
+  if(s.length >= 12 || /[^a-zA-Z0-9]/.test(s)) n++;
+  return n;
+}
+
+const REGRAS = {
+  fNome:   v => v.trim().split(/\s+/).length >= 2 && v.trim().length >= 5
+            ? '' : 'Escreva seu nome e sobrenome.',
+  fEmail:  v => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v.trim())
+            ? '' : 'Esse email não parece válido.',
+  fSenha:  v => v.length < 8 ? 'A senha precisa de pelo menos 8 caracteres.'
+            : (!/[a-zA-Z]/.test(v) || !/\d/.test(v))
+              ? 'Misture letras e números.' : '',
+  fSenha2: v => v === document.getElementById('fSenha').value && v
+            ? '' : 'As senhas não são iguais.',
+  fZap:    v => soDigitos(v).length >= 10 ? '' : 'Faltam dígitos — inclua o DDD.',
+  fDoc:    v => {
+    const d = soDigitos(v);
+    if(d.length === 11) return cpfValido(d) ? '' : 'Esse CPF não confere.';
+    if(d.length === 14) return cnpjValido(d) ? '' : 'Esse CNPJ não confere.';
+    return 'Digite um CPF (11 dígitos) ou CNPJ (14).';
+  },
+  fTipo:   v => v ? '' : 'Escolha o tipo de negócio.',
+  fSalao:  v => v.trim().length >= 2 ? '' : 'Dê um nome ao estabelecimento.',
+};
+
+function validarCampo(id, mostrarVazio){
+  const el = document.getElementById(id);
+  const msg = REGRAS[id](el.value);
+  const alvo = document.getElementById('e-' + id);
+  const vazio = !el.value.trim();
+
+  if(id === 'fSenha'){
+    const n = forcaSenha(el.value);
+    for(let i = 1; i <= 3; i++){
+      const b = document.getElementById('s'+i);
+      b.className = (el.value && i <= n) ? 'n' + n : '';
+    }
+  }
+
+  // Enquanto está vazio e a pessoa ainda não tentou enviar, não acusa nada:
+  // formulário que fica vermelho antes de você digitar é hostil.
+  if(vazio && !mostrarVazio){
+    el.classList.remove('ruim','bom'); alvo.style.display = 'none'; return false;
+  }
+  el.classList.toggle('ruim', !!msg);
+  el.classList.toggle('bom', !msg);
+  alvo.textContent = msg;
+  alvo.style.display = msg ? 'block' : 'none';
+  return !msg;
+}
+
+function verSenha(id){
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function mudouTipo(){
+  validarCampo('fTipo');
+  const t = document.getElementById('fTipo').value;
+  const palavra = {barbearia:'barbeiro', salao:'profissional', manicure:'manicure',
+    estetica:'esteticista', clinica:'profissional', tatuagem:'tatuador',
+    pet:'tosador', outro:'profissional'}[t];
+  document.getElementById('ajudaTipo').innerHTML = palavra
+    ? `O sistema vai dizer <b style="color:var(--ouro)">${palavra}</b> em vez de
+       "profissional". Dá para mudar depois em Configurações.`
+    : 'Define o vocabulário do sistema. Dá para mudar depois em Configurações.';
+}
+
+/* ── O apelido do link ───────────────────────────────────────────────── */
+function virarSlug(t){
+  return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48);
+}
+
+function slugLivre(s){
+  return s.length >= 3 && !(bd.saloes||[]).some(x => x.slug === s);
+}
+
+function slugSugerido(nome){
+  const base = virarSlug(nome) || 'salao';
+  if(slugLivre(base)) return base;
+  for(let i = 2; i < 100; i++){
+    if(slugLivre(base + '-' + i)) return base + '-' + i;
+  }
+  return base + '-' + Math.random().toString(36).slice(2,6);
+}
+
+function mudouNomeSalao(){
+  validarCampo('fSalao');
+  const nome = document.getElementById('fSalao').value;
+  const cx = document.getElementById('previaLink');
+  if(!nome.trim()){ cx.style.display = 'none'; return; }
+
+  const base = virarSlug(nome);
+  const livre = slugLivre(base);
+  const usar = livre ? base : slugSugerido(nome);
+
+  cx.style.display = 'block';
+  cx.innerHTML = `<span class="st ${livre?'livre':'ocupado'}">${
+      livre ? '✓ livre' : 'já usado'}</span>`
+    + `Seu link: <b>agendar.html?salao=${usar}</b>`
+    + (livre ? '' : `<div style="color:var(--txt3);margin-top:5px;font-size:12.5px">
+         "${base}" já é de outro estabelecimento, então reservamos este.</div>`);
+}
+
+/* ── Criar a conta ───────────────────────────────────────────────────── */
+function criarConta(){
+  const campos = ['fNome','fEmail','fSenha','fSenha2','fZap','fDoc','fTipo','fSalao'];
+  let ok = true, primeiro = null;
+  for(const c of campos){
+    if(!validarCampo(c, true)){ ok = false; if(!primeiro) primeiro = c; }
+  }
+
+  const geral = document.getElementById('avisoGeral');
+  if(!ok){
+    geral.innerHTML = '<div class="aviso ruim"><span class="ic">⚠</span>'
+      + '<div><b>Faltou conferir alguns campos</b>'
+      + 'Os que estão em vermelho precisam de ajuste.</div></div>';
+    document.getElementById(primeiro).focus();
+    document.getElementById(primeiro).scrollIntoView({block:'center', behavior:'smooth'});
+    return;
+  }
+  geral.innerHTML = '';
+
+  const nome  = document.getElementById('fNome').value.trim();
+  const tel   = document.getElementById('fZap').value.trim();
+  const tipo  = document.getElementById('fTipo').value;
+  const nomeSalao = document.getElementById('fSalao').value.trim();
+  const slug  = slugSugerido(nomeSalao);
+
+  // No sistema de verdade isto é `supabase.auth.signUp()` seguido de
+  // `criar_salao()`. A função do banco faz salão, assinatura, vínculo de
+  // dono e primeiro profissional numa transação só — meia criação deixaria
+  // um salão sem dono, que ninguém alcança nem para apagar.
+  bd.perfis = bd.perfis || [];
+  const perfil = { id: novoId(), nome, telefone: tel,
+                   email: document.getElementById('fEmail').value.trim() };
+  bd.perfis.push(perfil);
+
+  const salaoId = novoId();
+  bd.saloes.push({ id: salaoId, slug, nome: nomeSalao, tipo,
+                   endereco: '', telefone: tel, cfg: { diasLiberados: 30 } });
+
+  bd.assinaturas = bd.assinaturas || [];
+  bd.assinaturas.push({ salaoId, plano: 'trial', status: 'trial',
+                        trialAte: somarDias(hoje(), 7),
+                        origem: document.getElementById('fOrigem').value || null,
+                        planoPretendido: planoEscolhido });
+
+  // O dono é o primeiro profissional — e é justamente o 1 que o teste
+  // permite. Jornada comercial de segunda a sábado, que ele ajusta depois.
+  bd.profissionais.push({
+    id: novoId(), salaoId, perfilId: perfil.id, nome: nome.split(' ')[0],
+    comissaoPct: 100, cor: '#D4AF37', ativo: true,
+    jornada: {1:[[540,1140]],2:[[540,1140]],3:[[540,1140]],
+              4:[[540,1140]],5:[[540,1200]],6:[[540,900]]},
+  });
+
+  salvar(salaoId);
+
+  const url = location.href.replace(/\/[^\/]*$/, '/') + 'agendar.html?salao=' + slug;
+  document.getElementById('textoPronto').innerHTML =
+    `<b>${nomeSalao}</b> está no ar. Você tem 7 dias de teste grátis.`;
+  document.getElementById('linkFinal').textContent = url;
+  document.getElementById('irAgenda').href = 'app.html';
+  irPasso(3);
+}
+
+function copiarLink(){
+  const txt = document.getElementById('linkFinal').textContent;
+  const bt = document.getElementById('btCopiar');
+  const feito = () => { bt.textContent = 'Copiado ✓';
+                        setTimeout(() => bt.textContent = 'Copiar', 1800); };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(txt).then(feito)
+      .catch(e => console.error('Falha ao copiar:', e));
+  } else {
+    // clipboard só existe em https ou localhost; aberto como arquivo, cai aqui
+    const t = document.createElement('textarea');
+    t.value = txt; document.body.appendChild(t); t.select();
+    try{ document.execCommand('copy'); feito(); }
+    catch(e){ console.error('Falha ao copiar:', e); alert('Copie o link à mão.'); }
+    t.remove();
+  }
+}
+
+/* ── Armazenamento (o ponto onde o Supabase entra) ───────────────────── */
+function salvar(salaoAtual){
+  try{
+    const cru = localStorage.getItem(CHAVE);
+    const anterior = cru ? JSON.parse(cru) : {};
+    localStorage.setItem(CHAVE, JSON.stringify(
+      {...anterior, ...bd, salaoAtual: salaoAtual || anterior.salaoAtual}));
+  }catch(e){
+    console.error('Não consegui gravar:', e);
+    alert('Não consegui salvar neste navegador. Em aba anônima os dados somem '
+        + 'ao fechar a janela.');
+  }
+}
+
+function carregar(){
+  try{
+    const cru = localStorage.getItem(CHAVE);
+    const d = cru ? JSON.parse(cru) : {};
+    d.saloes = d.saloes || [];
+    d.profissionais = d.profissionais || [];
+    d.servicos = d.servicos || [];
+    d.clientes = d.clientes || [];
+    d.produtos = d.produtos || [];
+    d.agendamentos = d.agendamentos || [];
+    d.bloqueios = d.bloqueios || [];
+    d.comandas = d.comandas || [];
+    d.listaEspera = d.listaEspera || [];
+    d.planos = d.planos || PLANOS.map(p => ({codigo:p.codigo, nome:p.nome,
+                             maxProfissionais:p.max, precoMes:p.preco}));
+    return d;
+  }catch(e){
+    console.error('Dados guardados estão corrompidos, recomeçando:', e);
+    return {saloes:[], profissionais:[], servicos:[], clientes:[], produtos:[],
+            agendamentos:[], bloqueios:[], comandas:[], listaEspera:[],
+            planos: PLANOS.map(p => ({codigo:p.codigo, nome:p.nome,
+                     maxProfissionais:p.max, precoMes:p.preco}))};
+  }
+}
+
+(function(){
+  bd = carregar();
+  pintarPlanos();
+  if(location.protocol === 'file:'){
+    document.getElementById('rodape').innerHTML =
+      'Aberto direto do arquivo — funciona, mas para instalar como app sirva '
+      + 'por https:// ou localhost.<br>' + document.getElementById('rodape').innerHTML;
+  }
+})();
+</script>
+</body>
+</html>
