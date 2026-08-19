@@ -1,0 +1,424 @@
+/* ===========================================================================
+   AgendaPro — sistema visual
+   ---------------------------------------------------------------------------
+   Uma folha só, carregada DEPOIS do estilo de cada página. Ela redefine os
+   tokens que as três telas já usavam, então o visual inteiro muda daqui —
+   sem mexer na estrutura de nenhuma delas.
+
+   AS DECISÕES
+
+   Uma cor de destaque, e só uma. Produto que muda de cor por tela parece
+   montado por gente diferente. O verde-azulado aparece em seleção, foco e
+   dado; o resto é neutro. Ação primária é quase-preta no claro e quase-branca
+   no escuro — é o contraste mais forte que existe, e não gasta a cor de
+   destaque no botão de "salvar".
+
+   Neutros quentes, não cinza-azulado. Cinza frio deixa qualquer interface com
+   ar de painel de servidor. Um toque de bege no neutro aproxima do setor sem
+   precisar de rosa nem dourado.
+
+   Nada de gradiente decorativo. Fundo chapado, uma borda de 1px e sombra
+   curta. Gradiente colorido em cabeçalho é o traço mais fácil de reconhecer
+   num layout genérico.
+
+   Escala de 4px, raio de 10px, sombra de dois níveis. Repetição é o que faz
+   a coisa parecer desenhada de uma vez.
+
+   Nenhum emoji em elemento de interface. Emoji muda de desenho em cada
+   sistema, não aceita cor nem espessura, e envelhece rápido. Ícone é SVG
+   traçado (icones.js), herda a cor do texto e alinha com a tipografia.
+   =========================================================================== */
+
+:root{
+  /* ── Neutros (quentes) ─────────────────────────────────────────────── */
+  --n-0:#FFFFFF;  --n-25:#FCFCFB; --n-50:#F7F6F4; --n-100:#EFEEEB;
+  --n-200:#E3E1DC; --n-300:#CFCCC5; --n-400:#A8A49B; --n-500:#7C786F;
+  --n-600:#5B574F; --n-700:#403D37; --n-800:#2A2823; --n-900:#1A1917;
+  --n-950:#111110;
+
+  /* ── Destaque ──────────────────────────────────────────────────────── */
+  --ac-500:#0F8B7B; --ac-600:#0C7568; --ac-700:#0A5E54;
+  --ac-soft:rgba(15,139,123,.10); --ac-line:rgba(15,139,123,.28);
+
+  /* ── Semânticos, dessaturados de propósito ─────────────────────────── */
+  --su-500:#15803D; --su-soft:rgba(21,128,61,.10);
+  --wa-500:#B45309; --wa-soft:rgba(180,83,9,.10);
+  --er-500:#B42318; --er-soft:rgba(180,35,24,.09);
+
+  /* ── Tokens que as telas já usavam ─────────────────────────────────── */
+  --roxo:var(--ac-600); --roxo-esc:var(--ac-700); --rosa:var(--ac-500);
+  --ouro:var(--ac-500); --ouro-claro:var(--ac-500); --ouro-esc:var(--ac-700);
+  --info:var(--ac-600);
+
+  --bg:var(--n-50);   --painel:var(--n-0); --painel2:var(--n-25);
+  --borda:var(--n-200);
+  --txt:var(--n-900); --txt2:var(--n-600); --txt3:var(--n-400);
+  --ok:var(--su-500); --alerta:var(--wa-500); --erro:var(--er-500);
+
+  /* Ação primária: o preto é o contraste máximo. A cor de destaque fica
+     reservada para seleção e informação, onde ela carrega significado. */
+  --acao:var(--n-900); --acao-hover:var(--n-800); --acao-txt:var(--n-0);
+
+  --r:10px; --r-sm:8px; --r-lg:14px;
+  --sombra:0 1px 2px rgba(17,17,16,.05), 0 1px 3px rgba(17,17,16,.06);
+  --sombra-md:0 2px 4px rgba(17,17,16,.04), 0 8px 20px rgba(17,17,16,.07);
+}
+
+[data-tema="escuro"], html[data-tema="escuro"]{
+  --bg:var(--n-950); --painel:#1A1A18; --painel2:#211F1D;
+  --borda:#302E2A;
+  --txt:var(--n-50); --txt2:#A8A49B; --txt3:#6E6A62;
+  --ac-500:#2DB39F; --ac-600:#25A18E; --ac-700:#1D8878;
+  --ac-soft:rgba(45,179,159,.13); --ac-line:rgba(45,179,159,.34);
+  --su-500:#3FA463; --wa-500:#D08A3C; --er-500:#E06A5F;
+  --su-soft:rgba(63,164,99,.12); --wa-soft:rgba(208,138,60,.12);
+  --er-soft:rgba(224,106,95,.12);
+  --acao:var(--n-50); --acao-hover:#FFFFFF; --acao-txt:var(--n-950);
+  --sombra:0 1px 2px rgba(0,0,0,.4);
+  --sombra-md:0 2px 6px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.3);
+}
+
+
+/* ===========================================================================
+   TIPOGRAFIA
+   Uma escala, com peso e espaçamento acompanhando o tamanho. Título grande
+   pede letra mais junta; texto pequeno pede o contrário.
+   =========================================================================== */
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,
+              "Helvetica Neue",Arial,sans-serif;
+  font-size:15px; line-height:1.55;
+  font-feature-settings:"cv11","ss01"; /* algarismos e "a" de forma simples */
+  letter-spacing:-.006em;
+  color:var(--txt); background:var(--bg);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+h1{font-size:1.75rem;font-weight:640;letter-spacing:-.028em;line-height:1.18}
+h2{font-size:1.125rem;font-weight:620;letter-spacing:-.018em;line-height:1.3}
+h3{font-size:.95rem;font-weight:600;letter-spacing:-.012em}
+b,strong{font-weight:600}
+
+/* Número em tabela e horário alinham em coluna quando a fonte é tabular. */
+.kpi .v, .valor, .quantos, .hora, .dia b, .resumo b, .plano .valor,
+td, .tabela td, .hslot, .horas button{ font-variant-numeric:tabular-nums }
+
+/* ===========================================================================
+   SUPERFÍCIES — chapadas, uma borda, sombra curta
+   =========================================================================== */
+.card, .caixa, .plano, .item, .bloco, .grade-wrap, .tabela, .kpi,
+.resumo, .modal, .pub-corpo, .proximos{
+  border-radius:var(--r); box-shadow:var(--sombra);
+}
+.card, .caixa, .plano, .item, .bloco, .kpi{ border:1px solid var(--borda) }
+
+/* Cabeçalhos sem gradiente. O contraste vem da cor chapada e da borda. */
+.cabeca, .pub-topo{
+  background:var(--painel) !important; color:var(--txt) !important;
+  border-bottom:1px solid var(--borda);
+}
+.cabeca h1{color:var(--txt);font-size:1.0625rem;font-weight:620;letter-spacing:-.015em}
+.cabeca p, .pub-topo p{color:var(--txt2) !important;opacity:1}
+.pub-topo h3{color:var(--txt);font-size:1.25rem;font-weight:640;letter-spacing:-.02em}
+.voltar, .cabeca .voltar{
+  background:var(--painel2) !important; color:var(--txt2) !important;
+  border:1px solid var(--borda);
+}
+.voltar:hover{color:var(--txt) !important;background:var(--n-100) !important}
+[data-tema="escuro"] .voltar:hover{background:var(--painel2) !important}
+.eu{
+  background:var(--painel2) !important; color:var(--txt) !important;
+  border:1px solid var(--borda);
+}
+.avatar-salao{
+  background:var(--acao) !important; color:var(--acao-txt) !important;
+  border-radius:var(--r-sm) !important;
+}
+
+/* Marca: quadrado sólido, sem degradê. */
+.marca-ic, .logo i{
+  background:var(--acao) !important; color:var(--acao-txt) !important;
+  border-radius:var(--r-sm) !important; font-weight:600 !important;
+}
+.marca-ic svg, .logo i svg{width:17px;height:17px}
+
+/* ===========================================================================
+   BOTÕES
+   =========================================================================== */
+.btn, .b, .bp, .grande, .btn-plano, .b2{
+  border-radius:var(--r-sm); font-weight:550; letter-spacing:-.008em;
+  transition:background .14s ease, border-color .14s ease, color .14s ease;
+}
+.btn-primary, .btn-p, .b, .grande{
+  background:var(--acao) !important; color:var(--acao-txt) !important;
+  border:1px solid var(--acao) !important; box-shadow:none !important;
+  font-weight:560 !important;
+}
+.btn-primary:hover, .btn-p:hover, .b:hover, .grande:hover{
+  background:var(--acao-hover) !important; border-color:var(--acao-hover) !important;
+}
+.btn:not(.btn-primary):not(.btn-p), .b2, .bp, .btn-plano{
+  background:var(--painel); color:var(--txt);
+  border:1px solid var(--borda);
+}
+.btn:not(.btn-primary):not(.btn-p):hover, .bp:hover, .btn-plano:hover{
+  background:var(--n-100); border-color:var(--n-300); color:var(--txt);
+}
+[data-tema="escuro"] .btn:not(.btn-primary):not(.btn-p):hover,
+[data-tema="escuro"] .bp:hover, [data-tema="escuro"] .btn-plano:hover{
+  background:var(--painel2); border-color:var(--n-600);
+}
+/* Botão desligado: em vez de baixar a opacidade do preto — que vira um bloco
+   cinza pesado, mais chamativo que o conteúdo — ele fica chapado e sem peso,
+   dizendo "ainda não" sem disputar a atenção. */
+.grande:disabled, .b:disabled, .btn-p:disabled, .btn-primary:disabled{
+  background:var(--n-100) !important; color:var(--n-400) !important;
+  border-color:var(--n-200) !important; opacity:1 !important; box-shadow:none !important;
+}
+[data-tema="escuro"] .grande:disabled, [data-tema="escuro"] .b:disabled,
+[data-tema="escuro"] .btn-p:disabled{
+  background:var(--painel2) !important; color:var(--txt3) !important;
+  border-color:var(--borda) !important;
+}
+
+/* O botão da lista de espera não precisa gritar: uma tarja âmbar discreta
+   já separa ele do resto sem parecer promoção de site. */
+.espera{
+  background:var(--wa-soft) !important; color:var(--txt) !important;
+  border:1px solid rgba(180,83,9,.35) !important; box-shadow:none !important;
+  border-radius:var(--r) !important; font-weight:580 !important;
+}
+.espera small{color:var(--txt2) !important;opacity:1 !important;font-weight:450 !important}
+
+/* ===========================================================================
+   SELEÇÃO E FOCO — onde a cor de destaque trabalha
+   =========================================================================== */
+.opcao.sel, .hora.sel, .dia.sel, .segmento button.sel, .regua button.on,
+.ciclo button.on, .plano.pop{
+  border-color:var(--ac-600) !important;
+}
+.opcao.sel{background:var(--ac-soft) !important}
+.hora.sel, .dia.sel, .segmento button.sel, .regua button.on,
+.opcao.sel .marca{
+  background:var(--ac-600) !important; color:#fff !important;
+}
+/* O seletor mensal/anual é um controle segmentado, não uma escolha de peso:
+   a metade ativa sobe como uma ficha clara, do jeito que o sistema desenha
+   esse controle. Pintar metade da barra de verde faria a cobrança gritar
+   mais que o preço. */
+.ciclo button.on{
+  background:var(--painel) !important; color:var(--txt) !important;
+  box-shadow:var(--sombra) !important; border-color:transparent !important;
+}
+.dia.sel small, .dia.sel i{color:rgba(255,255,255,.82) !important}
+/* A régua de planos é a mesma nas duas telas: o cadastro e o app do salão. */
+.regua{display:flex;gap:7px;flex-wrap:wrap}
+.regua button{
+  min-width:44px;height:42px;padding:0 13px;border-radius:var(--r-sm);
+  border:1px solid var(--borda);background:var(--painel);color:var(--txt2);
+  font-weight:560;font-size:15px;font-variant-numeric:tabular-nums;transition:.15s;
+}
+.regua button:hover{border-color:var(--n-300);color:var(--txt)}
+.regua button.on{box-shadow:0 0 0 3px var(--ac-soft) !important}
+/* O plano em destaque é uma recomendação da casa, não uma escolha já feita:
+   ele usa a cor de ação (a mesma do botão), e não o verde de seleção — senão
+   a tela mostra dois planos "escolhidos", o marcado e o recomendado. */
+.plano.pop{box-shadow:0 0 0 1px var(--acao) !important; border-color:var(--acao) !important}
+.plano .fita{background:var(--acao) !important;color:var(--acao-txt) !important;font-weight:600 !important}
+.plano .ic{
+  background:var(--painel2) !important;color:var(--txt2) !important;
+  border-radius:var(--r-sm) !important;
+}
+.plano.pop .ic{background:var(--acao) !important;color:var(--acao-txt) !important}
+.plano.pop .btn-plano{
+  background:var(--acao) !important;color:var(--acao-txt) !important;
+  border-color:var(--acao) !important;
+}
+
+:where(input,select,textarea,button,a):focus-visible{
+  outline:2px solid var(--ac-600); outline-offset:2px;
+}
+input:focus, select:focus, textarea:focus{
+  border-color:var(--ac-600) !important;
+  box-shadow:0 0 0 3px var(--ac-soft) !important;
+}
+input, select, textarea, .busca, .entrada input, .entrada select, .campo input{
+  border-radius:var(--r-sm) !important; background:var(--painel2) !important;
+  border:1px solid var(--borda) !important;
+}
+input.bom{border-color:rgba(21,128,61,.5) !important}
+input.ruim, select.ruim{border-color:var(--er-500) !important}
+
+/* ===========================================================================
+   AVISOS — tarja lateral em vez de caixa colorida inteira
+   =========================================================================== */
+.aviso, .recado, .na-fila, .janela, .garantia, .simul{
+  border-radius:var(--r-sm) !important; border-width:1px !important;
+  border-style:solid !important; box-shadow:none !important;
+}
+.aviso{
+  background:var(--ac-soft) !important; border-color:var(--ac-line) !important;
+  color:var(--txt) !important; border-left:3px solid var(--ac-600) !important;
+}
+.aviso b{color:var(--txt) !important}
+.aviso.info, .recado{
+  background:var(--ac-soft) !important; border-color:var(--ac-line) !important;
+  color:var(--txt) !important;
+}
+.aviso.ok, .aviso.verde, .recado.ok, .garantia{
+  background:var(--su-soft) !important; border-color:rgba(21,128,61,.3) !important;
+  color:var(--txt) !important; border-left-color:var(--su-500) !important;
+}
+.aviso.verde b, .garantia b{color:var(--su-500) !important}
+.aviso.ruim, .recado.erro{
+  background:var(--er-soft) !important; border-color:rgba(180,35,24,.32) !important;
+  color:var(--txt) !important; border-left:3px solid var(--er-500) !important;
+}
+.aviso.ruim b, .recado.erro b{color:var(--er-500) !important}
+/* Chegar no limite do plano é atenção, não informação nem erro: âmbar. */
+.aviso.atencao{
+  background:var(--wa-soft) !important; border-color:rgba(180,83,9,.28) !important;
+  border-left:3px solid var(--wa-500) !important; color:var(--txt) !important;
+}
+.aviso.atencao b{color:var(--wa-500) !important}
+/* Caixa neutra: mesma forma dos avisos, sem carregar significado de cor. */
+.aviso.neutro{
+  background:var(--painel2) !important; border-color:var(--borda) !important;
+  border-left:3px solid var(--n-300) !important; color:var(--txt) !important;
+}
+
+/* Medidor de uso: trilho fino e neutro. Uma barra grossa e colorida ocupando
+   a largura do cartão lê como alarme mesmo quando ainda sobra folga. */
+.medidor{
+  height:4px; background:var(--n-200); border-radius:99px; overflow:hidden;
+}
+[data-tema="escuro"] .medidor{background:var(--n-800,#302E2A)}
+.medidor i{display:block;height:100%;background:var(--acao);border-radius:99px}
+.medidor{margin-bottom:4px}
+
+/* Cartões lado a lado: o texto de um quebra em duas linhas e o do outro não,
+   e os botões desalinham. Coluna com a fila de ações empurrada para baixo
+   resolve — as bases ficam na mesma altura, que é o que o olho compara. */
+.cards > .card{display:flex;flex-direction:column}
+.cards > .card .card-acoes{margin-top:auto;padding-top:12px}
+
+/* Medida de leitura: num monitor largo o parágrafo do cartão ia de ponta a
+   ponta e o olho perdia a linha na volta. Texto corrido para de crescer
+   antes disso; tabela, grade e barra continuam usando a largura toda. */
+.card p, .caixa p, .bloco p, .sub, .ajuda, .sob-botao, .proximos p{
+  max-width:74ch;
+}
+.na-fila{background:var(--wa-soft) !important;border-color:rgba(180,83,9,.3) !important}
+.simul{background:var(--painel2) !important;border-style:dashed !important}
+
+/* ===========================================================================
+   ETIQUETAS DE ESTADO — texto forte, fundo fraco
+   =========================================================================== */
+.tag, .selo-st, .selo-combo{
+  border-radius:5px !important; font-weight:580 !important;
+  letter-spacing:.002em !important; font-size:11px !important;
+  padding:3px 7px !important; text-transform:none !important;
+}
+.t-conf, .st-conf{background:var(--su-soft) !important;color:var(--su-500) !important}
+.t-pend, .st-pend{background:var(--wa-soft) !important;color:var(--wa-500) !important}
+.t-canc, .st-canc{background:var(--er-soft) !important;color:var(--er-500) !important}
+.t-conc, .st-conc, .selo-combo{background:var(--ac-soft) !important;color:var(--ac-600) !important}
+.t-falt, .st-falt{background:var(--n-100) !important;color:var(--txt2) !important}
+[data-tema="escuro"] .t-falt, [data-tema="escuro"] .st-falt{background:var(--painel2) !important}
+
+/* ===========================================================================
+   AGENDA — a tela que mais se olha
+   =========================================================================== */
+.ag{
+  border-radius:var(--r-sm) !important; border-left-width:3px !important;
+  font-weight:450;
+}
+.ag b{font-weight:600;letter-spacing:-.008em}
+.ag.curto{display:flex;align-items:center;padding-top:0;padding-bottom:0}
+.ag.curto span{display:none}
+.col-h{border-bottom:1px solid var(--borda)}
+.col-h .nm{font-weight:580;font-size:13.5px}
+.col-h .fn{font-size:11px;letter-spacing:.002em}
+.hora{font-size:11px;font-variant-numeric:tabular-nums;font-weight:500}
+.pnt{width:7px;height:7px}
+.faixa{border-top-color:var(--borda)}
+
+/* Cabeçalho de seção: menor, mais espaçado, sem caixa alta gritada. */
+.cat, .turno{
+  font-size:11px !important; font-weight:600 !important;
+  letter-spacing:.045em !important; color:var(--txt3) !important;
+}
+
+/* Tabela com linhas discretas e cabeçalho leve. */
+.tabela th{
+  font-size:11px; font-weight:600; letter-spacing:.04em;
+  color:var(--txt3); background:transparent; border-bottom:1px solid var(--borda);
+}
+.tabela td{border-bottom:1px solid var(--borda)}
+.tabela tr:hover td{background:var(--n-50)}
+[data-tema="escuro"] .tabela tr:hover td{background:var(--painel2)}
+
+/* Indicadores: número grande, rótulo pequeno, sem moldura pesada. */
+.kpi .v{font-size:1.5rem;font-weight:620;letter-spacing:-.028em}
+.kpi .r{font-size:11.5px;font-weight:500;color:var(--txt2);letter-spacing:.002em}
+
+/* Abas: sublinhado fino, sem pílula. */
+.aba{font-weight:520;font-size:13.5px;letter-spacing:-.006em}
+.aba.on{color:var(--txt);border-bottom-color:var(--acao);font-weight:580}
+
+/* Trilha de passos: barra, não bolinha. */
+.bolas i{width:26px;height:3px;border-radius:2px;background:var(--borda)}
+.bolas i.on{background:var(--acao)}
+.trilha i.on, .trilho .bolas i.on{background:var(--acao)}
+
+/* ===========================================================================
+   ÍCONES — SVG traçado, herdando a cor e alinhado ao texto
+   =========================================================================== */
+.ic-svg{
+  width:1.05em; height:1.05em; flex:none; vertical-align:-.16em;
+  stroke:currentColor; fill:none; stroke-width:1.75;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.ic-lg{width:1.3em;height:1.3em;stroke-width:1.6}
+
+/* Botão com ícone: o SVG entra na linha do rótulo, com respiro medido, em vez
+   de empurrar o texto para baixo como faria um inline-block solto. */
+.btn:has(.ic-svg), .btn:has([data-ico]), .b:has(.ic-svg), .b2:has(.ic-svg){
+  display:inline-flex; align-items:center; gap:7px;
+}
+.btn .ic-svg{width:15px;height:15px;vertical-align:0}
+.aviso .ic, .garantia .ic, .janela .ii, .proximo .ii{
+  color:var(--txt2); font-size:1rem; line-height:1;
+}
+.aviso .ic .ic-svg, .garantia .ic .ic-svg{width:17px;height:17px}
+.opcao .ic{
+  border-radius:var(--r-sm) !important; font-weight:600 !important;
+  font-size:13px !important; letter-spacing:-.01em;
+}
+/* "Tanto faz" não é uma pessoa: em vez da inicial de alguém, o ícone da
+   equipe, em cinza, para não competir com os profissionais de verdade. */
+.opcao .ic.ic-neutro{
+  background:var(--painel2) !important; color:var(--txt2) !important;
+  border:1px solid var(--borda);
+}
+.opcao .ic .ic-svg{width:18px;height:18px}
+
+/* Barra de rolagem discreta, no lugar da barra grossa do sistema. */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{
+  background:var(--n-300); border-radius:99px;
+  border:3px solid transparent; background-clip:content-box;
+}
+[data-tema="escuro"] *::-webkit-scrollbar-thumb{background:#3A3833;background-clip:content-box}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* Respeita quem pediu menos animação no sistema. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+
+/* A marca de seleção agora carrega um SVG: o traço precisa ser mais fino
+   para não engrossar dentro de um círculo de 22px. */
+.opcao .marca .ic-svg{width:12px;height:12px;stroke-width:2.6}
+.selo .ic-svg, .selo-ok .ic-svg{width:34px;height:34px;stroke-width:2.2}
+.plano li .ic-svg{color:var(--su-500);width:15px;height:15px;margin-top:.18em}
+.plano li span{flex:1}

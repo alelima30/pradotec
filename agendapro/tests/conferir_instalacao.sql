@@ -120,6 +120,23 @@ anon_em_tabela as (
      and table_name <> 'planos'
 ),
 
+-- 8) O par de gatilhos que impede marcar em cima de um bloqueio (almoço,
+--    médico, feriado). A trava EXCLUDE não alcança: são duas tabelas.
+gatilhos(nome, tabela) as (
+  values ('tg_agend_vs_bloqueio','agendamentos'),
+         ('tg_bloqueio_vs_agend','bloqueios')
+),
+
+gatilho_faltando as (
+  select g.nome from gatilhos g
+   where not exists (
+     select 1 from pg_trigger t
+       join pg_class c on c.oid = t.tgrelid
+       join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = g.tabela
+        and t.tgname = g.nome and not t.tgisinternal)
+),
+
 vitrine(nome) as (
   values ('saloes_publicos'),('servicos_publicos'),('profissionais_publicos')
 ),
@@ -204,4 +221,10 @@ select * from (
          'A vitrine pública abre para quem não fez login',
          coalesce((select string_agg(nome, ', ') from vitrine_fechada)
                   || ' fechada — a página de agendamento não carrega', 'ok')
+
+  union all select 12,
+         case when (select count(*) from gatilho_faltando) = 0 then '✓' else '✗' end,
+         'Bloqueio e atendimento não se atropelam',
+         coalesce((select string_agg(nome, ', ') from gatilho_faltando)
+                  || ' faltando — dá para marcar em cima do almoço', 'ok')
 ) r order by ord;

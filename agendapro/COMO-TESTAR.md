@@ -26,8 +26,8 @@ Vale conferir:
 - Troque de salão no seletor do topo — um não enxerga o outro
 - Clique num espaço vazio da agenda; tente marcar em cima de alguém
 - Aba **Ver como cliente** → copie o link → abra `agendar.html`
-- Abra `agendar.html?salao=barbearia-do-ze`: o tema fica escuro e dourado, e
-  o sistema passa a dizer "barbeiro" em vez de "profissional"
+- Abra `agendar.html?salao=barbearia-do-ze`: o sistema passa a dizer
+  "barbeiro" em vez de "profissional", e "quem corta" em vez de "quem atende"
 - Um dia cheio oferece a **lista de espera**
 - Aba **Plano**: a Barbearia do Zé está com o teste vencendo e 2
   profissionais num limite de 1, para você ver o aviso

@@ -53,7 +53,7 @@ button{cursor:pointer;border:none;background:none}
 .marca{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
 .marca-ic{
   width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--roxo),var(--rosa));color:#fff;font-size:16px;
+  background:var(--acao);color:var(--acao-txt);font-size:16px;
 }
 .marca small{display:block;font-size:10px;font-weight:600;color:var(--txt2);letter-spacing:.1em}
 .sel-salao{
@@ -135,7 +135,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 .ag.cancelado{opacity:.42;text-decoration:line-through}
 .ag.faltou{opacity:.55;background-image:repeating-linear-gradient(
   45deg,transparent,transparent 4px,rgba(0,0,0,.16) 4px,rgba(0,0,0,.16) 8px)}
-.ag.concluido::after{content:"✓";position:absolute;right:5px;top:3px;font-size:11px;opacity:.85}
+.ag.concluido::after{content:"\2713";position:absolute;right:5px;top:3px;font-size:11px;opacity:.85}
 .vazio-slot{position:absolute;left:0;right:0;cursor:pointer}
 .vazio-slot:hover{background:rgba(124,58,237,.09)}
 
@@ -234,8 +234,9 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 /* ── Página pública (ver como cliente) ───────────────────────────────── */
 .publico{max-width:560px;margin:0 auto}
 .pub-topo{
-  background:linear-gradient(135deg,var(--roxo),var(--rosa));color:#fff;
-  border-radius:var(--r) var(--r) 0 0;padding:22px 20px;text-align:center;
+  background:var(--painel2);color:var(--txt);border:1px solid var(--borda);
+  border-bottom:none;
+  border-radius:var(--r) var(--r) 0 0;padding:20px;text-align:center;
 }
 .pub-topo h3{font-size:20px;font-weight:800;letter-spacing:-.02em}
 .pub-topo p{opacity:.92;font-size:13px;margin-top:3px}
@@ -267,19 +268,20 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   .dupla{grid-template-columns:1fr}
 }
 </style>
+<link rel="stylesheet" href="estilo.css" />
 </head>
 <body>
 
 <header class="topo">
   <div class="topo-in">
     <div class="marca">
-      <span class="marca-ic">◷</span>
+      <span class="marca-ic" data-ico="relogio"></span>
       <span>AgendaPro<small id="mTipo">SALÃO</small></span>
     </div>
     <select class="sel-salao" id="selSalao" onchange="trocarSalao(this.value)"></select>
     <span class="espaco"></span>
-    <button class="btn btn-p" id="btInstalar" style="display:none" onclick="instalarApp()">↓ Instalar app</button>
-    <button class="btn btn-x" onclick="trocarTema()" title="Tema claro/escuro" id="btTema">◐</button>
+    <button class="btn btn-p" id="btInstalar" style="display:none" onclick="instalarApp()"><span data-ico="baixo"></span>Instalar app</button>
+    <button class="btn btn-x" onclick="trocarTema()" title="Tema claro ou escuro" id="btTema" aria-label="Trocar tema"><span data-ico="tema"></span></button>
     <button class="btn" onclick="recomecar()" title="Apaga os dados de demonstração e recria">Recomeçar</button>
   </div>
   <nav class="abas" id="abas"></nav>
@@ -290,9 +292,9 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   <!-- ══════════ AGENDA ══════════ -->
   <section class="tela on" id="tela-agenda">
     <div class="barra">
-      <button class="btn btn-x" onclick="mudarDia(-1)">‹</button>
+      <button class="btn btn-x" onclick="mudarDia(-1)">&lsaquo;</button>
       <span class="dia" id="rotuloDia"></span>
-      <button class="btn btn-x" onclick="mudarDia(1)">›</button>
+      <button class="btn btn-x" onclick="mudarDia(1)">&rsaquo;</button>
       <button class="btn btn-peq" onclick="irHoje()">Hoje</button>
       <span class="espaco"></span>
       <button class="btn btn-p" onclick="abrirNovo()">+ Agendamento</button>
@@ -374,10 +376,10 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
                           border-radius:8px;background:var(--painel);font-size:13px">
             <button class="btn btn-peq" onclick="copiarLink()">Copiar</button>
             <a class="btn btn-peq btn-p" id="abrirComoCliente" target="_blank"
-               style="text-decoration:none">Abrir o app do cliente ↗</a>
+               style="text-decoration:none">Abrir o app do cliente <span data-ico="externo"></span></a>
           </div>
         </div>
-        <div class="aviso info">
+        <div class="aviso neutro">
           Abaixo, uma prévia do que a cliente enxerga: os horários <b>livres</b>.
           Nome, telefone e histórico de quem já marcou não saem do banco — a
           regra que garante isso está no <code>02_rls.sql</code>.
@@ -417,13 +419,16 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   <div class="modal">
     <div class="modal-h">
       <h3 id="modalTitulo">—</h3>
-      <button class="btn btn-x" onclick="fecharModal()">✕</button>
+      <button class="btn btn-x" onclick="fecharModal()" aria-label="Fechar"
+              data-ico="fechar"></button>
     </div>
     <div class="modal-c" id="modalCorpo"></div>
     <div class="modal-p" id="modalPe"></div>
   </div>
 </div>
 
+<script src="icones.js"></script>
+<script src="demo.js"></script>
 <script src="config.js"></script>
 <script src="dados.js"></script>
 <script>
@@ -450,7 +455,7 @@ const FECHA = 20 * 60;  // 20:00 — fim da grade
 const PASSO = 15;       // granularidade da grade, em minutos
 
 const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
-const CORES = ['#7C3AED','#EC4899','#0EA5E9','#F59E0B','#10B981','#EF4444','#8B5CF6'];
+// As cores das colunas da agenda vêm do demo.js, junto da semente.
 
 let bd = null;          // banco em memória
 let salaoAtual = null;
@@ -699,8 +704,13 @@ function pintarAgenda(){
     // Atendimentos
     for(const a of agendaDoDia(diaAtual).filter(a => a.profissionalId === p.id)){
       const alt = Math.max(y(a.fim) - y(a.inicio), 20);
-      html += `<div class="ag ${a.status}" style="top:${y(a.inicio)}px;height:${alt}px;
-                    background:${p.cor}" onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
+      // Bloco baixo não comporta duas linhas: em vez de cortar a palavra no
+      // meio, some com o serviço e deixa hora e nome numa linha só. O serviço
+      // continua no `title` e no detalhe.
+      const curto = alt < 42 ? ' curto' : '';
+      html += `<div class="ag ${a.status}${curto}" style="top:${y(a.inicio)}px;height:${alt}px;
+                    background:${p.cor}" title="${hm(a.inicio)} · ${nomeCliente(a.clienteId)} · ${rotuloServicos(a)}"
+                    onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
                  <b>${hm(a.inicio)} ${nomeCliente(a.clienteId)}</b>
                  <span>${rotuloServicos(a)}</span></div>`;
     }
@@ -908,7 +918,7 @@ function copiarLink(){
   // navigator.clipboard exige https ou localhost. Aberto como arquivo local
   // ele não existe, então cai no execCommand antigo em vez de falhar calado.
   const pronto = () => { const b = event.target; const r = b.textContent;
-    b.textContent = 'Copiado ✓'; setTimeout(() => b.textContent = r, 1600); };
+    b.textContent = 'Copiado'; setTimeout(() => b.textContent = r, 1600); };
   if(navigator.clipboard && window.isSecureContext){
     navigator.clipboard.writeText(el.value).then(pronto)
       .catch(e => console.error('Falha ao copiar:', e));
@@ -1273,7 +1283,8 @@ function abrirComanda(comId){
           <td style="text-align:right">${real(t)}</td>
           <td style="text-align:right;color:var(--txt2)">${real(Math.round(t*(i.comissaoPct||0))/100)}</td>
           <td style="text-align:right"><button class="btn btn-peq"
-              onclick="removerItem('${c.id}',${ix})">✕</button></td>
+              onclick="removerItem('${c.id}',${ix})" aria-label="Remover"
+              >${ico('fechar')}</button></td>
         </tr>`;
       }).join('') : '<tr><td colspan="5" style="color:var(--txt3)">Sem itens.</td></tr>'}
     </tbody></table>
@@ -1557,6 +1568,8 @@ function pintar(){
   if(telaAtual === 'caixa')    pintarCaixa();
   if(telaAtual === 'publico')  prepararPublico();
   if(telaAtual === 'plano')    pintarPlano();
+  // Conteúdo desenhado agora pode trazer <span data-ico>; troca por SVG.
+  if(window.aplicarIcones) aplicarIcones();
 }
 
 /* ── Plano e assinatura ──────────────────────────────────────────────────
@@ -1598,7 +1611,7 @@ function pintarPlano(){
   const cheio = usados >= limite;
 
   document.getElementById('painelPlano').innerHTML = `
-    <div class="card" style="border-color:${cheio ? 'var(--alerta)' : 'var(--borda)'}">
+    <div class="card">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div>
           <h3 style="font-size:18px">${p ? p.nome : 'Sem plano'}</h3>
@@ -1619,17 +1632,14 @@ function pintarPlano(){
           <span style="color:var(--txt2)">Profissionais na agenda</span>
           <b>${usados} de ${limite}</b>
         </div>
-        <div style="height:8px;background:var(--bg);border-radius:99px;overflow:hidden">
-          <div style="height:100%;width:${Math.min(usados/limite*100,100)}%;
-                      background:${cheio ? 'var(--alerta)' : 'var(--roxo)'};
-                      border-radius:99px"></div>
-        </div>
+        <div class="medidor"><i style="width:${Math.min(usados/limite*100,100)}%
+             ${cheio ? ';background:var(--wa-500)' : ''}"></i></div>
       </div>
-      ${cheio ? `<div class="aviso" style="margin-top:13px;margin-bottom:0">
+      ${cheio ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
         <b>Você chegou ao limite do plano.</b><br>
         Para cadastrar mais alguém, troque de plano ou desative um profissional.
         Desativar não apaga o histórico dele.</div>` : ''}
-      ${dias !== null && dias <= 2 ? `<div class="aviso" style="margin-top:13px;margin-bottom:0">
+      ${dias !== null && dias <= 2 ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
         <b>O teste acaba ${dias === 0 ? 'hoje' : 'em ' + dias + ' dia(s)'}.</b><br>
         Depois disso a agenda continua no ar, mas volta ao limite de 1
         profissional até você assinar.</div>` : ''}
@@ -1645,16 +1655,16 @@ function pintarPlano(){
   const max = planos.length ? planos[planos.length-1].maxProfissionais : 1;
   const passos = [1,2,3,4,5,6];
   document.getElementById('reguaPlanos').innerHTML = `
-    <div style="display:flex;gap:7px;flex-wrap:wrap">
-      ${passos.map(n => `<button class="btn ${n===planoEscolhido?'btn-p':''}"
-          style="min-width:52px" onclick="planoEscolhido=${n};pintarPlano()">
+    <div class="regua">
+      ${passos.map(n => `<button class="${n===planoEscolhido?'on':''}"
+          onclick="planoEscolhido=${n};pintarPlano()">
           ${n === 6 ? '6+' : n}</button>`).join('')}
     </div>`;
 
   const recomendado = planos.find(x => x.maxProfissionais >= planoEscolhido)
                    || planos[planos.length-1];
   document.getElementById('cartaoPlano').innerHTML = recomendado ? `
-    <div class="card" style="margin-top:14px;border-color:var(--roxo)">
+    <div class="card" style="margin-top:14px">
       <div style="font-size:12px;font-weight:800;color:var(--roxo);letter-spacing:.05em">
         PLANO RECOMENDADO</div>
       <h3 style="font-size:20px;margin-top:4px">${recomendado.nome}</h3>
@@ -1761,110 +1771,9 @@ function recomecar(){
 }
 
 /* ── Dados de demonstração ───────────────────────────────────────────────
-   Dois salões de propósito: dá para trocar no seletor lá em cima e conferir
-   que um não enxerga o outro — que é a ideia do multi-salão.
+   A semente vive em `demo.js`, porque o app do cliente precisa dela também.
    ──────────────────────────────────────────────────────────────────────── */
-function semear(){
-  const s1 = 'salao-bella', s2 = 'barbearia-ze';
-  const comercial = {1:[[540,1140]],2:[[540,1140]],3:[[540,1140]],4:[[540,1140]],5:[[540,1200]],6:[[540,900]]};
-  const tarde = {2:[[720,1200]],3:[[720,1200]],4:[[720,1200]],5:[[720,1200]],6:[[540,1020]]};
-
-  const profs = [
-    {id:'p1', salaoId:s1, nome:'Ana',     comissaoPct:45, cor:CORES[0], ativo:true, jornada:comercial},
-    {id:'p2', salaoId:s1, nome:'Bianca',  comissaoPct:40, cor:CORES[1], ativo:true, jornada:tarde},
-    {id:'p3', salaoId:s1, nome:'Carla',   comissaoPct:50, cor:CORES[2], ativo:true, jornada:comercial},
-    {id:'p4', salaoId:s2, nome:'Zé',      comissaoPct:60, cor:CORES[3], ativo:true, jornada:comercial},
-    {id:'p5', salaoId:s2, nome:'Marcos',  comissaoPct:50, cor:CORES[4], ativo:true, jornada:comercial},
-  ];
-
-  const servs = [
-    {id:'v1', salaoId:s1, nome:'Corte feminino',   categoria:'Cabelo', duracaoMin:60,  intervaloMin:10, preco:90,  comissaoPct:null, ativo:true},
-    {id:'v2', salaoId:s1, nome:'Escova',           categoria:'Cabelo', duracaoMin:45,  intervaloMin:0,  preco:70,  comissaoPct:null, ativo:true},
-    {id:'v3', salaoId:s1, nome:'Coloração',        categoria:'Química',duracaoMin:120, intervaloMin:15, preco:280, comissaoPct:35,   ativo:true},
-    {id:'v4', salaoId:s1, nome:'Mechas',           categoria:'Química',duracaoMin:180, intervaloMin:15, preco:450, comissaoPct:35,   ativo:true},
-    {id:'v5', salaoId:s1, nome:'Manicure',         categoria:'Unhas',  duracaoMin:45,  intervaloMin:5,  preco:45,  comissaoPct:null, ativo:true},
-    {id:'v6', salaoId:s1, nome:'Pedicure',         categoria:'Unhas',  duracaoMin:60,  intervaloMin:5,  preco:55,  comissaoPct:null, ativo:true},
-    {id:'v7', salaoId:s1, nome:'Sobrancelha',      categoria:'Estética',duracaoMin:30, intervaloMin:0,  preco:40,  comissaoPct:null, ativo:true},
-    {id:'v8', salaoId:s2, nome:'Corte masculino',  categoria:'Cabelo', duracaoMin:30,  intervaloMin:5,  preco:50,  comissaoPct:null, ativo:true},
-    {id:'v9', salaoId:s2, nome:'Barba',            categoria:'Barba',  duracaoMin:30,  intervaloMin:5,  preco:40,  comissaoPct:null, ativo:true},
-    {id:'v10',salaoId:s2, nome:'Corte + barba',    categoria:'Combo',  duracaoMin:60,  intervaloMin:5,  preco:80,  comissaoPct:null, ativo:true},
-  ];
-
-  const clis = [
-    {id:'c1', salaoId:s1, nome:'Maria Silva',      telefone:'(11) 98888-1111', obs:'Alergia a amônia'},
-    {id:'c2', salaoId:s1, nome:'Joana Prado',      telefone:'(11) 98888-2222', obs:'Cor 7.1 + 20 vol'},
-    {id:'c3', salaoId:s1, nome:'Rita Nogueira',    telefone:'(11) 98888-3333', obs:''},
-    {id:'c4', salaoId:s1, nome:'Beatriz Antunes',  telefone:'(11) 98888-4444', obs:'Prefere a Carla'},
-    {id:'c5', salaoId:s2, nome:'João Pereira',     telefone:'(11) 97777-1111', obs:'Máquina 2 dos lados'},
-    {id:'c6', salaoId:s2, nome:'Pedro Alves',      telefone:'(11) 97777-2222', obs:''},
-  ];
-
-  const prods = [
-    {id:'d1', salaoId:s1, nome:'Máscara capilar',  preco:65, comissaoPct:10},
-    {id:'d2', salaoId:s1, nome:'Óleo de argan',    preco:48, comissaoPct:10},
-    {id:'d3', salaoId:s2, nome:'Pomada modeladora',preco:35, comissaoPct:15},
-  ];
-
-  // Agenda de hoje, montada sem chocar: cada profissional em sequência.
-  const d = hoje();
-  const ags = [];
-  const marcar = (cli, prof, sv, ini, status) => {
-    const s = servs.find(x => x.id === sv);
-    const p = profs.find(x => x.id === prof);
-    ags.push({
-      id:id(), salaoId:p.salaoId, clienteId:cli, profissionalId:prof, data:d,
-      inicio:ini, fim:ini + s.duracaoMin + s.intervaloMin, status,
-      origem: status === 'pendente' ? 'online' : 'recepcao',
-      servicos:[{servicoId:sv, duracaoMin:s.duracaoMin, preco:s.preco,
-                 comissaoPct: s.comissaoPct != null ? s.comissaoPct : p.comissaoPct}],
-      obs:'',
-    });
-  };
-  marcar('c1','p1','v1', 9*60,      'concluido');
-  marcar('c2','p1','v3', 10*60+30,  'em_atendimento');
-  marcar('c3','p1','v2', 14*60,     'confirmado');
-  marcar('c4','p3','v4', 9*60,      'confirmado');
-  marcar('c1','p3','v7', 13*60,     'pendente');
-  marcar('c2','p2','v5', 13*60,     'confirmado');
-  marcar('c3','p2','v6', 15*60,     'confirmado');
-  marcar('c5','p4','v10', 9*60,     'concluido');
-  marcar('c6','p4','v8', 10*60+30,  'confirmado');
-  marcar('c5','p5','v9', 11*60,     'confirmado');
-
-  return {
-    planos: [
-      {codigo:'trial',      nome:'Teste grátis', maxProfissionais:1,  precoMes:0},
-      {codigo:'individual', nome:'Individual',   maxProfissionais:1,  precoMes:47},
-      {codigo:'duo',        nome:'Duo',          maxProfissionais:2,  precoMes:87},
-      {codigo:'time',       nome:'Time',         maxProfissionais:3,  precoMes:127},
-      {codigo:'equipe',     nome:'Equipe',       maxProfissionais:5,  precoMes:187},
-      {codigo:'salao',      nome:'Salão',        maxProfissionais:20, precoMes:297},
-    ],
-    // O Studio Bella tem 3 profissionais e assina o Time; a barbearia está
-    // no teste grátis com 2 — de propósito, para a tela mostrar o aviso de
-    // limite estourado, que é o caso que o dono precisa entender.
-    assinaturas: [
-      {salaoId:s1, plano:'time',  status:'ativa', trialAte:null},
-      {salaoId:s2, plano:'trial', status:'trial', trialAte:somarDias(hoje(), 2)},
-    ],
-    saloes: [
-      {id:s1, slug:'studio-bella', nome:'Studio Bella', tipo:'salão',
-       endereco:'Rua das Flores, 210 — Itu/SP'},
-      {id:s2, slug:'barbearia-do-ze', nome:'Barbearia do Zé', tipo:'barbearia',
-       endereco:'Av. Central, 88 — Itu/SP'},
-    ],
-    profissionais: profs,
-    servicos: servs,
-    clientes: clis,
-    produtos: prods,
-    agendamentos: ags,
-    bloqueios: [
-      {id:id(), salaoId:s1, profissionalId:'p1', data:d, inicio:12*60, fim:13*60, motivo:'Almoço'},
-      {id:id(), salaoId:s1, profissionalId:'p3', data:d, inicio:12*60, fim:13*60, motivo:'Almoço'},
-    ],
-    comandas: [],
-  };
-}
+function semear(){ return semearDemo(); }
 
 /* ===========================================================================
    INSTALAR COMO APLICATIVO (PWA)

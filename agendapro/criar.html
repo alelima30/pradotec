@@ -1,240 +1,238 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-tema="escuro">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Criar conta — AgendaPro</title>
 <meta name="description" content="Crie seu link de agendamento e teste 7 dias grátis, sem cartão." />
-<meta name="theme-color" content="#0D0D0F" />
+<meta name="theme-color" content="#FFFFFF" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/png" href="icones/icone-192.png" />
 <link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
 <style>
 /* ===========================================================================
    AgendaPro — cadastro do dono
-   Escuro e dourado porque é a linguagem visual da categoria, e é o dono de
-   barbearia que chega aqui primeiro.
+   ---------------------------------------------------------------------------
+   Esta tela já foi preta com dourado, imitando a linguagem visual de
+   barbearia. Ficou parecendo outro produto: quem assinava aqui abria o
+   app.html em seguida e caía num sistema claro, de outra família. Página de
+   assinatura é a primeira impressão do software, não um cartaz — então ela
+   usa os mesmos tokens do resto (estilo.css) e acompanha o tema do aparelho.
    =========================================================================== */
-:root{
-  --ouro:#D4AF37; --ouro-claro:#F0CF5B; --ouro-esc:#A88824;
-  --bg:#0D0D0F; --painel:#17171A; --painel2:#1E1E22; --borda:#2E2E33;
-  --txt:#F2F2F0; --txt2:#A8A69E; --txt3:#6E6C66;
-  --ok:#10B981; --erro:#EF4444; --info:#3B82F6;
-  --r:14px;
-}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{
-  font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  background:var(--bg); color:var(--txt); -webkit-font-smoothing:antialiased;
-}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:none;background:none}
 
 /* ── Topo ────────────────────────────────────────────────────────────── */
 .topo{
-  position:sticky;top:0;z-index:30;background:rgba(13,13,15,.93);
-  backdrop-filter:blur(8px);border-bottom:1px solid var(--borda);
-  padding:calc(12px + env(safe-area-inset-top)) 18px 12px;
+  position:sticky;top:0;z-index:30;background:var(--painel);
+  border-bottom:1px solid var(--borda);
+  padding:calc(11px + env(safe-area-inset-top)) 18px 11px;
 }
-.topo-in{max-width:620px;margin:0 auto;display:flex;align-items:center;gap:12px}
-.logo{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em;font-size:18px}
+.topo-in{max-width:620px;margin:0 auto;display:flex;align-items:center;gap:11px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:640;letter-spacing:-.02em;font-size:17px}
 .logo i{
-  width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--ouro-claro),var(--ouro-esc));
-  color:#17171A;font-style:normal;font-size:17px;font-weight:900;
+  width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:var(--acao);color:var(--acao-txt);font-style:normal;
 }
-.logo b{color:var(--ouro)}
-.entrar{margin-left:auto;color:var(--txt2);font-size:14px;font-weight:600}
-.entrar:hover{color:var(--ouro)}
+.logo b{font-weight:640}
+.entrar{margin-left:auto;color:var(--txt2);font-size:13.5px;font-weight:550;
+        text-decoration:none;white-space:nowrap}
+.entrar:hover{color:var(--txt)}
 
 /* ── Passos ──────────────────────────────────────────────────────────── */
-.trilho{max-width:620px;margin:0 auto;padding:18px 18px 0;text-align:center}
-.bolas{display:flex;gap:9px;justify-content:center;margin-bottom:7px}
-.bolas i{width:9px;height:9px;border-radius:50%;background:var(--borda);transition:.2s}
-.bolas i.on{background:var(--ouro)}
-.trilho p{font-size:13.5px;color:var(--txt2)}
+.trilho{max-width:620px;margin:0 auto;padding:20px 18px 0;text-align:center}
+.bolas{display:flex;gap:6px;justify-content:center;margin-bottom:9px}
+.bolas i{width:26px;height:3px;border-radius:2px;background:var(--borda);transition:.2s}
+.bolas i.on{background:var(--acao)}
+.trilho p{font-size:12.5px;color:var(--txt2);letter-spacing:.01em}
 
-.wrap{max-width:620px;margin:0 auto;padding:20px 18px 60px}
+.wrap{max-width:620px;margin:0 auto;padding:22px 18px 60px}
 .passo{display:none}
-.passo.on{display:block;animation:sobe .25s ease}
-@keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.passo.on{display:block;animation:sobe .22s ease}
+@keyframes sobe{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-.voltar{display:inline-flex;align-items:center;gap:8px;color:var(--txt2);
-        font-size:15px;font-weight:600;margin-bottom:16px}
-.voltar:hover{color:var(--txt)}
+.voltar{display:inline-flex;align-items:center;gap:7px;color:var(--txt2);
+        font-size:14px;font-weight:550;margin-bottom:16px;
+        padding:6px 11px;border-radius:var(--r-sm);border:1px solid var(--borda)}
+.voltar:hover{color:var(--txt);background:var(--painel2)}
 
-h1{font-size:32px;font-weight:900;letter-spacing:-.03em;line-height:1.12;margin-bottom:8px}
-h1 span{color:var(--ouro)}
-.sub{color:var(--txt2);font-size:16px;margin-bottom:20px}
-h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+h1{margin-bottom:9px}
+h1 span{color:var(--txt2);font-weight:560}
+.sub{color:var(--txt2);font-size:15px;margin-bottom:22px;max-width:44ch}
+h2{margin-bottom:6px}
 
 /* ── Caixas de aviso ─────────────────────────────────────────────────── */
 .aviso{
-  display:flex;gap:11px;padding:14px 15px;border-radius:var(--r);
+  display:flex;gap:10px;padding:12px 14px;border-radius:var(--r-sm);
   margin-bottom:18px;font-size:14px;line-height:1.5;
-  border:1px solid var(--info);background:rgba(59,130,246,.09);
+  border:1px solid var(--ac-line);border-left:3px solid var(--ac-600);
+  background:var(--ac-soft);
 }
-.aviso .ic{flex:none;font-size:17px;line-height:1.3}
-.aviso b{display:block;color:#7EB0FF;margin-bottom:3px}
-.aviso.verde{border-color:rgba(16,185,129,.45);background:rgba(16,185,129,.07)}
-.aviso.verde b{color:#4ADE9A}
-.aviso.ruim{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.09);color:#FCA5A5}
-.aviso.ruim b{color:#FCA5A5}
+.aviso .ic{flex:none;line-height:1.3;color:var(--txt2)}
+.aviso b{display:block;margin-bottom:2px}
 
-/* ── Preço ───────────────────────────────────────────────────────────── */
+/* ── Ciclo de cobrança ───────────────────────────────────────────────── */
 .ciclo{
-  display:flex;gap:4px;padding:5px;border:1px solid var(--borda);
-  border-radius:99px;background:var(--painel);margin-bottom:20px;position:relative;
+  display:flex;gap:3px;padding:3px;border:1px solid var(--borda);
+  border-radius:var(--r-sm);background:var(--painel2);margin-bottom:22px;position:relative;
 }
-.ciclo button{flex:1;padding:12px;border-radius:99px;font-weight:800;font-size:15px;
-              color:var(--txt2);transition:.18s}
-.ciclo button.on{background:var(--ouro);color:#17171A}
+.ciclo button{flex:1;padding:9px;border-radius:6px;font-weight:560;font-size:14px;
+              color:var(--txt2);transition:.15s}
+.ciclo button.on{background:var(--painel);color:var(--txt);box-shadow:var(--sombra)}
 .desc10{
-  position:absolute;top:-9px;right:14px;background:var(--ok);color:#062E22;
-  font-size:11px;font-weight:900;padding:2px 9px;border-radius:99px;
+  position:absolute;top:-8px;right:12px;background:var(--painel);color:var(--su-500);
+  border:1px solid rgba(21,128,61,.35);
+  font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:99px;letter-spacing:.01em;
 }
 
 .caixa{
   border:1px solid var(--borda);border-radius:var(--r);
-  background:var(--painel);padding:20px;margin-bottom:18px;
+  background:var(--painel);padding:20px;margin-bottom:18px;box-shadow:var(--sombra);
 }
-.pergunta{text-align:center;color:var(--txt2);font-size:14.5px}
-.quantos{text-align:center;font-size:30px;font-weight:900;letter-spacing:-.03em;margin:4px 0 16px}
-.regua{display:flex;gap:6px;justify-content:center;align-items:center}
+.pergunta{text-align:center;color:var(--txt2);font-size:13.5px}
+.quantos{text-align:center;font-size:26px;font-weight:620;letter-spacing:-.028em;margin:3px 0 18px}
+.regua{display:flex;gap:7px;justify-content:center;align-items:center;flex-wrap:wrap}
 .regua button{
-  width:46px;height:46px;border-radius:50%;font-weight:800;font-size:17px;
-  color:var(--txt3);transition:.18s;
+  min-width:42px;height:42px;padding:0 12px;border-radius:var(--r-sm);
+  font-weight:560;font-size:15px;color:var(--txt2);
+  border:1px solid var(--borda);background:var(--painel);transition:.15s;
 }
-.regua button.on{
-  background:var(--ouro);color:#17171A;
-  box-shadow:0 0 0 6px rgba(212,175,55,.14);
-}
+.regua button:hover{border-color:var(--n-300);color:var(--txt)}
+.regua button.on{background:var(--acao);color:var(--acao-txt);border-color:var(--acao)}
 .linha-fina{height:1px;background:var(--borda);margin:18px 0}
 .recomendado{text-align:center}
-.recomendado small{color:var(--txt2);font-size:13.5px;display:block;margin-bottom:3px}
-.recomendado b{color:var(--ouro);font-size:21px;font-weight:900}
+.recomendado small{color:var(--txt2);font-size:12.5px;display:block;margin-bottom:3px;
+                   letter-spacing:.02em;text-transform:uppercase}
+.recomendado b{font-size:19px;font-weight:620;letter-spacing:-.02em}
 
 /* ── Cards de plano ──────────────────────────────────────────────────── */
-.dica-desliza{text-align:center;color:var(--ouro);font-size:13.5px;font-weight:700;
+.dica-desliza{text-align:center;color:var(--txt3);font-size:12.5px;font-weight:500;
               margin-bottom:11px}
 .carrossel{display:flex;gap:13px;overflow-x:auto;padding:4px 0 14px;
            scroll-snap-type:x mandatory}
 .carrossel::-webkit-scrollbar{height:0}
 .plano{
-  flex:none;width:280px;scroll-snap-align:center;border:1px solid var(--borda);
+  flex:none;width:278px;scroll-snap-align:center;border:1px solid var(--borda);
   border-radius:var(--r);background:var(--painel);padding:20px;position:relative;
+  box-shadow:var(--sombra);
 }
-.plano.pop{border-color:var(--ouro);box-shadow:0 0 26px rgba(212,175,55,.14)}
+.plano.pop{border-color:var(--acao);box-shadow:var(--sombra-md)}
 .plano .fita{
-  position:absolute;top:-1px;left:-1px;right:-1px;background:var(--ouro);color:#17171A;
-  font-size:11.5px;font-weight:900;text-align:center;padding:5px;
-  border-radius:var(--r) var(--r) 0 0;letter-spacing:.05em;
+  position:absolute;top:-1px;left:-1px;right:-1px;background:var(--acao);
+  color:var(--acao-txt);font-size:10.5px;font-weight:600;text-align:center;padding:5px;
+  border-radius:var(--r) var(--r) 0 0;letter-spacing:.07em;
 }
 .plano.pop{padding-top:38px}
 .plano .ic{
-  width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
-  background:rgba(212,175,55,.14);color:var(--ouro);font-size:19px;margin-bottom:11px;
+  width:36px;height:36px;border-radius:var(--r-sm);display:grid;place-items:center;
+  background:var(--painel2);color:var(--txt2);border:1px solid var(--borda);
+  margin-bottom:12px;
 }
-.plano.pop .ic{background:var(--ouro);color:#17171A}
-.plano h3{font-size:19px;font-weight:800}
-.plano .quem{color:var(--txt2);font-size:13.5px;margin-bottom:11px}
-.plano .valor{font-size:32px;font-weight:900;letter-spacing:-.03em}
-.plano .valor s{font-size:15px;font-weight:600;color:var(--txt3);margin-right:7px}
-.plano .valor small{font-size:14px;font-weight:600;color:var(--txt2)}
+.plano.pop .ic{background:var(--acao);color:var(--acao-txt);border-color:var(--acao)}
+.plano h3{font-size:17px;font-weight:620;letter-spacing:-.018em}
+.plano .quem{color:var(--txt2);font-size:13px;margin-bottom:12px}
+.plano .valor{font-size:28px;font-weight:640;letter-spacing:-.03em}
+.plano .valor s{font-size:14px;font-weight:500;color:var(--txt3);margin-right:7px}
+.plano .valor small{font-size:13px;font-weight:500;color:var(--txt2)}
 .plano ul{list-style:none;margin:15px 0;border-top:1px solid var(--borda);padding-top:14px}
-.plano li{display:flex;gap:9px;font-size:14.5px;padding:5px 0;color:var(--txt)}
-.plano li i{color:var(--ok);font-style:normal;font-weight:900}
+.plano li{display:flex;gap:9px;font-size:14px;padding:5px 0;color:var(--txt);align-items:flex-start}
 .plano .btn-plano{
-  width:100%;padding:13px;border-radius:11px;font-weight:800;font-size:15px;
-  border:1.5px solid var(--ouro);color:var(--ouro);
+  width:100%;padding:11px;border-radius:var(--r-sm);font-weight:560;font-size:14.5px;
+  border:1px solid var(--borda);color:var(--txt);background:var(--painel);
 }
-.plano.pop .btn-plano{background:var(--ouro);color:#17171A;border-color:var(--ouro)}
-.plano .btn-plano:active{transform:scale(.99)}
+.plano.pop .btn-plano{background:var(--acao);color:var(--acao-txt);border-color:var(--acao)}
 
 .garantia{
-  display:flex;gap:12px;align-items:flex-start;border:1px solid rgba(16,185,129,.4);
-  background:rgba(16,185,129,.06);border-radius:var(--r);padding:15px;margin-top:6px;
+  display:flex;gap:11px;align-items:flex-start;border:1px solid rgba(21,128,61,.3);
+  background:var(--su-soft);border-radius:var(--r-sm);padding:14px;margin-top:6px;
+  border-left:3px solid var(--su-500);
 }
-.garantia .ic{font-size:22px;line-height:1;flex:none}
-.garantia b{display:block;color:#4ADE9A;margin-bottom:2px}
-.garantia p{font-size:14px;color:var(--txt2)}
+.garantia .ic{line-height:1;flex:none;color:var(--su-500)}
+.garantia b{display:block;margin-bottom:2px}
+.garantia p{font-size:13.5px;color:var(--txt2)}
 
 /* ── Formulário ──────────────────────────────────────────────────────── */
 .campo{margin-bottom:17px}
-.campo label{display:block;font-size:14px;font-weight:700;margin-bottom:7px}
-.campo label em{color:var(--ouro);font-style:normal}
-.campo label span{font-weight:500;color:var(--txt3);font-size:13px}
+.campo label{display:block;font-size:13.5px;font-weight:560;margin-bottom:7px}
+.campo label em{color:var(--er-500);font-style:normal}
+.campo label span{font-weight:450;color:var(--txt3);font-size:12.5px}
 .entrada{position:relative}
 .entrada input,.entrada select{
-  width:100%;padding:15px 15px 15px 44px;border:1.5px solid var(--borda);
-  border-radius:12px;background:var(--painel2);font-size:16px;transition:.15s;
+  width:100%;padding:13px 13px 13px 42px;border:1px solid var(--borda);
+  border-radius:var(--r-sm);background:var(--painel);font-size:16px;transition:.15s;
 }
-.entrada.sem-ic input,.entrada.sem-ic select{padding-left:15px}
+.entrada.sem-ic input,.entrada.sem-ic select{padding-left:13px}
 .entrada input:focus,.entrada select:focus{
-  outline:none;border-color:var(--ouro);background:var(--painel);
-  box-shadow:0 0 0 3px rgba(212,175,55,.15);
+  outline:none;border-color:var(--ac-600);
+  box-shadow:0 0 0 3px var(--ac-soft);
 }
 .entrada .ic{
-  position:absolute;left:15px;top:50%;transform:translateY(-50%);
-  color:var(--txt3);font-size:16px;pointer-events:none;
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  color:var(--txt3);pointer-events:none;line-height:0;
 }
 .entrada .olho{
-  position:absolute;right:12px;top:50%;transform:translateY(-50%);
-  color:var(--txt3);font-size:17px;padding:5px;
+  position:absolute;right:11px;top:50%;transform:translateY(-50%);
+  color:var(--txt3);padding:5px;line-height:0;
 }
-.ajuda{font-size:13px;color:var(--txt3);margin-top:6px}
-.erro-campo{font-size:13px;color:#FCA5A5;margin-top:6px;font-weight:600}
-input.ruim,select.ruim{border-color:var(--erro)!important}
-input.bom{border-color:rgba(16,185,129,.55)!important}
+.entrada .olho:hover{color:var(--txt2)}
+.ajuda{font-size:12.5px;color:var(--txt3);margin-top:6px}
+.erro-campo{font-size:12.5px;color:var(--er-500);margin-top:6px;font-weight:550}
+input.ruim,select.ruim{border-color:var(--er-500)!important}
+input.bom{border-color:rgba(21,128,61,.5)!important}
 
 .forca{display:flex;gap:4px;margin-top:8px}
-.forca i{height:4px;flex:1;border-radius:99px;background:var(--borda);transition:.2s}
-.forca i.n1{background:var(--erro)} .forca i.n2{background:#F59E0B}
-.forca i.n3{background:var(--ok)}
+.forca i{height:3px;flex:1;border-radius:99px;background:var(--borda);transition:.2s}
+.forca i.n1{background:var(--er-500)} .forca i.n2{background:var(--wa-500)}
+.forca i.n3{background:var(--su-500)}
 
 .previa-link{
-  margin-top:8px;padding:11px 13px;border-radius:11px;background:var(--painel2);
-  border:1px dashed var(--borda);font-size:13.5px;word-break:break-all;
+  margin-top:8px;padding:10px 12px;border-radius:var(--r-sm);background:var(--painel2);
+  border:1px dashed var(--borda);font-size:13px;word-break:break-all;
 }
-.previa-link b{color:var(--ouro)}
-.previa-link .st{float:right;font-size:12px;font-weight:700}
-.st.livre{color:#4ADE9A} .st.ocupado{color:#FCA5A5}
+.previa-link b{font-weight:600}
+.previa-link .st{float:right;font-size:11.5px;font-weight:600}
+.st.livre{color:var(--su-500)} .st.ocupado{color:var(--er-500)}
 
 .grande{
-  width:100%;padding:17px;border-radius:13px;font-weight:900;font-size:17px;
-  background:linear-gradient(135deg,var(--ouro-claro),var(--ouro));color:#17171A;
-  box-shadow:0 6px 22px rgba(212,175,55,.24);
+  width:100%;padding:14px;border-radius:var(--r-sm);font-weight:580;font-size:16px;
+  background:var(--acao);color:var(--acao-txt);border:1px solid var(--acao);
 }
-.grande:active{transform:scale(.99)}
-.grande:disabled{opacity:.45;box-shadow:none;pointer-events:none}
-.sob-botao{text-align:center;font-size:13px;color:var(--txt3);margin-top:11px}
+.grande:hover{background:var(--acao-hover);border-color:var(--acao-hover)}
+.grande:disabled{opacity:.38;pointer-events:none}
+.sob-botao{text-align:center;font-size:12.5px;color:var(--txt3);margin-top:11px}
 
 /* ── Pronto ──────────────────────────────────────────────────────────── */
 .selo-ok{
-  width:84px;height:84px;border-radius:50%;background:var(--ok);color:#062E22;
-  display:grid;place-items:center;font-size:42px;margin:6px auto 18px;
-  box-shadow:0 0 0 10px rgba(16,185,129,.13);
+  width:64px;height:64px;border-radius:50%;background:var(--su-soft);color:var(--su-500);
+  border:1px solid rgba(21,128,61,.35);
+  display:grid;place-items:center;margin:6px auto 18px;
 }
 .centro{text-align:center}
 .link-final{
-  display:flex;gap:8px;align-items:center;border:1.5px solid var(--ouro);
-  border-radius:12px;padding:13px 15px;background:rgba(212,175,55,.07);
-  margin:18px 0;word-break:break-all;font-size:14.5px;font-weight:700;
+  display:flex;gap:8px;align-items:center;border:1px solid var(--borda);
+  border-radius:var(--r-sm);padding:12px 14px;background:var(--painel2);
+  margin:18px 0;word-break:break-all;font-size:14px;font-weight:550;
 }
-.link-final button{flex:none;color:var(--ouro);font-weight:800;font-size:13.5px}
-.proximos{border:1px solid var(--borda);border-radius:var(--r);padding:18px;margin-top:18px}
-.proximos ol{margin:10px 0 0 20px;color:var(--txt2);font-size:14.5px}
+.link-final button{flex:none;color:var(--txt2);font-weight:560;font-size:13px;
+                   border:1px solid var(--borda);border-radius:6px;padding:5px 10px;
+                   background:var(--painel)}
+.link-final button:hover{color:var(--txt)}
+.proximos{border:1px solid var(--borda);border-radius:var(--r);padding:18px;margin-top:18px;
+          background:var(--painel)}
+.proximos ol{margin:10px 0 0 20px;color:var(--txt2);font-size:14px}
 .proximos li{padding:4px 0}
 .rodape{max-width:620px;margin:0 auto;padding:0 18px 40px;
-        font-size:12.5px;color:var(--txt3);text-align:center}
-@media(max-width:420px){ h1{font-size:27px} .plano{width:252px} }
+        font-size:12px;color:var(--txt3);text-align:center}
+@media(max-width:420px){ h1{font-size:1.55rem} .plano{width:250px} }
 </style>
+<link rel="stylesheet" href="estilo.css" />
 </head>
 <body>
 
 <header class="topo">
   <div class="topo-in">
-    <span class="logo"><i>◷</i>Agenda<b>Pro</b></span>
+    <span class="logo"><i data-ico="relogio"></i><span>Agenda<b>Pro</b></span></span>
     <a class="entrar" href="app.html">Já tem conta? Entrar</a>
   </div>
 </header>
@@ -268,11 +266,11 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
       </div>
     </div>
 
-    <div class="dica-desliza">‹ &nbsp;Deslize para ver todos os planos&nbsp; ›</div>
+    <div class="dica-desliza">&lsaquo; &nbsp;Deslize para ver todos os planos&nbsp; &rsaquo;</div>
     <div class="carrossel" id="carrossel"></div>
 
     <div class="garantia">
-      <span class="ic">🛡</span>
+      <span class="ic" data-ico="escudo"></span>
       <div><b>Garantia de 30 dias</b>
       <p>Se não servir para o seu negócio, devolvemos tudo. Sem perguntas.</p></div>
     </div>
@@ -285,14 +283,14 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
     <p class="sub">Preencha seus dados para começar o teste de 7 dias.</p>
 
     <div class="aviso">
-      <span class="ic">ⓘ</span>
+      <span class="ic" data-ico="info"></span>
       <div><b>Teste: até 1 profissional</b>
       O teste grátis permite cadastrar apenas 1 profissional — você. Para
       colocar a equipe inteira, assine um plano durante ou depois do teste.</div>
     </div>
 
-    <div class="aviso verde">
-      <span class="ic">👋</span>
+    <div class="aviso neutro">
+      <span class="ic" data-ico="mao"></span>
       <div><b>Como você nos conheceu? <span style="font-weight:500;color:var(--txt3)">
         (opcional)</span></b>
       <div class="entrada sem-ic" style="margin-top:9px">
@@ -311,7 +309,7 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
     <div class="caixa">
       <div class="campo">
         <label>Nome completo <em>*</em></label>
-        <div class="entrada"><span class="ic">👤</span>
+        <div class="entrada"><span class="ic" data-ico="usuario"></span>
           <input id="fNome" placeholder="Seu nome" autocomplete="name"
                  oninput="validarCampo('fNome')"></div>
         <div class="erro-campo" id="e-fNome" style="display:none"></div>
@@ -319,7 +317,7 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
 
       <div class="campo">
         <label>Email <em>*</em></label>
-        <div class="entrada"><span class="ic">✉</span>
+        <div class="entrada"><span class="ic" data-ico="email"></span>
           <input id="fEmail" type="email" placeholder="seu@email.com"
                  autocomplete="email" oninput="validarCampo('fEmail')"></div>
         <div class="erro-campo" id="e-fEmail" style="display:none"></div>
@@ -327,10 +325,10 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
 
       <div class="campo">
         <label>Senha <em>*</em></label>
-        <div class="entrada"><span class="ic">🔒</span>
+        <div class="entrada"><span class="ic" data-ico="cadeado"></span>
           <input id="fSenha" type="password" placeholder="Mínimo 8 caracteres"
                  autocomplete="new-password" oninput="validarCampo('fSenha')">
-          <button class="olho" onclick="verSenha('fSenha')" type="button">👁</button></div>
+          <button class="olho" onclick="verSenha('fSenha')" type="button" data-ico="olho"></button></div>
         <div class="forca"><i id="s1"></i><i id="s2"></i><i id="s3"></i></div>
         <div class="ajuda">Mínimo 8 caracteres, com letras e números.</div>
         <div class="erro-campo" id="e-fSenha" style="display:none"></div>
@@ -338,16 +336,16 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
 
       <div class="campo">
         <label>Confirmar senha <em>*</em></label>
-        <div class="entrada"><span class="ic">🔒</span>
+        <div class="entrada"><span class="ic" data-ico="cadeado"></span>
           <input id="fSenha2" type="password" placeholder="Digite a senha novamente"
                  autocomplete="new-password" oninput="validarCampo('fSenha2')">
-          <button class="olho" onclick="verSenha('fSenha2')" type="button">👁</button></div>
+          <button class="olho" onclick="verSenha('fSenha2')" type="button" data-ico="olho"></button></div>
         <div class="erro-campo" id="e-fSenha2" style="display:none"></div>
       </div>
 
       <div class="campo">
         <label>WhatsApp <em>*</em></label>
-        <div class="entrada"><span class="ic">📱</span>
+        <div class="entrada"><span class="ic" data-ico="telefone"></span>
           <input id="fZap" type="tel" inputmode="numeric" placeholder="(00) 00000-0000"
                  autocomplete="tel" oninput="mascaraTel(this);validarCampo('fZap')"></div>
         <div class="erro-campo" id="e-fZap" style="display:none"></div>
@@ -355,7 +353,7 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
 
       <div class="campo">
         <label>CPF ou CNPJ <em>*</em></label>
-        <div class="entrada"><span class="ic">🪪</span>
+        <div class="entrada"><span class="ic" data-ico="cartao"></span>
           <input id="fDoc" inputmode="numeric" placeholder="000.000.000-00"
                  oninput="mascaraDoc(this);validarCampo('fDoc')"></div>
         <div class="ajuda">Necessário para emitir a cobrança quando você assinar.</div>
@@ -384,7 +382,7 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
 
       <div class="campo" style="margin-bottom:0">
         <label>Nome do estabelecimento <em>*</em></label>
-        <div class="entrada"><span class="ic">🏠</span>
+        <div class="entrada"><span class="ic" data-ico="casa"></span>
           <input id="fSalao" placeholder="Ex.: Barbearia do Zé"
                  oninput="mudouNomeSalao()"></div>
         <div class="previa-link" id="previaLink" style="display:none"></div>
@@ -394,13 +392,13 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
 
     <div id="avisoGeral"></div>
     <button class="grande" onclick="criarConta()">Criar conta grátis</button>
-    <p class="sob-botao">✓ Pronto em 2 minutos &nbsp;•&nbsp; ✓ Sem cartão de crédito</p>
+    <p class="sob-botao">Pronto em 2 minutos &nbsp;·&nbsp; Sem cartão de crédito</p>
   </section>
 
   <!-- ══════════ PASSO 3 · PRONTO ══════════ -->
   <section class="passo" id="p-pronto">
     <div class="centro">
-      <div class="selo-ok">✓</div>
+      <div class="selo-ok"><span data-ico="ok" data-ico-classe="ic-lg"></span></div>
       <h1>Sua conta está no ar</h1>
       <p class="sub" id="textoPronto">—</p>
     </div>
@@ -435,6 +433,7 @@ input.bom{border-color:rgba(16,185,129,.55)!important}
   para servidor nenhum.
 </p>
 
+<script src="icones.js"></script>
 <script src="config.js"></script>
 <script src="dados.js"></script>
 <script>
@@ -462,23 +461,23 @@ let bd = null;
 
 const PLANOS = [
   {codigo:'trial',      nome:'Teste grátis', quem:'Para conhecer',    max:1,  preco:0,
-   ic:'🎁', recursos:['1 profissional','Todos os recursos','Sem cartão de crédito',
+   ic:'<span data-ico="presente"></span>', recursos:['1 profissional','Todos os recursos','Sem cartão de crédito',
                       'Suporte no WhatsApp','Configuração em 5 min']},
   {codigo:'individual', nome:'Individual',   quem:'Para 1 profissional', max:1, preco:47,
-   ic:'👤', recursos:['1 profissional','Agenda ilimitada','Lembrete no WhatsApp',
+   ic:'<span data-ico="usuario"></span>', recursos:['1 profissional','Agenda ilimitada','Lembrete no WhatsApp',
                       'Comanda e comissão','Relatórios básicos']},
   {codigo:'duo',        nome:'Duo',          quem:'Para 2 profissionais', max:2, preco:87,
-   ic:'👥', pop:true,
+   ic:'<span data-ico="equipe"></span>', pop:true,
    recursos:['2 profissionais','Agenda ilimitada','Lembrete no WhatsApp',
              'Comanda e comissão','Relatórios completos']},
   {codigo:'time',       nome:'Time',         quem:'Para 3 profissionais', max:3, preco:127,
-   ic:'👨‍👩‍👦', recursos:['3 profissionais','Tudo do Duo','Lista de espera',
+   ic:'<span data-ico="equipe"></span>', recursos:['3 profissionais','Tudo do Duo','Lista de espera',
                       'Metas por profissional','Relatórios completos']},
   {codigo:'equipe',     nome:'Equipe',       quem:'Para até 5',        max:5, preco:187,
-   ic:'🏢', recursos:['5 profissionais','Tudo do Time','Vários caixas',
+   ic:'<span data-ico="predio"></span>', recursos:['5 profissionais','Tudo do Time','Vários caixas',
                       'Controle de estoque','Suporte prioritário']},
   {codigo:'salao',      nome:'Salão',        quem:'Para até 20',       max:20, preco:297,
-   ic:'🏛', recursos:['20 profissionais','Tudo do Equipe','Múltiplas unidades',
+   ic:'<span data-ico="predio"></span>', recursos:['20 profissionais','Tudo do Equipe','Múltiplas unidades',
                       'Exportação de dados','Atendimento dedicado']},
 ];
 
@@ -514,6 +513,7 @@ function irPasso(n){
   for(let i = 1; i <= 3; i++)
     document.getElementById('b'+i).classList.toggle('on', i <= n);
   document.getElementById('rotuloPasso').textContent = ROTULOS[n-1];
+  if(window.aplicarIcones) aplicarIcones();
   document.querySelector('.trilho').style.display = '';
   window.scrollTo(0,0);
 }
@@ -554,7 +554,7 @@ function pintarPlanos(){
         ? (ciclo === 'anual' ? `<s>${real(p.preco)}</s>` : '') + real(cheio)
           + '<small> /mês</small>'
         : 'Grátis<small> 7 dias</small>'}</div>
-      <ul>${p.recursos.map(r => `<li><i>✓</i>${r}</li>`).join('')}</ul>
+      <ul>${p.recursos.map(r => `<li>${ico('ok')}<span>${r}</span></li>`).join('')}</ul>
       <button class="btn-plano" onclick="escolherPlano('${p.codigo}')">
         ${p.preco ? 'Assinar ' + p.nome : 'Testar grátis'}</button>
     </div>`;
@@ -698,7 +698,7 @@ function mudouTipo(){
     estetica:'esteticista', clinica:'profissional', tatuagem:'tatuador',
     pet:'tosador', outro:'profissional'}[t];
   document.getElementById('ajudaTipo').innerHTML = palavra
-    ? `O sistema vai dizer <b style="color:var(--ouro)">${palavra}</b> em vez de
+    ? `O sistema vai dizer <b style="color:var(--ac-600)">${palavra}</b> em vez de
        "profissional". Dá para mudar depois em Configurações.`
     : 'Define o vocabulário do sistema. Dá para mudar depois em Configurações.';
 }
@@ -734,7 +734,7 @@ function mudouNomeSalao(){
 
   cx.style.display = 'block';
   cx.innerHTML = `<span class="st ${livre?'livre':'ocupado'}">${
-      livre ? '✓ livre' : 'já usado'}</span>`
+      livre ? ico('ok') + ' livre' : 'já usado'}</span>`
     + `Seu link: <b>agendar.html?salao=${usar}</b>`
     + (livre ? '' : `<div style="color:var(--txt3);margin-top:5px;font-size:12.5px">
          "${base}" já é de outro estabelecimento, então reservamos este.</div>`);
@@ -750,7 +750,7 @@ async function criarConta(){
 
   const geral = document.getElementById('avisoGeral');
   if(!ok){
-    geral.innerHTML = '<div class="aviso ruim"><span class="ic">⚠</span>'
+    geral.innerHTML = '<div class="aviso ruim"><span class="ic">' + ico('alerta') + '</span>'
       + '<div><b>Faltou conferir alguns campos</b>'
       + 'Os que estão em vermelho precisam de ajuste.</div></div>';
     document.getElementById(primeiro).focus();
@@ -795,7 +795,7 @@ async function criarConta(){
       irPasso(3);
     }catch(e){
       console.error('[AgendaPro] falha ao criar a conta:', e);
-      geral.innerHTML = '<div class="aviso ruim"><span class="ic">⚠</span>'
+      geral.innerHTML = '<div class="aviso ruim"><span class="ic">' + ico('alerta') + '</span>'
         + '<div><b>Não consegui criar a conta</b>' + e.message + '</div></div>';
       bt.disabled = false; bt.textContent = rotulo;
     }
@@ -822,7 +822,7 @@ async function criarConta(){
   // permite. Jornada comercial de segunda a sábado, que ele ajusta depois.
   bd.profissionais.push({
     id: novoId(), salaoId, perfilId: perfil.id, nome: nome.split(' ')[0],
-    comissaoPct: 100, cor: '#D4AF37', ativo: true,
+    comissaoPct: 100, cor: '#3D6B8E', ativo: true,
     jornada: {1:[[540,1140]],2:[[540,1140]],3:[[540,1140]],
               4:[[540,1140]],5:[[540,1200]],6:[[540,900]]},
   });
@@ -840,7 +840,7 @@ async function criarConta(){
 function copiarLink(){
   const txt = document.getElementById('linkFinal').textContent;
   const bt = document.getElementById('btCopiar');
-  const feito = () => { bt.textContent = 'Copiado ✓';
+  const feito = () => { bt.textContent = 'Copiado';
                         setTimeout(() => bt.textContent = 'Copiar', 1800); };
   if(navigator.clipboard && window.isSecureContext){
     navigator.clipboard.writeText(txt).then(feito)

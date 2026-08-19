@@ -368,6 +368,81 @@ create index if not exists ix_agend_dia     on public.agendamentos(salao_id, ini
 create index if not exists ix_agend_prof    on public.agendamentos(profissional_id, inicio);
 create index if not exists ix_agend_cliente on public.agendamentos(cliente_id, inicio desc);
 
+-- ── A SEGUNDA TRAVA: bloqueio e atendimento não convivem ────────────────────
+-- A trava `agenda_sem_choque` só olha agendamento contra agendamento. Almoço,
+-- médico e feriado moram noutra tabela, então nada impedia marcar mecha das
+-- 9h às 12h15 por cima do almoço das 12h — foi exatamente o que aconteceu nos
+-- dados de demonstração, e ninguém percebeu até a tela desenhar um bloco em
+-- cima do outro.
+--
+-- `EXCLUDE` não atravessa duas tabelas, então a regra vira gatilho. Ele roda
+-- dos dois lados: ao marcar (contra os bloqueios que já existem) e ao
+-- bloquear (contra os atendimentos que já existem), senão dava para furar
+-- invertendo a ordem. `profissional_id is null` num bloqueio quer dizer salão
+-- inteiro fechado — vale para todo mundo da casa.
+create or replace function public.checar_bloqueio_agendamento()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  motivo_conflito text;
+begin
+  if new.status not in ('pendente','confirmado','em_atendimento','concluido') then
+    return new;                                   -- cancelado e faltou liberam
+  end if;
+
+  select coalesce(b.motivo, 'bloqueado') into motivo_conflito
+    from public.bloqueios b
+   where b.salao_id = new.salao_id
+     and (b.profissional_id = new.profissional_id or b.profissional_id is null)
+     and tstzrange(b.inicio, b.fim, '[)') && tstzrange(new.inicio, new.fim, '[)')
+   limit 1;
+
+  if motivo_conflito is not null then
+    raise exception 'Horário indisponível: %', motivo_conflito
+      using errcode = 'exclusion_violation';
+  end if;
+  return new;
+end $$;
+
+create or replace function public.checar_agendamento_bloqueio()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  select count(*) into n
+    from public.agendamentos a
+   where a.salao_id = new.salao_id
+     and (new.profissional_id is null or a.profissional_id = new.profissional_id)
+     and a.status in ('pendente','confirmado','em_atendimento','concluido')
+     and tstzrange(a.inicio, a.fim, '[)') && tstzrange(new.inicio, new.fim, '[)');
+
+  if n > 0 then
+    raise exception
+      'Existe atendimento marcado nesse período (% no total). Remarque antes de bloquear.', n
+      using errcode = 'exclusion_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists tg_agend_vs_bloqueio on public.agendamentos;
+create trigger tg_agend_vs_bloqueio
+  before insert or update of inicio, fim, profissional_id, status
+  on public.agendamentos
+  for each row execute function public.checar_bloqueio_agendamento();
+
+drop trigger if exists tg_bloqueio_vs_agend on public.bloqueios;
+create trigger tg_bloqueio_vs_agend
+  before insert or update of inicio, fim, profissional_id
+  on public.bloqueios
+  for each row execute function public.checar_agendamento_bloqueio();
+
 -- Um atendimento pode ter vários serviços: corte + barba + sobrancelha.
 -- A soma das durações é o que define o `fim` do agendamento.
 --

@@ -572,3 +572,88 @@ begin
   else perform t_falha('cancelada seguiu liberando o plano inteiro');
   end if;
 end $$;
+
+\echo ''
+\echo 'Bloqueio e atendimento não convivem'
+
+-- O almoço é um bloqueio, noutra tabela. A trava `agenda_sem_choque` não
+-- alcança ele — quem alcança é o gatilho. Sem esse par de testes, a semente
+-- da demonstração voltaria a marcar mecha de três horas por cima do almoço.
+insert into public.bloqueios (salao_id, profissional_id, inicio, fim, motivo)
+values ('aaaaaaaa-0000-0000-0000-000000000001',
+        'bbbbbbbb-0000-0000-0000-000000000001',
+        '2026-09-10 12:00-03', '2026-09-10 13:00-03', 'Almoço');
+
+do $$
+begin
+  if recusado($q$insert into public.agendamentos
+                   (salao_id, cliente_id, profissional_id, inicio, fim)
+                 values ('aaaaaaaa-0000-0000-0000-000000000001',
+                         'dddddddd-0000-0000-0000-000000000001',
+                         'bbbbbbbb-0000-0000-0000-000000000001',
+                         '2026-09-10 11:00-03', '2026-09-10 12:30-03')$q$)
+  then perform t_ok('atendimento que invade o almoço é recusado');
+  else perform t_falha('marcou por cima do almoço');
+  end if;
+end $$;
+
+do $$
+declare n int;
+begin
+  insert into public.agendamentos
+    (salao_id, cliente_id, profissional_id, inicio, fim)
+  values ('aaaaaaaa-0000-0000-0000-000000000001',
+          'dddddddd-0000-0000-0000-000000000001',
+          'bbbbbbbb-0000-0000-0000-000000000001',
+          '2026-09-10 11:00-03', '2026-09-10 12:00-03');
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('encostar no almoço sem invadir continua valendo');
+  else perform t_falha('11:00-12:00 foi recusado sem encostar no bloqueio');
+  end if;
+end $$;
+
+-- E o contrário: bloquear em cima de quem já está marcado. Se só um lado
+-- fosse conferido, bastava inverter a ordem para furar a regra.
+do $$
+begin
+  if recusado($q$insert into public.bloqueios
+                   (salao_id, profissional_id, inicio, fim, motivo)
+                 values ('aaaaaaaa-0000-0000-0000-000000000001',
+                         'bbbbbbbb-0000-0000-0000-000000000001',
+                         '2026-09-10 11:30-03', '2026-09-10 14:00-03', 'Médico')$q$)
+  then perform t_ok('bloquear em cima de atendimento marcado é recusado');
+  else perform t_falha('o bloqueio passou por cima de um cliente marcado');
+  end if;
+end $$;
+
+-- Fechar o salão inteiro (profissional_id nulo) vale para todo mundo.
+do $$
+begin
+  if recusado($q$insert into public.bloqueios (salao_id, inicio, fim, motivo)
+                 values ('aaaaaaaa-0000-0000-0000-000000000001',
+                         '2026-09-10 11:30-03', '2026-09-10 12:00-03', 'Feriado')$q$)
+  then perform t_ok('feriado do salão também esbarra em quem já está marcado');
+  else perform t_falha('o feriado ignorou os atendimentos do dia');
+  end if;
+end $$;
+
+do $$
+begin
+  insert into public.bloqueios (salao_id, inicio, fim, motivo)
+  values ('aaaaaaaa-0000-0000-0000-000000000001',
+          '2026-09-11 08:00-03', '2026-09-11 23:00-03', 'Feriado');
+  perform t_ok('feriado em dia vazio entra sem reclamar');
+end $$;
+
+-- Cancelado libera: o horário volta a ficar livre para bloquear.
+do $$
+begin
+  update public.agendamentos set status = 'cancelado'
+   where profissional_id = 'bbbbbbbb-0000-0000-0000-000000000001'
+     and inicio = '2026-09-10 11:00-03';
+  insert into public.bloqueios (salao_id, profissional_id, inicio, fim, motivo)
+  values ('aaaaaaaa-0000-0000-0000-000000000001',
+          'bbbbbbbb-0000-0000-0000-000000000001',
+          '2026-09-10 11:00-03', '2026-09-10 12:00-03', 'Médico');
+  perform t_ok('atendimento cancelado libera o horário para bloqueio');
+end $$;

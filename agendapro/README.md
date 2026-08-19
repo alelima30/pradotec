@@ -19,12 +19,16 @@ verificados de ponta a ponta.
 | `agendar.html` | O cliente: capa do salão, escolha, código no WhatsApp, meus horários |
 | `index.html` | Encaminha a raiz para o app |
 | `sw.js` + `manifest.webmanifest` | PWA — instala no celular e no computador |
-| `supabase/01_schema.sql` | 16 tabelas, a trava anti-choque da agenda, comanda e comissão |
+| `supabase/01_schema.sql` | 20 tabelas, as duas travas da agenda, comanda e comissão |
 | `supabase/02_rls.sql` | Isolamento entre salões e entre papéis — a segurança de verdade |
 | `config.js` | **o único arquivo a editar** para ligar no Supabase |
 | `dados.js` | a camada de dados: localStorage ou Supabase, escolhido pelo config |
 | `supabase/00_tudo.sql` | instalação completa, para colar de uma vez no SQL Editor |
-| `tests/` | 219 verificações: banco, mapa de colunas e camada de dados |
+| `estilo.css` | o sistema visual: paleta, tipografia e componentes, num lugar só |
+| `icones.js` | 30 ícones em SVG traçado, no lugar de emoji |
+| `demo.js` | a semente da demonstração, compartilhada pelas duas telas |
+| `criar.html` | o cadastro do dono: plano, dados e link pronto |
+| `tests/` | 225 verificações: banco, mapa de colunas e camada de dados |
 
 > **Para instalar e testar de ponta a ponta, siga o
 > [COMO-TESTAR.md](COMO-TESTAR.md).** Este arquivo explica as decisões; aquele
@@ -58,8 +62,11 @@ Dentro do `app.html`, na aba **Ver como cliente**, o link aparece pronto com
 botão de copiar. Sem o parâmetro, `agendar.html` mostra a lista de salões:
 isso existe só para a demonstração; em produção o link sempre traz um.
 
-**A tela** — abra `app.html` no navegador. Já vem com dois salões, cinco
-profissionais, dez serviços e a agenda de hoje preenchida. Tudo fica no
+**A tela** — abra `app.html` **ou** `agendar.html?salao=studio-bella` no
+navegador. Qualquer uma das duas cria os dados de demonstração se ainda não
+existirem: dois salões, cinco profissionais, dez serviços e a agenda de hoje
+preenchida. (O app do cliente semeia também porque, na vida real, o link do
+WhatsApp costuma ser a primeira porta que a pessoa abre.) Tudo fica no
 `localStorage`; o botão **Recomeçar** devolve ao estado inicial.
 
 Para instalar como aplicativo é preciso servir por http, porque navegador não
@@ -110,6 +117,11 @@ Aqui a recusa é do banco, por uma constraint `EXCLUDE USING gist` sobre
 `tstzrange`. Não fura por corrida, nem chamando a API direto, nem com o
 JavaScript desligado.
 
+O almoço, o médico e o feriado moram noutra tabela (`bloqueios`), e `EXCLUDE`
+não atravessa duas tabelas — então essa metade é um par de gatilhos, um de
+cada lado. Sem eles dava para marcar mecha de três horas por cima do almoço,
+ou bloquear em cima de quem já estava marcado invertendo a ordem.
+
 **3. Nada de `modulo_dados`.** O AdminPro guarda metade do sistema como um
 bloco JSON por módulo, e a própria documentação dele reconhece o custo: dois
 admins salvando junto, o último apaga o trabalho do primeiro, e nada disso tem
@@ -133,6 +145,38 @@ Cada uma dessas linhas é um teste em `tests/02_rls.test.sql`, rodando com
 `set role authenticated` — que é como o Supabase trata um JWT. Sem trocar o
 papel, o teste rodaria como superusuário e passaria por cima do RLS: verde
 mentiroso, o pior tipo.
+
+## O visual
+
+Uma paleta só, num arquivo só (`estilo.css`), e as três telas herdam dela.
+As decisões que sustentam o resto:
+
+- **Neutros quentes, não cinza azulado.** Uma escala de onze degraus faz todo
+  o trabalho de fundo, borda e texto.
+- **Uma cor de destaque, com significado.** O verde-azulado marca *seleção*:
+  o dia escolhido, o horário escolhido, o plano escolhido. Ele nunca é
+  decoração.
+- **A ação primária é quase preta**, não colorida. Contraste máximo, e sobra
+  o destaque para carregar informação. O plano recomendado usa a mesma cor de
+  ação — recomendar é empurrar, não é uma escolha já feita.
+- **Nada de degradê e nada de emoji.** Emoji cada sistema desenha do seu
+  jeito, não aceita cor nem espessura e envelhece junto com a moda do teclado;
+  os ícones são SVG traçado de 1,75 (`icones.js`), herdam a cor do texto.
+- **Algarismo tabular** em horário, dinheiro e contagem, para as colunas
+  alinharem.
+
+Duas coisas saíram no caminho, e vale registrar por quê:
+
+**O tema preto-e-dourado da barbearia.** A ideia era o cliente reconhecer a
+casa ao abrir o link. Na prática viraram dois produtos — a mesma pessoa marcava
+unha num lugar claro e barba num lugar escuro, com outro botão e outra
+tipografia — e o dourado sobre preto derrubava o contraste do texto pequeno.
+Quem identifica a casa é o nome, o monograma e a lista de serviços, que é como
+Fresha, Booksy e Square resolvem. O vocabulário continua mudando com o tipo do
+salão ("quem corta" x "quem atende"); o que saiu foi a segunda paleta.
+
+**A página de cadastro preta.** Mesma história: o dono assinava numa tela preta
+e caía num sistema claro no minuto seguinte.
 
 ## Dois bugs que os testes pegaram antes de existir tela
 
