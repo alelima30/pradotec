@@ -13,15 +13,11 @@
 set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$AQUI/dist"
-
-# As fontes vão como arquivo, não embutidas: 74 KB em base64 dentro de cada
-# uma das três páginas seriam 300 KB a mais, repetidos. O @font-face do CSS
-# aponta para `fontes/`, então a pasta precisa viajar junto.
-cp -r "$AQUI/fontes" "$AQUI/dist/"
-# A marca vai como arquivo pelo mesmo motivo das fontes, e porque o <img> das
-# páginas aponta para icones/marca.svg.
+# A marca vai como arquivo, e não embutida: o <img> das páginas aponta para
+# icones/marca.svg, e um SVG em base64 dentro de cada uma das quatro seria o
+# mesmo desenho repetido quatro vezes.
 mkdir -p "$AQUI/dist/icones"
-cp "$AQUI/icones/marca.svg" "$AQUI/dist/icones/"
+cp "$AQUI"/icones/*.svg "$AQUI/dist/icones/"
 
 python3 - "$AQUI" <<'PY'
 import io, os, sys, re

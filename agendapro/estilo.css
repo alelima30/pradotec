@@ -29,44 +29,15 @@
    contato curto e escuro que gruda o objeto na superfície, e uma difusa e
    larga que dá altura. Uma sombra só, chapada, denuncia layout às pressas.
 
-   Duas famílias, desenhadas como par. Instrument Serif carrega o nome do
-   salão e as aberturas; Instrument Sans faz o trabalho de interface. Serifa
-   em título e grotesca em dado é a combinação da imprensa e da hotelaria —
-   e é o oposto do "tudo em Inter" que virou marca de tela gerada.
+   A tipografia é a do sistema: Segoe UI, que é a do Windows. O computador da
+   recepção é Windows em praticamente todo salão do Brasil, e usar a fonte
+   nativa tem três efeitos que fonte baixada não tem — nada para descarregar,
+   nenhuma troca de letra no meio do carregamento, e a tela parece parte do
+   sistema operacional em vez de parecer um site aberto dentro dele.
 
-   As fontes são servidas do próprio projeto (fontes/), não do Google. São
-   74 KB, funcionam offline no aplicativo instalado, e não vazam o IP de cada
-   cliente do salão para um terceiro a cada abertura de página.
+   Fora do Windows, `system-ui` entrega a fonte nativa de cada plataforma. É o
+   comportamento certo: ninguém quer o Mac imitando Windows.
    =========================================================================== */
-
-@font-face{
-  font-family:"Instrument Sans"; font-style:normal; font-weight:400 700;
-  font-display:swap; src:url(fontes/instrument-sans-latin.woff2) format("woff2");
-  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,
-                U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,
-                U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-@font-face{
-  font-family:"Instrument Sans"; font-style:normal; font-weight:400 700;
-  font-display:swap; src:url(fontes/instrument-sans-latin-ext.woff2) format("woff2");
-  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,
-                U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,
-                U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
-}
-@font-face{
-  font-family:"Instrument Serif"; font-style:normal; font-weight:400;
-  font-display:swap; src:url(fontes/instrument-serif-latin.woff2) format("woff2");
-  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,
-                U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,
-                U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-@font-face{
-  font-family:"Instrument Serif"; font-style:normal; font-weight:400;
-  font-display:swap; src:url(fontes/instrument-serif-latin-ext.woff2) format("woff2");
-  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,
-                U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,
-                U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
-}
 
 :root{
   /* ── Neutros quentes ───────────────────────────────────────────────── */
@@ -123,10 +94,25 @@
   --sombra-lg:0 4px 8px -2px rgba(25,23,18,.06), 0 20px 44px -10px rgba(25,23,18,.16);
   --sombra-marca:0 1px 2px rgba(156,15,88,.20), 0 6px 16px -5px rgba(194,18,109,.32);
 
-  /* ── Tipografia ────────────────────────────────────────────────────── */
-  --fonte:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",
-          Roboto,"Helvetica Neue",Arial,sans-serif;
-  --fonte-display:"Instrument Serif",ui-serif,Georgia,"Times New Roman",serif;
+  /* ── Tipografia ──────────────────────────────────────────────────────
+     A fonte do Windows, que é onde o salão trabalha: o computador da recepção
+     é Windows em praticamente todo salão do Brasil.
+
+     "Segoe UI Variable Text" vem primeiro porque é a do Windows 11 — é a
+     mesma família, redesenhada, e num texto de 15px ela tem o espacejamento
+     melhor. No Windows 10 esse nome não existe e cai no "Segoe UI" de sempre.
+     Fora do Windows, `system-ui` entrega a fonte nativa de cada sistema, que
+     é o comportamento certo: ninguém quer o Mac imitando Windows.
+
+     Zero download. A versão anterior servia 74 KB de fonte do próprio
+     projeto; isso sai, e a primeira pintura da tela acontece antes. */
+  --fonte:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,
+          "Roboto","Helvetica Neue",Arial,sans-serif;
+  /* Para título de abertura e nome de salão: a mesma família, mas na variação
+     de display do Windows 11, que tem contraste maior e serve para tamanho
+     grande. Onde ela não existe, é a mesma fonte do resto — e tudo bem. */
+  --fonte-display:"Segoe UI Variable Display","Segoe UI",system-ui,
+                  -apple-system,"Roboto",Arial,sans-serif;
 }
 
 /* No escuro o dourado sobe na rampa: #8F7220 sobre preto some, e o mesmo
@@ -188,10 +174,12 @@
 /* O nome usa o degradê do logotipo — é o único lugar em que ele aparece.
    `background-clip:text` pinta a letra com o degradê em vez de pintar uma
    caixa atrás dela. */
+/* O logotipo em linha ocupa a largura da lateral menos o respiro. Altura por
+   `aspect-ratio` implícita: o SVG já traz a proporção, então basta a largura. */
+.lat-logo{ width:100%; max-width:186px; height:auto; display:block }
 .marca-logo{ width:34px; height:34px; flex:none; display:block }
-/* O criar.html usava um quadrado de tinta com ícone; agora é a marca de
-   verdade, então o quadrado sai de baixo dela. */
-.logo img{ width:28px; height:28px; display:block }
+/* No cadastro o fundo é claro e há espaço, então entra o bloco inteiro. */
+.logo-topo{ height:46px; width:auto; display:block }
 .logo i{ display:none }
 .marca-nome{
   font-size:1.32rem; font-weight:700; letter-spacing:-.03em; color:var(--lat-txt);
@@ -340,12 +328,12 @@ h2{font-size:1.1rem;font-weight:600;letter-spacing:-.016em;line-height:1.32}
 h3{font-size:.95rem;font-weight:600;letter-spacing:-.01em}
 b,strong{font-weight:600}
 
-/* A serifa da marca. `font-optical-sizing` e o peso 400 são o desenho dela:
-   Instrument Serif tem um peso só, e engrossar por CSS borra a haste fina
-   que é justamente o que a torna elegante. */
+/* Título de abertura e nome de salão. No Windows 11 sai na variação Display
+   da Segoe, desenhada para tamanho grande: contraste maior e espacejamento
+   mais apertado. Onde ela não existe, é a mesma fonte do resto. */
 .display, .marca-salao h2, .cabeca h1, .pub-topo h3{
-  font-family:var(--fonte-display); font-weight:400;
-  letter-spacing:-.012em; line-height:1.14;
+  font-family:var(--fonte-display); font-weight:600;
+  letter-spacing:-.02em; line-height:1.16;
 }
 
 /* Rótulo de seção: pequeno, espaçado, em maiúscula — o jeito editorial de
