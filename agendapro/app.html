@@ -359,6 +359,12 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
     <div id="cartaoPlano"></div>
   </section>
 
+  <!-- ══════════ MEU SALÃO ══════════ -->
+  <section class="tela" id="tela-salao">
+    <div class="barra"><h2>Meu salão</h2></div>
+    <div id="painelSalao"></div>
+  </section>
+
   <!-- ══════════ VER COMO CLIENTE ══════════ -->
   <section class="tela" id="tela-publico">
     <div class="publico">
@@ -428,6 +434,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 </div>
 
 <script src="icones.js"></script>
+<script src="imagens.js"></script>
 <script src="demo.js"></script>
 <script src="config.js"></script>
 <script src="dados.js"></script>
@@ -609,6 +616,7 @@ const TELAS = [
   ['servicos', 'Serviços'],
   ['equipe',   'Equipe'],
   ['caixa',    'Caixa'],
+  ['salao',    'Meu salão'],
   ['publico',  'Ver como cliente'],
   ['plano',    'Plano'],
 ];
@@ -1438,6 +1446,24 @@ function salvarCliente(cid){
 function abrirServico(sid){
   const s = sid ? acharServico(sid) : null;
   abrirModal(s ? 'Editar serviço' : 'Novo serviço', `
+    <div class="foto-linha" style="margin-bottom:16px">
+      <div class="foto-previa servico" id="previaServico">
+        ${s && s.foto ? `<img src="${s.foto}" alt="">`
+                      : `<span data-ico="tesoura"></span>`}
+      </div>
+      <div class="foto-txt">
+        <b>Foto do serviço</b>
+        <p>É a imagem que o cliente vê no card. "Corte navalhado" não diz
+           nada; a foto diz.</p>
+        <div class="foto-acoes">
+          <label class="btn btn-peq">Escolher
+            <input type="file" accept="image/*" hidden
+                   onchange="escolherFotoServico(this)"></label>
+          <button class="btn btn-peq" onclick="limparFotoServico()">Remover</button>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="sFoto" value="${s && s.foto ? s.foto : ''}">
     <div class="campo"><label>Nome</label>
       <input id="sNome" value="${s ? s.nome : ''}" placeholder="Corte feminino"></div>
     <div class="dupla">
@@ -1479,11 +1505,50 @@ function salvarServico(sid){
     intervaloMin: parseInt(document.getElementById('sInt').value, 10) || 0,
     preco: parseFloat(document.getElementById('sPreco').value) || 0,
     comissaoPct: comTxt === '' ? null : parseFloat(comTxt),
+    foto: document.getElementById('sFoto').value || null,
     ativo: document.getElementById('sAtivo').checked,
   };
+  const alvoId = sid || id();
   if(sid) Object.assign(acharServico(sid), dados);
-  else bd.servicos.push({id:id(), salaoId:salaoAtual, ...dados});
+  else bd.servicos.push({id:alvoId, salaoId:salaoAtual, ...dados});
+
+  // A foto só vira arquivo agora, porque só agora existe um id para dar nome
+  // a ela. Se o envio falhar, o serviço não fica salvo pela metade: avisa e
+  // segue com a foto guardada como está.
+  if(dados.foto && dados.foto.startsWith('data:')){
+    Imagens.publicar(dados.foto, salaoAtual, 'servico-' + alvoId)
+      .then(endereco => { acharServico(alvoId).foto = endereco; salvar(); pintar(); })
+      .catch(e => alert('O serviço foi salvo, mas a foto não subiu: ' + e.message));
+  }
+
   salvar(); fecharModal(); pintar();
+}
+
+/* A foto do serviço é escolhida ANTES de o serviço existir — no cadastro de um
+   serviço novo ainda não há id para dar nome ao arquivo. Então ela fica em
+   `data:` dentro do campo escondido, e só vira arquivo no Storage quando o
+   serviço é salvo e já tem id. */
+let fotoServicoPendente = null;
+
+async function escolherFotoServico(campo){
+  const arquivo = campo.files && campo.files[0];
+  if(!arquivo) return;
+  campo.value = '';
+  try{
+    const r = await Imagens.reduzir(arquivo, 'servico');
+    fotoServicoPendente = r.dataUrl;
+    document.getElementById('sFoto').value = r.dataUrl;
+    document.getElementById('previaServico').innerHTML =
+      '<img src="' + r.dataUrl + '" alt="">';
+  }catch(e){ alert(e.message); }
+}
+
+function limparFotoServico(){
+  fotoServicoPendente = null;
+  document.getElementById('sFoto').value = '';
+  const p = document.getElementById('previaServico');
+  p.innerHTML = '<span data-ico="tesoura"></span>';
+  if(window.aplicarIcones) aplicarIcones(p);
 }
 
 function abrirProf(pid){
@@ -1595,10 +1660,99 @@ function pintar(){
   if(telaAtual === 'servicos') pintarServicos();
   if(telaAtual === 'equipe')   pintarEquipe();
   if(telaAtual === 'caixa')    pintarCaixa();
+  if(telaAtual === 'salao')    pintarSalao();
   if(telaAtual === 'publico')  prepararPublico();
   if(telaAtual === 'plano')    pintarPlano();
   // Conteúdo desenhado agora pode trazer <span data-ico>; troca por SVG.
   if(window.aplicarIcones) aplicarIcones();
+}
+
+/* ── Meu salão: identidade visual ────────────────────────────────────────
+   A logo e a foto do salão não são enfeite. O cliente abre o link vindo do
+   WhatsApp, e o que decide se ele confia naquela página é reconhecer a casa.
+   Uma vitrine sem imagem parece link suspeito.
+
+   As duas imagens moram em `saloes.logo` e `saloes.capa`, como ENDEREÇO. Na
+   demonstração é `data:` no próprio navegador; ligado no Supabase, é URL do
+   Storage. A tela não sabe a diferença — quem resolve isso é o imagens.js.
+   ──────────────────────────────────────────────────────────────────────── */
+function pintarSalao(){
+  const sl = acharSalao(salaoAtual);
+  if(!sl) return;
+
+  const cartao = (chave, titulo, explica, formato) => `
+    <div class="foto-linha">
+      <div class="foto-previa ${chave}">
+        ${sl[chave]
+          ? `<img src="${sl[chave]}" alt="">`
+          : `<span data-ico="${chave === 'logo' ? 'predio' : 'casa'}"></span>`}
+      </div>
+      <div class="foto-txt">
+        <b>${titulo}</b>
+        <p>${explica}</p>
+        <p class="fmt">${formato}</p>
+        <div class="foto-acoes">
+          <label class="btn btn-peq">
+            ${sl[chave] ? 'Trocar' : 'Escolher'} imagem
+            <input type="file" accept="image/*" hidden
+                   onchange="subirImagemSalao('${chave}', this)">
+          </label>
+          ${sl[chave] ? `<button class="btn btn-peq"
+             onclick="tirarImagemSalao('${chave}')">Remover</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('painelSalao').innerHTML = `
+    <div class="card">
+      ${cartao('logo', 'Logo',
+        'Aparece no topo da página do cliente e na lista de salões dele.',
+        'Quadrada. JPG, PNG ou WEBP.')}
+      <div class="linha-fina"></div>
+      ${cartao('capa', 'Foto do salão',
+        'A foto grande da vitrine. A da equipe funciona melhor que a da '
+      + 'fachada vazia — o cliente quer ver quem vai atender.',
+        'Deitada, tipo 3 por 2. JPG, PNG ou WEBP.')}
+    </div>
+    ${Dados.ligado ? '' : `
+    <div class="aviso info" style="margin-top:14px">
+      <b>Nesta demonstração as fotos ficam no seu navegador.</b><br>
+      Elas são reduzidas antes de guardar, mas o espaço aqui é pequeno
+      (${Math.round(Imagens.TETO_NAVEGADOR / 1024 / 1024)} MB para o sistema
+      inteiro). ${estadoDoEspaco()} Ligado no Supabase, vão para o servidor e
+      esse limite deixa de existir.</div>`}`;
+}
+
+function estadoDoEspaco(){
+  const usado = Imagens.ocupadoNoNavegador();
+  const pct = Math.round(usado / Imagens.TETO_NAVEGADOR * 100);
+  return 'Você usou cerca de ' + pct + '%.';
+}
+
+async function subirImagemSalao(chave, campo){
+  const arquivo = campo.files && campo.files[0];
+  if(!arquivo) return;
+  campo.value = '';                       // deixa reescolher o mesmo arquivo
+  try{
+    const endereco = await Imagens.guardar(arquivo, chave, salaoAtual, chave);
+    acharSalao(salaoAtual)[chave] = endereco;
+    salvar(); pintar();
+  }catch(e){
+    alert(e.message);
+  }
+}
+
+async function tirarImagemSalao(chave){
+  if(!confirm('Remover esta imagem?')) return;
+  const sl = acharSalao(salaoAtual);
+  sl[chave] = null;
+  salvar(); pintar();
+  // Apagar do Storage é limpeza, não parte do salvamento: se falhar, a coluna
+  // já está vazia e a imagem não aparece mais em lugar nenhum.
+  if(Dados.ligado){
+    Dados.apagarImagem(salaoAtual, chave + '.jpg')
+      .catch(e => console.warn('[AgendaPro] sobrou o arquivo no Storage:', e.message));
+  }
 }
 
 /* ── Plano e assinatura ──────────────────────────────────────────────────

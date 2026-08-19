@@ -556,3 +556,65 @@ begin;
     end if;
   end $$;
 rollback;
+
+\echo ''
+\echo 'As imagens do salão (Storage)'
+
+-- A logo e a foto do salão são públicas para LER — é a vitrine, e imagem atrás
+-- de login numa página pública é imagem que não carrega. O que precisa de
+-- trava é a ESCRITA: sem ela, qualquer dono logado troca a logo do concorrente
+-- por um palavrão, e o estrago aparece para os clientes dele.
+--
+-- A policy decide pela primeira pasta do caminho, que é o uuid do salão. Os
+-- testes cercam os quatro caminhos possíveis: a própria pasta, a do vizinho,
+-- a raiz do balde e uma pasta com nome inventado.
+--
+-- O `begin`/`set local role` fica aqui fora, e não dentro do DO: `SET LOCAL`
+-- precisa de uma transação de verdade, e psql abre uma implícita por comando.
+-- Dentro do bloco ele não pega, o teste roda como superusuário e passa por
+-- cima do RLS — verde mentiroso, que é o pior resultado possível.
+
+begin;
+  set local role authenticated;
+  set local request.jwt.claim.sub = 'a0000000-0000-0000-0000-00000000000a';
+
+  do $$
+  declare n int;
+  begin
+    insert into storage.objects (bucket_id, name)
+    values ('salao', '5a100000-0000-0000-0000-00000000000a/logo.jpg');
+    get diagnostics n = row_count;
+    if n = 1 then perform t_ok('a dona envia imagem na pasta do próprio salão');
+    else perform t_falha('não conseguiu enviar na própria pasta'); end if;
+  end $$;
+
+  do $$ begin
+    if recusado($q$insert into storage.objects (bucket_id, name)
+                   values ('salao','5a100000-0000-0000-0000-00000000000b/logo.jpg')$q$)
+    then perform t_ok('não escreve na pasta de outro salão');
+    else perform t_falha('trocou a imagem do salão do vizinho'); end if;
+  end $$;
+
+  do $$ begin
+    if recusado($q$insert into storage.objects (bucket_id, name)
+                   values ('salao','solto.jpg')$q$)
+    then perform t_ok('arquivo na raiz do balde, sem dono, é recusado');
+    else perform t_falha('entrou arquivo sem pasta de salão'); end if;
+  end $$;
+
+  do $$ begin
+    if recusado($q$insert into storage.objects (bucket_id, name)
+                   values ('salao','qualquer/logo.jpg')$q$)
+    then perform t_ok('pasta que não é uuid é recusada, sem derrubar a consulta');
+    else perform t_falha('pasta inventada foi aceita'); end if;
+  end $$;
+commit;
+
+begin;
+  set local role anon;
+  do $$ begin
+    if (select count(*) from storage.objects where bucket_id = 'salao') >= 1
+    then perform t_ok('quem não fez login LÊ as imagens — a vitrine precisa disso');
+    else perform t_falha('a vitrine não enxerga as imagens'); end if;
+  end $$;
+commit;

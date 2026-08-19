@@ -32,3 +32,44 @@ begin
     create role service_role nologin bypassrls;
   end if;
 end $$;
+
+
+-- ---------------------------------------------------------------------------
+-- storage — o mínimo para o 04_imagens.sql instalar num Postgres cru
+--
+-- No Supabase estas tabelas já existem, criadas pela extensão de Storage. Aqui
+-- recriamos só a forma, para as policies do balde poderem ser testadas sem
+-- subir um Supabase inteiro. Não guardam arquivo nenhum: guardam o CAMINHO,
+-- que é sobre o que as policies decidem.
+-- ---------------------------------------------------------------------------
+create schema if not exists storage;
+
+create table if not exists storage.buckets (
+  id                 text primary key,
+  name               text not null,
+  public             boolean not null default false,
+  file_size_limit    bigint,
+  allowed_mime_types text[]
+);
+
+create table if not exists storage.objects (
+  id        uuid primary key default gen_random_uuid(),
+  bucket_id text not null references storage.buckets(id),
+  name      text not null,
+  owner     uuid,
+  unique (bucket_id, name)
+);
+
+alter table storage.objects enable row level security;
+
+-- Quebra o caminho em pastas, do jeito que o Supabase faz:
+--   'abc/logo.jpg'  ->  {abc}
+-- A última parte é o arquivo e fica de fora.
+create or replace function storage.foldername(name text)
+returns text[] language sql immutable as $$
+  select (string_to_array(name, '/'))[1 : array_length(string_to_array(name, '/'), 1) - 1]
+$$;
+
+grant usage on schema storage to anon, authenticated;
+grant select on storage.buckets to anon, authenticated;
+grant select, insert, update, delete on storage.objects to anon, authenticated;

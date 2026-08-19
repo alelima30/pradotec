@@ -122,6 +122,13 @@ anon_em_tabela as (
 
 -- 8) O par de gatilhos que impede marcar em cima de um bloqueio (almoço,
 --    médico, feriado). A trava EXCLUDE não alcança: são duas tabelas.
+balde as (
+  select count(*) as n from storage.buckets where id = 'salao' and public
+),
+pol_img as (
+  select count(*) as n from pg_policies
+   where schemaname = 'storage' and policyname like 'img_%'
+),
 gatilhos(nome, tabela) as (
   values ('tg_agend_vs_bloqueio','agendamentos'),
          ('tg_bloqueio_vs_agend','bloqueios'),
@@ -230,4 +237,17 @@ select * from (
          'As 5 travas de agenda e de plano estão instaladas',
          coalesce((select string_agg(nome, ', ') from gatilho_faltando)
                   || ' faltando', 'ok')
+
+  union all select 13,
+         case when (select n from balde) = 1 then '✓' else '✗' end,
+         'O balde de imagens existe e é público para leitura',
+         case when (select n from balde) = 1 then 'ok'
+              else 'rode o 04_imagens.sql — sem ele a logo não sobe' end
+
+  union all select 14,
+         case when (select n from pol_img) = 4 then '✓' else '✗' end,
+         'As 4 policies do balde estão no lugar',
+         case when (select n from pol_img) = 4 then 'ok'
+              else 'só ' || (select n from pol_img) || ' de 4 — um salão pode '
+                   || 'trocar a imagem do outro' end
 ) r order by ord;

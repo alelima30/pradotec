@@ -460,11 +460,65 @@ async function subir(antes, agora){
   if(problemas.length) throw new Error(problemas.join(' | '));
 }
 
+/* ── Imagens ──────────────────────────────────────────────────────────
+   O Storage do Supabase não é o PostgREST: outro caminho, outro verbo, e o
+   corpo vai binário, não JSON. Por isso não passa pelo `rest()`.
+
+   `x-upsert: true` porque trocar a logo é o caso normal — sem isso o segundo
+   envio devolveria "resource already exists" e o dono ficaria preso na
+   primeira foto que escolheu.
+
+   O caminho é sempre `<salao_id>/<arquivo>`: é dele que a policy do balde tira
+   de quem é o arquivo. Mudar essa convenção aqui sem mudar lá abre a porta
+   para um dono sobrescrever a logo do salão vizinho.
+   ──────────────────────────────────────────────────────────────────────── */
+async function enviarImagem(salaoId, nomeArquivo, blob){
+  if(!salaoId) throw new Error('Sem salão: não sei em que pasta guardar.');
+  const caminho = salaoId + '/' + nomeArquivo;
+
+  const resp = await fetch(cfg.url + '/storage/v1/object/salao/' + caminho, {
+    method: 'POST',
+    headers: {
+      'apikey': cfg.chave,
+      'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
+      'Content-Type': blob.type || 'image/jpeg',
+      'x-upsert': 'true',
+    },
+    body: blob,
+  });
+  if(!resp.ok){
+    const txt = await resp.text().catch(() => '');
+    throw new Error('Falha ao enviar a imagem (' + resp.status + '): ' + txt);
+  }
+
+  // `?v=` derruba o cache do navegador e da CDN. Sem isso, trocar a logo não
+  // muda nada na tela: o endereço é o mesmo e o navegador devolve a antiga.
+  return cfg.url + '/storage/v1/object/public/salao/' + caminho + '?v=' + Date.now();
+}
+
+async function apagarImagem(salaoId, nomeArquivo){
+  const caminho = salaoId + '/' + nomeArquivo;
+  const resp = await fetch(cfg.url + '/storage/v1/object/salao/' + caminho, {
+    method: 'DELETE',
+    headers: {
+      'apikey': cfg.chave,
+      'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
+    },
+  });
+  // 404 não é erro: o arquivo já não estava lá, que é o estado desejado.
+  if(!resp.ok && resp.status !== 404){
+    throw new Error('Falha ao apagar a imagem (' + resp.status + ').');
+  }
+}
+
 /* ── O que as telas enxergam ─────────────────────────────────────────── */
 const Dados = LIGADO ? Nuvem : Demo;
 Dados.baixar = baixar;
 Dados.subir = subir;
 Dados.TABELAS_SINCRONIZADAS = TABELAS_SINCRONIZADAS;
+
+Dados.enviarImagem = enviarImagem;
+Dados.apagarImagem = apagarImagem;
 
 Dados.ligado = LIGADO;
 Dados.ambiente = cfg.ambiente || (LIGADO ? 'nuvem' : 'demonstração');

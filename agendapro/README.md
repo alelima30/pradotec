@@ -28,7 +28,7 @@ verificados de ponta a ponta.
 | `icones.js` | 30 ícones em SVG traçado, no lugar de emoji |
 | `demo.js` | a semente da demonstração, compartilhada pelas duas telas |
 | `criar.html` | o cadastro do dono: plano, dados e link pronto |
-| `tests/` | 253 verificações: banco, mapa de colunas, camada de dados e cota do plano |
+| `tests/` | 274 verificações: banco, colunas, camada de dados, cota do plano e imagens |
 
 > **Para instalar e testar de ponta a ponta, siga o
 > [COMO-TESTAR.md](COMO-TESTAR.md).** Este arquivo explica as decisões; aquele
@@ -145,6 +145,54 @@ Cada uma dessas linhas é um teste em `tests/02_rls.test.sql`, rodando com
 `set role authenticated` — que é como o Supabase trata um JWT. Sem trocar o
 papel, o teste rodaria como superusuário e passaria por cima do RLS: verde
 mentiroso, o pior tipo.
+
+## As fotos do salão
+
+Três imagens, e cada uma resolve um problema diferente na hora de o cliente
+abrir o link vindo do WhatsApp:
+
+| | Onde aparece | Tamanho final |
+|---|---|---|
+| **Logo** | selo no topo da vitrine e na lista de salões | 256 px, até 120 KB |
+| **Foto do salão** | a faixa larga logo abaixo do nome | 1200 px, até 420 KB |
+| **Foto do serviço** | o card que o cliente escolhe | 600 px, até 220 KB |
+
+A foto do serviço é a que mais muda conversão: "corte navalhado" não diz nada
+para quem nunca cortou ali; a imagem diz. Quando nenhum serviço tem foto, a
+grade vira lista sozinha — um card alto e vazio seria pior que uma linha.
+
+### Foto de celular tem 16 MB. Isto não pode chegar cru em lugar nenhum
+
+Toda imagem passa pelo `imagens.js` antes de existir: redimensiona no próprio
+navegador, com `<canvas>`, e sai em JPEG. Sem biblioteca — o navegador faz isso
+desde sempre. Um PNG de 16,7 MB e 3000×2000 sai com 213 KB e 1200×800.
+
+Fundo branco antes de desenhar, porque PNG transparente vira preto ao virar
+JPEG — e logo de salão quase sempre vem em PNG transparente.
+
+**Onde os bytes ficam.** Em produção, no Supabase Storage, e a coluna guarda a
+URL. Na demonstração, a própria `data:` URL no `localStorage`. Coluna `text`
+nos dois casos, então a tela não sabe a diferença.
+
+**O guarda de espaço erra por 2,66× se for ingênuo.** Uma imagem de 213 KB
+ocupou 568 KB no navegador: o `data:` é base64, que infla 4/3, e o
+`localStorage` guarda string em UTF-16, que dobra outra vez. A primeira versão
+comparava os bytes *decodificados* contra o teto — deixava passar quase três
+vezes mais imagem do que cabia, e o estouro só aparecia lá na frente, no meio
+de um salvamento, com os dados já pela metade. A conta agora é sobre a string
+que vai ser gravada.
+
+### O balde é público para ler, e só para ler
+
+As fotos existem para aparecer na vitrine, que abre antes de qualquer login —
+imagem atrás de autenticação numa página pública é imagem que não carrega.
+
+A escrita é outra história. O caminho é sempre `<salao_id>/arquivo.jpg`, e a
+policy tira dali de quem é o arquivo. Sem isso, qualquer dono logado troca a
+logo do concorrente. Quatro testes em `tests/02_rls.test.sql` cercam os quatro
+caminhos: a própria pasta, a do vizinho, a raiz do balde e uma pasta com nome
+inventado — esta última importa porque um `::uuid` que levanta exceção dentro
+de uma policy derruba a consulta inteira em vez de simplesmente negar.
 
 ## Como o dinheiro entra (e o que acontece com quem não paga)
 

@@ -29,6 +29,33 @@ function somarDias(dataIso, n){
   d.setDate(d.getDate() + n);
   return iso(d);
 }
+/* Imagens da demonstração.
+
+   São SVG chapado virado `data:` URL, não fotografia — cada uma pesa menos de
+   700 bytes, contra os 200 KB de um JPEG de verdade. A demonstração inteira
+   cabe folgada no localStorage, e o repositório não carrega binário.
+
+   Servem para mostrar o FORMATO: onde a logo entra, o que a capa ocupa, como
+   o card de serviço se comporta com e sem foto. Fingir fotografia de salão
+   com imagem de banco seria pior — o dono trocaria tudo no primeiro minuto. */
+const LOGO = {
+  s1: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzJBMjgyMyIvPjx0ZXh0IHg9IjY0IiB5PSI2NCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxBcmlhbCxzYW5zLXNlcmlmIiBmb250LXNpemU9IjU4IiBmb250LXdlaWdodD0iNjAwIiBmaWxsPSIjRjdGNkY0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCI+U0I8L3RleHQ+PC9zdmc+',
+  s2: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzQwM0QzNyIvPjx0ZXh0IHg9IjY0IiB5PSI2NCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxBcmlhbCxzYW5zLXNlcmlmIiBmb250LXNpemU9IjU4IiBmb250LXdlaWdodD0iNjAwIiBmaWxsPSIjRjdGNkY0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCI+Qlo8L3RleHQ+PC9zdmc+',
+};
+const CAPA = {
+  s1: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MDAgNDAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzRDZCOEUiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM4QTVBODMiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjMwMCIgeT0iMjA1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44MiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Zm90byBkbyBzYWzDo288L3RleHQ+PC9zdmc+',
+  s2: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MDAgNDAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM0MDNEMzciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM5QTZCNDUiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjMwMCIgeT0iMjA1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44MiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Zm90byBkYSBiYXJiZWFyaWE8L3RleHQ+PC9zdmc+',
+};
+const FOTO_SERVICO = {
+  'v1': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzNENkI4RSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Y29ydGUgZmVtaW5pbm88L3RleHQ+PC9zdmc+',
+  'v3': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzhBNUE4MyIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Y29sb3Jhw6fDo288L3RleHQ+PC9zdmc+',
+  'v4': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzdBNUU3MCIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+bWVjaGFzPC90ZXh0Pjwvc3ZnPg==',
+  'v5': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzRFN0M1QSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+bWFuaWN1cmU8L3RleHQ+PC9zdmc+',
+  'v8': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzlBNkI0NSIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Y29ydGUgbWFzY3VsaW5vPC90ZXh0Pjwvc3ZnPg==',
+  'v9': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzVCNkU5QyIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+YmFyYmE8L3RleHQ+PC9zdmc+',
+  'v10': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzZCN0I1NCIvPjx0ZXh0IHg9IjIwMCIgeT0iMTU2IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iMC44OCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Y29ydGUgKyBiYXJiYTwvdGV4dD48L3N2Zz4=',
+};
+
 function id(){ return 'x' + Math.random().toString(36).slice(2,10); }
 
 /* ── Dados de demonstração ───────────────────────────────────────────────
@@ -53,7 +80,9 @@ function semear(){
     {id:'p5', salaoId:s2, nome:'Marcos',  comissaoPct:50, cor:CORES[4], ativo:true, jornada:comercial, criadoEm:nascido(30)},
   ];
 
-  const servs = [
+  const comFoto = l => l.map(x => FOTO_SERVICO[x.id]
+                                  ? Object.assign({}, x, {foto: FOTO_SERVICO[x.id]}) : x);
+  const servs = comFoto([
     {id:'v1', salaoId:s1, nome:'Corte feminino',   categoria:'Cabelo', duracaoMin:60,  intervaloMin:10, preco:90,  comissaoPct:null, ativo:true},
     {id:'v2', salaoId:s1, nome:'Escova',           categoria:'Cabelo', duracaoMin:45,  intervaloMin:0,  preco:70,  comissaoPct:null, ativo:true},
     {id:'v3', salaoId:s1, nome:'Coloração',        categoria:'Química',duracaoMin:120, intervaloMin:15, preco:280, comissaoPct:35,   ativo:true},
@@ -64,7 +93,7 @@ function semear(){
     {id:'v8', salaoId:s2, nome:'Corte masculino',  categoria:'Cabelo', duracaoMin:30,  intervaloMin:5,  preco:50,  comissaoPct:null, ativo:true},
     {id:'v9', salaoId:s2, nome:'Barba',            categoria:'Barba',  duracaoMin:30,  intervaloMin:5,  preco:40,  comissaoPct:null, ativo:true},
     {id:'v10',salaoId:s2, nome:'Corte + barba',    categoria:'Combo',  duracaoMin:60,  intervaloMin:5,  preco:80,  comissaoPct:null, ativo:true},
-  ];
+  ]);
 
   const clis = [
     {id:'c1', salaoId:s1, nome:'Maria Silva',      telefone:'(11) 98888-1111', obs:'Alergia a amônia'},
@@ -138,9 +167,9 @@ function semear(){
     ],
     saloes: [
       {id:s1, slug:'studio-bella', nome:'Studio Bella', tipo:'salão',
-       endereco:'Rua das Flores, 210 — Itu/SP'},
+       endereco:'Rua das Flores, 210 — Itu/SP', logo:LOGO.s1, capa:CAPA.s1},
       {id:s2, slug:'barbearia-do-ze', nome:'Barbearia do Zé', tipo:'barbearia',
-       endereco:'Av. Central, 88 — Itu/SP'},
+       endereco:'Av. Central, 88 — Itu/SP', logo:LOGO.s2, capa:CAPA.s2},
     ],
     profissionais: profs,
     servicos: servs,

@@ -328,9 +328,9 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 
     <!-- ══════ CAPA DO SALÃO ══════ -->
     <section class="passo" id="p-capa">
+      <div id="capaMarca"></div>
       <div id="capaAviso"></div>
-      <h2 id="capaNome">—</h2>
-      <p class="sub" id="capaEnd">—</p>
+      <div id="capaFoto"></div>
       <div class="cat">O que oferecemos</div>
       <div id="capaServicos"></div>
       <div class="cat" id="rotuloEquipe">Quem atende</div>
@@ -519,6 +519,7 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 </div>
 
 <script src="icones.js"></script>
+<script src="imagens.js"></script>
 <script src="demo.js"></script>
 <script src="config.js"></script>
 <script src="dados.js"></script>
@@ -769,6 +770,10 @@ function irPara(nova, semHistorico){
   document.querySelectorAll('.passo').forEach(p => p.classList.remove('on'));
   const alvo = document.getElementById('p-' + nova);
   if(alvo) alvo.classList.add('on');
+  // O passo fica no <body> para o CSS poder reagir a ele. Serve para a capa:
+  // ali a marca já aparece grande no meio da tela, e repetir nome e logo na
+  // barra do topo é dizer a mesma coisa duas vezes em quatro centímetros.
+  document.body.setAttribute('data-passo', nova);
   window.scrollTo(0,0);
   desenhar();
   if(window.aplicarIcones) aplicarIcones();
@@ -844,27 +849,62 @@ function desenharSaloes(){
 }
 
 function desenharCapa(){
-  document.getElementById('capaNome').textContent = salao.nome;
-  document.getElementById('capaEnd').textContent = salao.endereco || '';
+  // A marca vem primeiro e grande. O cliente chega aqui por um link no
+  // WhatsApp, sem saber o que vai abrir — reconhecer a casa no primeiro
+  // segundo é o que separa "é do meu salão" de "isso é golpe".
+  document.getElementById('capaMarca').innerHTML = `
+    <div class="marca-salao">
+      <div class="marca-selo">
+        ${salao.logo ? `<img src="${salao.logo}" alt="">`
+                     : (salao.nome || '?').trim().charAt(0).toUpperCase()}
+      </div>
+      <h2>${salao.nome}</h2>
+      <p class="sub">${salao.endereco || 'Agende seu horário'}</p>
+    </div>`;
+
+  document.getElementById('capaFoto').innerHTML = salao.capa
+    ? `<div class="capa-foto"><img src="${salao.capa}" alt="${salao.nome}"
+         loading="lazy"></div>`
+    : '';
 
   const svs = servicosDoSalao();
   const porCat = {};
   for(const s of svs){ (porCat[s.categoria || 'Serviços'] ||= []).push(s); }
 
+  // Grade de dois em vez de lista: com foto, o card precisa de largura, e é
+  // assim que a categoria inteira apresenta serviço. Sem foto nenhuma, a
+  // grade vira lista sozinha — um card alto e vazio seria pior que uma linha.
+  const temFoto = svs.some(x => x.foto);
   document.getElementById('capaServicos').innerHTML =
     Object.entries(porCat).map(([cat, lista]) => `
       <div class="cat" style="margin-top:12px">${cat}</div>
-      ${lista.map(s => `
+      <div class="${temFoto ? 'grade-servicos' : ''}">
+      ${lista.map((s, i) => temFoto ? `
+        <div class="card-servico${i === lista.length - 1 && lista.length % 2 ? ' largo' : ''}">
+          <div class="cs-foto">
+            ${s.foto ? `<img src="${s.foto}" alt="" loading="lazy">`
+                     : `<span data-ico="tesoura"></span>`}
+          </div>
+          <div class="cs-txt">
+            <b>${s.nome}</b>
+            <div class="cs-rodape">
+              <span class="vv">${real(s.preco)}</span>
+              <span class="cs-min">${s.duracaoMin} min</span>
+            </div>
+          </div>
+        </div>` : `
         <div class="opcao" style="cursor:default">
           <span class="txt"><span class="tt">${s.nome}</span>
             <span class="dd">${s.duracaoMin} min</span></span>
           <span class="vv">${real(s.preco)}</span>
-        </div>`).join('')}`).join('');
+        </div>`).join('')}
+      </div>`).join('');
 
   document.getElementById('rotuloEquipe').textContent = voc('atende');
   document.getElementById('capaEquipe').innerHTML = profsDoSalao().map(p => `
     <div class="opcao" style="cursor:default">
-      <span class="ic" style="background:${p.cor}">${p.nome[0]}</span>
+      <span class="ic" style="background:${p.cor}">${
+        p.foto ? `<img src="${p.foto}" alt="">` : p.nome[0]}</span>
       <span class="txt"><span class="tt">${p.nome}</span>
         <span class="dd">${resumoJornada(p)}</span></span>
     </div>`).join('');

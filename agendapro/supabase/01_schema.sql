@@ -32,7 +32,11 @@ create table if not exists public.saloes (
   tipo      text not null default 'salao'
             check (tipo in ('salao','barbearia','estetica','manicure',
                             'clinica','tatuagem','pet','outro')),
+  -- Imagens do salão. Guardam ENDEREÇO, não bytes: em produção apontam para o
+  -- Supabase Storage; na demonstração são `data:` URL no próprio navegador.
+  -- Coluna text nos dois casos, então a tela não precisa saber a diferença.
   logo      text,
+  capa      text,
   telefone  text,
   whatsapp  text,
   endereco  jsonb not null default '{}'::jsonb,
@@ -289,6 +293,9 @@ create table if not exists public.servicos (
   -- null = herda a comissão do profissional
   comissao_pct  numeric(5,2) check (comissao_pct between 0 and 100),
   cor           text,
+  -- A foto do serviço é o que faz o cliente escolher: "corte navalhado" não
+  -- diz nada, a imagem diz. É o padrão da categoria inteira.
+  foto          text,
   aceita_online boolean not null default true,
   ativo         boolean not null default true,
   criado_em     timestamptz not null default now()
