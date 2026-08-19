@@ -8,13 +8,13 @@
   <defs>
     <linearGradient id="lg-g" x1="417" y1="30" x2="650" y2="150"
                     gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0247E"/>
-      <stop offset=".45" stop-color="#C21C9A"/>
-      <stop offset="1" stop-color="#6D1FD0"/>
+      <stop offset="0" stop-color="#E0219B"/>
+      <stop offset=".38" stop-color="#8A25E4"/>
+      <stop offset="1" stop-color="#4B14A8"/>
     </linearGradient>
     <linearGradient id="lg-c" x1="60" y1="170" x2="600" y2="150"
                     gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0247E"/><stop offset="1" stop-color="#5B1FD0"/>
+      <stop offset="0" stop-color="#E0219B"/><stop offset="1" stop-color="#4B14A8"/>
     </linearGradient>
     <linearGradient id="lg-p" x1="120" y1="185" x2="430" y2="240"
                     gradientUnits="userSpaceOnUse">

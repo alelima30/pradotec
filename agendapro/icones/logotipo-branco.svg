@@ -8,13 +8,13 @@
   <defs>
     <linearGradient id="lg-g" x1="417" y1="30" x2="650" y2="150"
                     gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0247E"/>
-      <stop offset=".45" stop-color="#C21C9A"/>
-      <stop offset="1" stop-color="#6D1FD0"/>
+      <stop offset="0" stop-color="#E0219B"/>
+      <stop offset=".38" stop-color="#8A25E4"/>
+      <stop offset="1" stop-color="#4B14A8"/>
     </linearGradient>
     <linearGradient id="lg-c" x1="60" y1="170" x2="600" y2="150"
                     gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0247E"/><stop offset="1" stop-color="#5B1FD0"/>
+      <stop offset="0" stop-color="#E0219B"/><stop offset="1" stop-color="#4B14A8"/>
     </linearGradient>
     <linearGradient id="lg-p" x1="120" y1="185" x2="430" y2="240"
                     gradientUnits="userSpaceOnUse">
@@ -46,11 +46,14 @@
         fill="none" stroke="url(#lg-c)" stroke-width="14" stroke-linecap="round"/>
 
   <g transform="translate(195 182)">
-    <rect width="300" height="62" rx="31" fill="url(#lg-p)"/>
-    <g transform="translate(36 16)" fill="none" stroke="#fff" stroke-width="3.4"
-       stroke-linecap="round" stroke-linejoin="round">
-      <rect x="1" y="4" width="30" height="26" rx="4"/>
-      <path d="M1 12h30M9.5 1v6M22.5 1v6"/><path d="m10 21 5 5 9-10"/>
+    <rect x="2" y="2" width="296" height="58" rx="29" fill="#14111C"
+          stroke="url(#lg-p)" stroke-width="4"/>
+    <g transform="translate(38 15)" fill="#fff">
+      <path d="M15 0h2l1.1 4.2 3 1.2 3.6-2.3 1.4 1.4-2.3 3.6 1.2 3L29.2 12v2l-4.2 1.1
+               -1.2 3 2.3 3.6-1.4 1.4-3.6-2.3-3 1.2L17 25.2h-2l-1.1-4.2-3-1.2-3.6 2.3
+               -1.4-1.4 2.3-3.6-1.2-3L2.8 14v-2l4.2-1.1 1.2-3L5.9 4.3l1.4-1.4 3.6 2.3
+               3-1.2Z"/>
+      <circle cx="16" cy="13" r="4.4" fill="#14111C"/>
     </g>
     <path d="M86 15v32" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
     <text x="112" y="42" fill="#fff" font-size="29" font-weight="800" letter-spacing="2.6"

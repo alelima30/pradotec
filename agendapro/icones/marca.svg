@@ -8,9 +8,9 @@
   aguenta tamanho pequeno.</desc>
   <defs>
     <linearGradient id="ap-g" x1="6" y1="10" x2="58" y2="54" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F0247E"/>
-      <stop offset=".52" stop-color="#C21C9A"/>
-      <stop offset="1" stop-color="#6D1FD0"/>
+      <stop offset="0" stop-color="#E0219B"/>
+      <stop offset=".38" stop-color="#8A25E4"/>
+      <stop offset="1" stop-color="#4B14A8"/>
     </linearGradient>
   </defs>
   <g stroke="url(#ap-g)" stroke-width="4.6" stroke-linecap="round" opacity=".9">
