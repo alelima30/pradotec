@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Entrar — AgendaPro</title>
+<meta name="description" content="Entre no painel do seu salão, barbearia ou estúdio." />
+<meta name="theme-color" content="#0E0B15" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/png" href="icones/icone-192.png" />
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
+<style>
+/* ===========================================================================
+   AgendaPro — entrar
+   ---------------------------------------------------------------------------
+   Duas faixas: a marca e o formulário. No computador ficam lado a lado; no
+   celular a marca vira uma tarja curta no alto e o formulário ocupa o resto.
+
+   A marca não é enfeite. Quem chega aqui veio de um link no WhatsApp ou de
+   um anúncio, e precisa reconhecer onde está antes de digitar a senha.
+   =========================================================================== */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+
+.entrada-tela{ min-height:100dvh; display:grid; grid-template-columns:1fr 1fr }
+
+/* ── A faixa da marca ─────────────────────────────────────────────────── */
+.lado-marca{
+  background:var(--lat); color:var(--lat-txt);
+  padding:48px 44px; display:flex; flex-direction:column; justify-content:center;
+  position:relative; overflow:hidden;
+}
+/* Um brilho difuso no canto, e nada além disso. A alternativa comum — foto de
+   salão de banco de imagens — envelhece em seis meses e não é o salão de
+   ninguém. */
+.lado-marca::before{
+  content:""; position:absolute; width:520px; height:520px; border-radius:50%;
+  top:-160px; right:-180px; pointer-events:none;
+  background:radial-gradient(circle, rgba(123,47,247,.28), rgba(123,47,247,0) 70%);
+}
+.lado-marca > *{ position:relative }
+.marca-grande{ width:min(300px,80%); height:auto; margin-bottom:34px }
+.lado-marca h1{
+  font-size:clamp(1.5rem, 2.6vw, 2rem); font-weight:640; letter-spacing:-.028em;
+  line-height:1.2; margin-bottom:12px; max-width:16ch;
+}
+.lado-marca p{ color:var(--lat-txt2); font-size:15px; max-width:36ch; line-height:1.6 }
+.provas{ margin-top:34px; display:flex; flex-direction:column; gap:11px }
+.prova{ display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--lat-txt2) }
+.prova .ic-svg{ color:var(--rx-300); width:17px; height:17px; margin-top:2px; flex:none }
+
+/* ── A faixa do formulário ────────────────────────────────────────────── */
+.lado-forma{
+  background:var(--painel); display:flex; align-items:center; justify-content:center;
+  padding:48px 28px;
+}
+.forma{ width:100%; max-width:376px }
+.forma h2{ font-size:1.6rem; font-weight:640; letter-spacing:-.026em; margin-bottom:5px }
+.forma .sub{ color:var(--txt2); margin-bottom:28px; font-size:15px }
+
+.campo{ margin-bottom:16px }
+.campo label{ display:block; font-size:13.5px; font-weight:560; margin-bottom:7px }
+.entrada{ position:relative }
+.entrada input{
+  width:100%; padding:13px 13px 13px 42px; font-size:16px;
+  border:1px solid var(--borda); border-radius:var(--r-sm); background:var(--painel2);
+}
+.entrada .ic{
+  position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  color:var(--txt3); pointer-events:none; line-height:0;
+}
+.entrada .olho{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  color:var(--txt3); padding:7px; line-height:0;
+}
+.entrada .olho:hover{ color:var(--txt2) }
+
+.grande{
+  width:100%; padding:14px; border-radius:var(--r-sm); font-weight:580; font-size:16px;
+  background:var(--acao); color:var(--acao-txt); border:1px solid var(--acao);
+  box-shadow:var(--sombra-marca); margin-top:6px;
+}
+.grande:hover{ background:var(--acao-hover); border-color:var(--acao-hover) }
+.grande:disabled{ opacity:.5; pointer-events:none; box-shadow:none }
+
+.esqueci{
+  display:block; width:100%; text-align:center; margin-top:14px;
+  color:var(--txt2); font-size:14px;
+}
+.esqueci:hover{ color:var(--txt) }
+
+/* ── O convite para cadastrar ─────────────────────────────────────────── */
+.risco{
+  display:flex; align-items:center; gap:14px; margin:26px 0 20px;
+  color:var(--txt3); font-size:12.5px;
+}
+.risco::before, .risco::after{ content:""; flex:1; height:1px; background:var(--borda) }
+
+.convite{
+  border:1px solid var(--borda); border-radius:var(--r); padding:17px;
+  background:var(--painel2); text-align:center;
+}
+.convite b{ display:block; font-size:15px; margin-bottom:3px }
+.convite p{ color:var(--txt2); font-size:13.5px; margin-bottom:13px; line-height:1.5 }
+.convite .b2{
+  text-decoration:none;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  width:100%; padding:12px; border-radius:var(--r-sm); font-weight:560; font-size:15px;
+  border:1px solid var(--borda); background:var(--painel); color:var(--txt);
+  box-shadow:var(--sombra-xs);
+}
+.convite .b2:hover{ border-color:var(--borda-forte); box-shadow:var(--sombra) }
+
+.aviso{
+  display:flex; gap:10px; padding:12px 14px; border-radius:var(--r-sm);
+  font-size:14px; line-height:1.5; margin-bottom:18px;
+}
+.aviso.ruim{
+  background:var(--er-soft); border:1px solid rgba(179,38,30,.3);
+  border-left:3px solid var(--er-500);
+}
+.aviso.info{
+  background:var(--ac-soft); border:1px solid var(--ac-line);
+  border-left:3px solid var(--ac-600);
+}
+.rodape{ margin-top:26px; font-size:12px; color:var(--txt3); text-align:center; line-height:1.7 }
+
+/* ── Celular: a marca vira tarja, o formulário ganha a tela ───────────── */
+@media (max-width:900px){
+  .entrada-tela{ grid-template-columns:1fr; min-height:auto }
+  .lado-marca{ padding:26px 22px 24px }
+  .lado-marca::before{ width:340px; height:340px; top:-140px; right:-120px }
+  .marca-grande{ width:210px; margin-bottom:18px }
+  .lado-marca h1{ font-size:1.32rem; margin-bottom:8px }
+  .lado-marca p{ font-size:14px }
+  /* As três provas somem no celular: elas convencem quem está decidindo, e
+     quem abre no telefone quase sempre já é cliente e só quer entrar. */
+  .provas{ display:none }
+  .lado-forma{ padding:28px 20px 40px; align-items:flex-start }
+}
+</style>
+<link rel="stylesheet" href="estilo.css" />
+</head>
+<body>
+
+<div class="entrada-tela">
+
+  <section class="lado-marca">
+    <img class="marca-grande" src="icones/logotipo-branco.svg" alt="AgendaPro Gestão">
+    <h1>A agenda do seu salão, aberta 24 horas.</h1>
+    <p>O cliente marca sozinho pelo link, você acompanha tudo de um lugar só —
+       agenda, comanda, comissão e caixa.</p>
+    <div class="provas">
+      <div class="prova"><span data-ico="ok"></span>
+        Grátis para começar, sem cartão de crédito</div>
+      <div class="prova"><span data-ico="ok"></span>
+        Funciona no celular, no computador e sem internet</div>
+      <div class="prova"><span data-ico="ok"></span>
+        Serve salão, barbearia, manicure, estética e estúdio</div>
+    </div>
+  </section>
+
+  <section class="lado-forma">
+    <div class="forma">
+      <h2>Entrar</h2>
+      <p class="sub">Acesse o painel do seu estabelecimento.</p>
+
+      <div id="recado"></div>
+
+      <form id="formEntrar" onsubmit="event.preventDefault();entrar()">
+        <div class="campo">
+          <label for="email">E-mail</label>
+          <div class="entrada"><span class="ic" data-ico="email"></span>
+            <input id="email" type="email" autocomplete="username"
+                   placeholder="voce@exemplo.com" required></div>
+        </div>
+
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <div class="entrada"><span class="ic" data-ico="cadeado"></span>
+            <input id="senha" type="password" autocomplete="current-password"
+                   placeholder="Sua senha" required>
+            <button class="olho" type="button" onclick="verSenha()"
+                    aria-label="Mostrar senha"><span data-ico="olho"></span></button></div>
+        </div>
+
+        <button class="grande" id="btEntrar" type="submit">Entrar no painel</button>
+      </form>
+
+      <button class="esqueci" onclick="esqueci()">Esqueci minha senha</button>
+
+      <div class="risco">ainda não tem conta?</div>
+
+      <div class="convite">
+        <b>Cadastre seu estabelecimento</b>
+        <p>Salão, barbearia, esmalteria ou estúdio. Leva dois minutos e o link
+           de agendamento sai pronto.</p>
+        <a class="b2" href="criar.html">
+          <span data-ico="mais"></span>Criar conta grátis</a>
+      </div>
+
+      <p class="rodape">
+        AgendaPro · <span id="ambiente">demonstração</span><br>
+        Ao entrar você concorda com os termos de uso.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script src="icones.js"></script>
+<script src="imagens.js"></script>
+<script src="endereco.js"></script>
+<script src="config.js"></script>
+<script src="dados.js"></script>
+<script>
+/* ===========================================================================
+   Entrar
+   ---------------------------------------------------------------------------
+   Em modo demonstração não existe senha para conferir: o botão leva direto
+   para o app. Dizer isso em voz alta é melhor do que aceitar qualquer senha e
+   deixar a pessoa achando que autenticou.
+   =========================================================================== */
+const NA_NUVEM = !!(window.Dados && window.Dados.ligado);
+
+function mostrar(tipo, texto){
+  document.getElementById('recado').innerHTML =
+    `<div class="aviso ${tipo}">${texto}</div>`;
+}
+
+function verSenha(){
+  const c = document.getElementById('senha');
+  c.type = c.type === 'password' ? 'text' : 'password';
+}
+
+async function entrar(){
+  const bt = document.getElementById('btEntrar');
+  const email = document.getElementById('email').value.trim();
+  const senha = document.getElementById('senha').value;
+
+  if(!NA_NUVEM){
+    location.href = 'app.html';
+    return;
+  }
+
+  bt.disabled = true;
+  bt.textContent = 'Entrando…';
+  try{
+    await Dados.entrar({ email, senha });
+    location.href = 'app.html';
+  }catch(e){
+    // A mensagem do Supabase para senha errada é "Invalid login credentials",
+    // em inglês e sem dizer o que fazer. Esta troca não é enfeite: é a
+    // diferença entre a pessoa tentar de novo e a pessoa desistir.
+    const cru = String(e.message || '');
+    mostrar('ruim', /invalid login|credentials/i.test(cru)
+      ? '<b>E-mail ou senha não conferem.</b> Confira e tente de novo, ou use '
+        + '"Esqueci minha senha".'
+      : /email not confirmed/i.test(cru)
+      ? '<b>Falta confirmar o e-mail.</b> Procure a mensagem que mandamos — '
+        + 'às vezes ela cai no lixo eletrônico.'
+      : 'Não consegui entrar: ' + cru);
+    bt.disabled = false;
+    bt.textContent = 'Entrar no painel';
+  }
+}
+
+function esqueci(){
+  mostrar('info', NA_NUVEM
+    ? '<span>Digite seu e-mail acima e fale com a gente pelo WhatsApp: a '
+      + 'recuperação por e-mail entra na próxima versão.</span>'
+    : '<span>Nesta demonstração não existe senha — o botão <b>Entrar no '
+      + 'painel</b> abre o sistema direto.</span>');
+}
+
+(function(){
+  try{
+    const t = localStorage.getItem('agendapro.demo.v1.tema');
+    if(t) document.documentElement.setAttribute('data-tema', t);
+  }catch(e){}
+
+  document.getElementById('ambiente').textContent =
+    NA_NUVEM ? (window.Dados.ambiente || 'produção') : 'demonstração';
+
+  if(!NA_NUVEM){
+    mostrar('info', '<span><b>Modo demonstração.</b> Não há senha para '
+      + 'conferir — clique em <b>Entrar no painel</b> e o sistema abre com '
+      + 'dados de exemplo.</span>');
+    document.getElementById('senha').removeAttribute('required');
+    document.getElementById('email').removeAttribute('required');
+  }
+
+  if(!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  navigator.serviceWorker.register('sw.js').catch(e => console.error(e));
+})();
+</script>
+</body>
+</html>

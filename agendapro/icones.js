@@ -29,6 +29,11 @@ const D = {
   ok:         '<path d="m4.5 12.5 5 5 10-11"/>',
   fechar:     '<path d="M6 6l12 12M18 6 6 18"/>',
   mais:       '<path d="M12 5v14M5 12h14"/>',
+  // Três traços. O "+" que estava no lugar dizia "adicionar", não "abrir o
+  // menu" — é o botão mais visível do celular e apontava para a ação errada.
+  menu:       '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  sair:       '<path d="M14 4.5h4a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-4"/><path d="M10 8.5 6 12l4 3.5M6 12h9"/>',
+  chave:      '<circle cx="8" cy="14" r="4.5"/><path d="m11.5 11 8-8M17 5.5l2 2M14.5 8l2 2"/>',
   menos:      '<path d="M5 12h14"/>',
   esquerda:   '<path d="m14.5 5-7 7 7 7"/>',
   direita:    '<path d="m9.5 5 7 7-7 7"/>',

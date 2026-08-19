@@ -305,6 +305,8 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
     <button class="lat-acao" onclick="recomecar()"
             title="Apaga os dados de demonstração e recria">
       <span data-ico="menos"></span>Recomeçar demonstração</button>
+    <button class="lat-acao" onclick="sair()">
+      <span data-ico="sair"></span>Sair</button>
     <p class="lat-rodape">AgendaPro · <span id="mTipo">salão</span></p>
   </div>
 </aside>
@@ -312,7 +314,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 <div class="palco">
   <header class="topo">
     <button class="menu-botao" onclick="alternarLateral()" aria-label="Abrir menu">
-      <span data-ico="mais"></span></button>
+      <span data-ico="menu"></span></button>
     <div class="trilha-topo">
       <h1 id="tituloTela">Agenda</h1>
       <span class="tb-tag" id="tbSalao">—</span>
@@ -712,6 +714,15 @@ function trocarSalao(sid){
   if(sel && sel.value !== sid) sel.value = sid;   // chamada de código também move o seletor
   salvar();
   pintar();
+}
+
+/* Sair encerra a sessão no banco antes de trocar de tela. Só apagar o token
+   do navegador deixaria o refresh vivo no servidor. */
+async function sair(){
+  if(!confirm('Sair do painel?')) return;
+  try{ if(window.Dados && Dados.sair) await Dados.sair(); }
+  catch(e){ console.warn('[AgendaPro] sessão já estava encerrada:', e.message); }
+  location.href = 'entrar.html';
 }
 
 function trocarTema(){

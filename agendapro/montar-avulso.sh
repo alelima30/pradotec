@@ -27,7 +27,7 @@ dist = os.path.join(raiz, 'dist')
 def ler(nome):
     return io.open(os.path.join(raiz, nome), encoding='utf-8').read()
 
-for pagina in ('app.html', 'agendar.html', 'criar.html', 'index.html'):
+for pagina in ('app.html', 'agendar.html', 'criar.html', 'entrar.html', 'index.html'):
     s = ler(pagina)
 
     s = s.replace('<link rel="stylesheet" href="estilo.css" />',
