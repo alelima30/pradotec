@@ -28,7 +28,7 @@ verificados de ponta a ponta.
 | `icones.js` | 30 ícones em SVG traçado, no lugar de emoji |
 | `demo.js` | a semente da demonstração, compartilhada pelas duas telas |
 | `criar.html` | o cadastro do dono: plano, dados e link pronto |
-| `tests/` | 225 verificações: banco, mapa de colunas e camada de dados |
+| `tests/` | 253 verificações: banco, mapa de colunas, camada de dados e cota do plano |
 
 > **Para instalar e testar de ponta a ponta, siga o
 > [COMO-TESTAR.md](COMO-TESTAR.md).** Este arquivo explica as decisões; aquele
@@ -145,6 +145,76 @@ Cada uma dessas linhas é um teste em `tests/02_rls.test.sql`, rodando com
 `set role authenticated` — que é como o Supabase trata um JWT. Sem trocar o
 papel, o teste rodaria como superusuário e passaria por cima do RLS: verde
 mentiroso, o pior tipo.
+
+## Como o dinheiro entra (e o que acontece com quem não paga)
+
+Nem todo salão vai assinar, e o sistema foi desenhado sabendo disso. Quem não
+assina fica no **Grátis** — plano de verdade, sem prazo — e quem cresce esbarra
+num teto que cresce junto:
+
+| | Grátis | Individual | Duo → Salão |
+|---|---|---|---|
+| Profissionais na agenda | 1 | 1 | 2 a 20 |
+| Horários por mês | 40 | sem teto | sem teto |
+| Link de agendamento | sim | sim | sim |
+| Lembrete no WhatsApp | não | sim | sim |
+| Preço | R$ 0 | R$ 47 | R$ 87 a R$ 297 |
+
+As duas linhas do meio são o que faz o Individual existir. Sem elas, um
+profissional com tudo liberado é exatamente o que o Grátis já dá, e ninguém
+sairia dele — o plano de R$ 47 seria invendável por aritmética, não por preço.
+O lembrete fica de fora do Grátis por caixa: cada mensagem é dinheiro que sai
+por salão que não paga.
+
+Os números moram na tabela `planos`, coluna `recursos`. Mudar o teto de 40 é um
+`UPDATE`, não um deploy.
+
+### Onde a regra é aplicada
+
+Toda a cobrança passa por `plano_efetivo(salao)`, que responde *"qual plano vale
+hoje"* — considerando `trial_ate` e `vence_em`. Fora de vigor, o salão cai no
+Grátis; nunca em ilimitado, e nunca em nada.
+
+Três coisas que custaram uma reescrita cada:
+
+**A validade estava só no teste grátis.** Uma assinatura `ativa` com `vence_em`
+há dois meses valia o plano inteiro. Quem parasse de pagar ficava com tudo, para
+sempre, esperando alguém marcar `inadimplente` na mão — e não havia nada que
+marcasse.
+
+**Prender a troca de plano era o lugar errado.** A primeira versão recusava o
+rebaixamento enquanto sobrasse gente ativa. Estava errado duas vezes: quem troca
+de plano é a plataforma (a policy não deixa o dono escrever em `assinaturas`),
+então a trava só atrapalhava cancelamento e fim de contrato; e não pegava o caso
+mais comum, porque **teste grátis vence sozinho** — a data passa e não existe
+`UPDATE` nenhum para interceptar. O salão seguia com 3 pessoas atendendo num
+plano de 1.
+
+A regra certa é sobre **usar** a vaga, não sobre contratá-la: profissional fora
+da cota não recebe agendamento (`profissional_na_cota`). Uma regra só cobre
+expiração, rebaixamento e chamada direta na API, e a plataforma nunca fica presa.
+Quem está na cota são os mais antigos entre os ativos — estável, e na prática
+guarda a vaga de quem começou.
+
+**A tela contava diferente do banco.** O `app.html` refaz a conta da cota para
+desenhar a agenda e nomear quem ficou de fora. Se as duas divergirem, o dono vê
+uma coluna, clica, e leva um erro que contradiz o que está escrito na frente
+dele. `tests/cota.test.mjs` roda as duas contas sobre os mesmos dados e compara.
+
+### O que o dono NÃO pode fazer
+
+Provado em `tests/02_rls.test.sql`, com `set role authenticated`:
+
+- escrever na própria assinatura (`permission denied`) — senão assina o plano
+  maior em dois cliques
+- inventar um plano na tabela `planos`
+- passar do limite cadastrando profissional
+- marcar na agenda de quem está fora da cota
+
+O botão **Assinar** na tela do dono sabe disso: em modo nuvem ele não finge
+trocar o plano. Antes ele mexia no `bd` local e repintava — em demonstração
+parecia funcionar, e ligado no Supabase a tela dizia "Time · 3 de 3" enquanto o
+banco seguia no Grátis de 1.
 
 ## O visual
 

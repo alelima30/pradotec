@@ -40,12 +40,17 @@ function semear(){
   const comercial = {1:[[540,1140]],2:[[540,1140]],3:[[540,1140]],4:[[540,1140]],5:[[540,1200]],6:[[540,900]]};
   const tarde = {2:[[720,1200]],3:[[720,1200]],4:[[720,1200]],5:[[720,1200]],6:[[540,1020]]};
 
+  // `criadoEm` distinto de propósito: é ele que decide quem fica na cota do
+  // plano quando o salão tem mais gente do que o plano cobre. Com todo mundo
+  // carimbado no mesmo instante, quem decidiria seria o desempate por id — que
+  // funciona, mas não é o que o dono espera ver.
+  const nascido = n => somarDias(hoje(), -n) + 'T09:00:00Z';
   const profs = [
-    {id:'p1', salaoId:s1, nome:'Ana',     comissaoPct:45, cor:CORES[0], ativo:true, jornada:comercial},
-    {id:'p2', salaoId:s1, nome:'Bianca',  comissaoPct:40, cor:CORES[1], ativo:true, jornada:tarde},
-    {id:'p3', salaoId:s1, nome:'Carla',   comissaoPct:50, cor:CORES[2], ativo:true, jornada:comercial},
-    {id:'p4', salaoId:s2, nome:'Zé',      comissaoPct:60, cor:CORES[3], ativo:true, jornada:comercial},
-    {id:'p5', salaoId:s2, nome:'Marcos',  comissaoPct:50, cor:CORES[4], ativo:true, jornada:comercial},
+    {id:'p1', salaoId:s1, nome:'Ana',     comissaoPct:45, cor:CORES[0], ativo:true, jornada:comercial, criadoEm:nascido(120)},
+    {id:'p2', salaoId:s1, nome:'Bianca',  comissaoPct:40, cor:CORES[1], ativo:true, jornada:tarde,     criadoEm:nascido(90)},
+    {id:'p3', salaoId:s1, nome:'Carla',   comissaoPct:50, cor:CORES[2], ativo:true, jornada:comercial, criadoEm:nascido(60)},
+    {id:'p4', salaoId:s2, nome:'Zé',      comissaoPct:60, cor:CORES[3], ativo:true, jornada:comercial, criadoEm:nascido(150)},
+    {id:'p5', salaoId:s2, nome:'Marcos',  comissaoPct:50, cor:CORES[4], ativo:true, jornada:comercial, criadoEm:nascido(30)},
   ];
 
   const servs = [
@@ -103,20 +108,33 @@ function semear(){
   marcar('c5','p5','v9', 11*60,     'confirmado');
 
   return {
+    // Espelha os planos do 01_schema.sql. `recursos` é o que separa o Grátis
+    // do Individual: sem ele, um profissional com tudo liberado é exatamente
+    // o que o plano de R$ 47 ofereceria, e ninguém assinaria.
     planos: [
-      {codigo:'trial',      nome:'Teste grátis', maxProfissionais:1,  precoMes:0},
-      {codigo:'individual', nome:'Individual',   maxProfissionais:1,  precoMes:47},
-      {codigo:'duo',        nome:'Duo',          maxProfissionais:2,  precoMes:87},
-      {codigo:'time',       nome:'Time',         maxProfissionais:3,  precoMes:127},
-      {codigo:'equipe',     nome:'Equipe',       maxProfissionais:5,  precoMes:187},
-      {codigo:'salao',      nome:'Salão',        maxProfissionais:20, precoMes:297},
+      {codigo:'gratuito',   nome:'Grátis',       maxProfissionais:1,  precoMes:0,
+       recursos:{agendamentos_mes:40, lembrete_whatsapp:false, agenda_online:true}},
+      {codigo:'trial',      nome:'Teste grátis', maxProfissionais:1,  precoMes:0,
+       recursos:{lembrete_whatsapp:true, agenda_online:true}},
+      {codigo:'individual', nome:'Individual',   maxProfissionais:1,  precoMes:47,
+       recursos:{lembrete_whatsapp:true, agenda_online:true}},
+      {codigo:'duo',        nome:'Duo',          maxProfissionais:2,  precoMes:87,
+       recursos:{lembrete_whatsapp:true, agenda_online:true}},
+      {codigo:'time',       nome:'Time',         maxProfissionais:3,  precoMes:127,
+       recursos:{lembrete_whatsapp:true, agenda_online:true}},
+      {codigo:'equipe',     nome:'Equipe',       maxProfissionais:5,  precoMes:187,
+       recursos:{lembrete_whatsapp:true, agenda_online:true}},
+      {codigo:'salao',      nome:'Salão',        maxProfissionais:20, precoMes:297,
+       recursos:{lembrete_whatsapp:true, agenda_online:true}},
     ],
-    // O Studio Bella tem 3 profissionais e assina o Time; a barbearia está
-    // no teste grátis com 2 — de propósito, para a tela mostrar o aviso de
-    // limite estourado, que é o caso que o dono precisa entender.
+    // Três situações de propósito, porque são as três telas que o dono vê:
+    // o Studio Bella assina o Time e está no limite; a barbearia está com o
+    // teste acabando; e o terceiro caso — o salão que nunca vai assinar —
+    // aparece quando o teste da barbearia vence e ela cai no Grátis.
     assinaturas: [
-      {salaoId:s1, plano:'time',  status:'ativa', trialAte:null},
-      {salaoId:s2, plano:'trial', status:'trial', trialAte:somarDias(hoje(), 2)},
+      {salaoId:s1, plano:'time',  status:'ativa', trialAte:null, venceEm:null},
+      {salaoId:s2, plano:'trial', status:'trial',
+       trialAte:somarDias(hoje(), 2), venceEm:null},
     ],
     saloes: [
       {id:s1, slug:'studio-bella', nome:'Studio Bella', tipo:'salão',

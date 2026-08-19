@@ -493,6 +493,16 @@ function porExtenso(dataIso){
   return DIAS[dt.getDay()] + ', ' + String(d).padStart(2,'0') + '/'
        + String(m).padStart(2,'0') + '/' + a;
 }
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho',
+               'agosto','setembro','outubro','novembro','dezembro'];
+function mesPorExtenso(dataIso){
+  const [, m] = dataIso.split('-').map(Number);
+  return MESES[m - 1];
+}
+function fimDoMes(dataIso){
+  const [a, m] = dataIso.split('-').map(Number);
+  return iso(new Date(a, m, 0));          // dia 0 do mês seguinte = último deste
+}
 function id(){ return 'x' + Math.random().toString(36).slice(2,10); }
 
 /* ── Regras de agenda ────────────────────────────────────────────────────
@@ -624,6 +634,8 @@ function trocarSalao(sid){
   salaoAtual = sid;
   const s = acharSalao(sid);
   document.getElementById('mTipo').textContent = (s.tipo || 'salão').toUpperCase();
+  const sel = document.getElementById('selSalao');
+  if(sel && sel.value !== sid) sel.value = sid;   // chamada de código também move o seletor
   salvar();
   pintar();
 }
@@ -655,15 +667,16 @@ function pintarAgenda(){
 
   grade.style.gridTemplateColumns = `58px repeat(${profs.length}, minmax(148px, 1fr))`;
 
+  const semVaga = new Set(foraDaCota().map(x => x.id));
   let html = '<div class="col-h" style="position:sticky;left:0;z-index:25"></div>';
   for(const p of profs){
     const j = jornadaDo(p, diaAtual);
     const fx = j.length
       ? j.map(x => hm(x[0]) + '–' + hm(x[1])).join(' · ')
       : 'folga';
-    html += `<div class="col-h">
+    html += `<div class="col-h${semVaga.has(p.id) ? ' sem-vaga' : ''}">
       <div class="nm"><span class="pnt" style="background:${p.cor}"></span>${p.nome}</div>
-      <div class="fn">${fx}</div></div>`;
+      <div class="fn">${semVaga.has(p.id) ? 'fora do plano' : fx}</div></div>`;
   }
 
   // Coluna das horas
@@ -1043,6 +1056,22 @@ function abrirNovo(profId, min){
     abrirModal('Falta cadastro',
       '<div class="aviso">Cadastre pelo menos um profissional e um serviço antes de agendar.</div>',
       [['Fechar','fecharModal()','btn-p']]);
+    return;
+  }
+
+  // Clicar na coluna de quem está fora do plano não abre o formulário para o
+  // banco recusar no fim: avisa antes, e diz o que fazer.
+  const fora = foraDaCota().find(x => x.id === profId);
+  if(fora){
+    const p = planoEfetivo();
+    abrirModal(fora.nome + ' está fora do seu plano', `
+      <div class="aviso atencao"><b>O plano ${p ? p.nome : 'atual'} cobre
+      ${limiteDoSalao()} profissional(is) na agenda.</b><br>
+      A ficha e o histórico de ${fora.nome} continuam guardados, mas a agenda
+      dele(a) não recebe horário novo enquanto o plano não crescer.</div>
+      <p>Você pode assinar um plano maior, ou desativar outra pessoa em
+      <b>Equipe</b> para abrir a vaga.</p>`,
+      [['Fechar','fecharModal()'],['Ver planos',"fecharModal();irPara('plano')",'btn-p']]);
     return;
   }
 
@@ -1586,13 +1615,50 @@ function assinaturaAtual(){
 function planoDe(codigo){
   return (bd.planos || []).find(p => p.codigo === codigo) || null;
 }
-function limiteDoSalao(){
+/* Qual plano vale HOJE. Espelha `plano_efetivo()` no banco — e tem que
+   espelhar mesmo: se a tela disser um limite e o banco outro, o dono clica em
+   cadastrar e leva um erro que não bate com o que está escrito na frente dele.
+
+   Assinatura fora de vigor não deixa o salão sem nada: cai no Grátis. Nem todo
+   salão vai assinar, e quem não assina continua usando com teto. */
+function planoEfetivo(){
   const a = assinaturaAtual();
-  if(!a) return 1;
-  const vencido = a.status === 'trial' && a.trialAte && a.trialAte < hoje();
-  if(vencido || !['trial','ativa'].includes(a.status)) return 1;
-  const p = planoDe(a.plano);
+  const emVigor = a && (
+    (a.status === 'ativa' && (!a.venceEm  || a.venceEm  >= hoje())) ||
+    (a.status === 'trial' && (!a.trialAte || a.trialAte >= hoje()))
+  );
+  return (emVigor && planoDe(a.plano)) || planoDe('gratuito') || null;
+}
+function limiteDoSalao(){
+  const p = planoEfetivo();
   return p ? p.maxProfissionais : 1;
+}
+function recursoDoPlano(chave){
+  const p = planoEfetivo();
+  return p && p.recursos ? p.recursos[chave] : undefined;
+}
+// Horários do MÊS que já contam contra o teto. Cancelado e faltou não contam,
+// igual ao gatilho no banco.
+function agendamentosDoMes(){
+  const mes = diaAtual.slice(0, 7);
+  return doSalao(bd.agendamentos)
+    .filter(a => a.data.slice(0, 7) === mes && ATIVOS.includes(a.status)).length;
+}
+
+/* Quem está DENTRO da cota do plano: os N mais antigos entre os ativos.
+   Espelha `profissional_na_cota()` no banco, inclusive o desempate por id —
+   se as duas listas divergirem, a tela mostra a agenda de alguém que o banco
+   vai recusar na hora de marcar. */
+function profsNaCota(){
+  return profsAtivos()
+    .slice()
+    .sort((a, b) => (a.criadoEm || '').localeCompare(b.criadoEm || '')
+                 || String(a.id).localeCompare(String(b.id)))
+    .slice(0, limiteDoSalao());
+}
+function foraDaCota(){
+  const dentro = new Set(profsNaCota().map(p => p.id));
+  return profsAtivos().filter(p => !dentro.has(p.id));
 }
 function diasDeTeste(){
   const a = assinaturaAtual();
@@ -1602,24 +1668,50 @@ function diasDeTeste(){
   return Math.max(Math.round((new Date(y,m-1,d) - new Date(y2,m2-1,d2)) / 86400000), 0);
 }
 
+// Um medidor: rótulo, "x de y" e a barra. Dois deles na tela do plano, e a
+// barra fica âmbar quando encosta no teto.
+function medidor(rotulo, usados, teto){
+  const cheio = usados >= teto;
+  return `
+    <div style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+        <span style="color:var(--txt2)">${rotulo}</span>
+        <b>${usados} de ${teto}</b>
+      </div>
+      <div class="medidor"><i style="width:${Math.min(usados/teto*100,100)}%
+           ${cheio ? ';background:var(--wa-500)' : ''}"></i></div>
+    </div>`;
+}
+
 function pintarPlano(){
   const a = assinaturaAtual();
-  const p = a ? planoDe(a.plano) : null;
+  const p = planoEfetivo();                    // o que vale hoje, não o contratado
+  const contratado = a ? planoDe(a.plano) : null;
   const usados = profsAtivos().length;
   const limite = limiteDoSalao();
-  const dias = diasDeTeste();
-  const cheio = usados >= limite;
+  const dias   = diasDeTeste();
+  const cheio  = usados >= limite;
+
+  const fora     = foraDaCota();
+  const tetoMes  = recursoDoPlano('agendamentos_mes');
+  const noMes    = agendamentosDoMes();
+  const mesCheio = tetoMes != null && noMes >= tetoMes;
+
+  // "Caiu para o Grátis" é diferente de "escolheu o Grátis": no primeiro caso
+  // o dono precisa saber que existia algo contratado e parou de valer.
+  const caiu = contratado && p && contratado.codigo !== p.codigo;
 
   document.getElementById('painelPlano').innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div>
           <h3 style="font-size:18px">${p ? p.nome : 'Sem plano'}</h3>
-          <p>${a && a.status === 'trial'
-              ? (dias > 0 ? `Teste grátis — faltam ${dias} dia(s)`
-                          : 'Teste grátis encerrado')
+          <p>${a && a.status === 'trial' && !caiu
+              ? `Teste grátis — faltam ${dias} dia(s)`
+              : caiu && a.status === 'trial' ? 'O teste grátis terminou'
+              : caiu ? `A assinatura ${contratado.nome} não está em vigor`
               : a && a.status === 'ativa' ? 'Assinatura ativa'
-              : 'Sem assinatura ativa'}</p>
+              : 'Plano sem custo, sem prazo'}</p>
         </div>
         <div style="text-align:right">
           <div style="font-size:22px;font-weight:800">${
@@ -1627,28 +1719,37 @@ function pintarPlano(){
           <div style="font-size:12px;color:var(--txt2)">${p && p.precoMes ? 'por mês' : ''}</div>
         </div>
       </div>
-      <div style="margin-top:14px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-          <span style="color:var(--txt2)">Profissionais na agenda</span>
-          <b>${usados} de ${limite}</b>
-        </div>
-        <div class="medidor"><i style="width:${Math.min(usados/limite*100,100)}%
-             ${cheio ? ';background:var(--wa-500)' : ''}"></i></div>
-      </div>
-      ${cheio ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
+      ${medidor('Profissionais na agenda', usados, limite)}
+      ${tetoMes != null ? medidor('Horários em ' + mesPorExtenso(diaAtual), noMes, tetoMes) : ''}
+      ${mesCheio ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
+        <b>Você usou os ${tetoMes} horários deste mês.</b><br>
+        A agenda continua aberta para consultar e atender; para marcar mais,
+        assine um plano. Em ${mesPorExtenso(somarDias(fimDoMes(diaAtual), 1))} o
+        contador zera.</div>` : ''}
+      ${fora.length ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
+        <b>${fora.map(x => x.nome).join(', ')} ${fora.length > 1 ? 'estão' : 'está'}
+        fora do seu plano.</b><br>
+        ${fora.length > 1 ? 'Elas continuam' : 'A agenda dele(a) continua'} no
+        sistema e o histórico está guardado, mas
+        ${fora.length > 1 ? 'não recebem' : 'não recebe'} agendamento novo
+        enquanto o plano cobrir ${limite}. Assine um plano maior, ou desative
+        outra pessoa para abrir a vaga.</div>` : ''}
+      ${cheio && !fora.length && !mesCheio ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
         <b>Você chegou ao limite do plano.</b><br>
         Para cadastrar mais alguém, troque de plano ou desative um profissional.
         Desativar não apaga o histórico dele.</div>` : ''}
-      ${dias !== null && dias <= 2 ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
+      ${dias !== null && dias <= 2 && !caiu ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
         <b>O teste acaba ${dias === 0 ? 'hoje' : 'em ' + dias + ' dia(s)'}.</b><br>
-        Depois disso a agenda continua no ar, mas volta ao limite de 1
-        profissional até você assinar.</div>` : ''}
+        A agenda não fecha: você passa para o plano Grátis, com 1 profissional
+        e ${(planoDe('gratuito')||{recursos:{}}).recursos.agendamentos_mes} horários
+        por mês.</div>` : ''}
     </div>`;
 
   // A régua de profissionais, que é a ideia boa da concorrência: em vez de
   // uma tabela comparativa, o dono responde "quantos somos?" e o plano
   // aparece. Ele se classifica sozinho.
-  const planos = (bd.planos||[]).filter(x => x.codigo !== 'trial')
+  const planos = (bd.planos||[])
+                   .filter(x => x.codigo !== 'trial' && x.codigo !== 'gratuito')
                    .sort((a,b) => a.maxProfissionais - b.maxProfissionais);
   if(planoEscolhido === null) planoEscolhido = Math.max(usados, 1);
 
@@ -1684,10 +1785,29 @@ function pintarPlano(){
     </div>` : '';
 }
 
+/* Trocar de plano é operação da plataforma, não da tela do dono — a policy
+   do banco não deixa o `authenticated` escrever em `assinaturas`, e a camada
+   de dados nem manda a tabela.
+
+   O botão precisava saber disso. Antes ele mexia no `bd` local e repintava:
+   em demonstração parecia funcionar, e ligado no Supabase a tela passava a
+   dizer "Time · 3 de 3" enquanto o banco seguia no Grátis de 1 — o dono
+   cadastrava o segundo profissional e levava um erro que contradizia o que
+   estava escrito na frente dele. */
 function assinar(codigo){
   const a = assinaturaAtual();
   if(!a) return;
-  a.plano = codigo; a.status = 'ativa'; a.trialAte = null;
+
+  if(NA_NUVEM){
+    const p = planoDe(codigo);
+    alert('Para assinar o ' + (p ? p.nome : codigo) + ', o pagamento passa '
+        + 'pela plataforma.\n\nEsta tela não troca o plano sozinha: quem muda '
+        + 'assinatura somos nós, senão qualquer dono assinaria o plano maior '
+        + 'de graça.');
+    return;
+  }
+
+  a.plano = codigo; a.status = 'ativa'; a.trialAte = null; a.venceEm = null;
   salvar();
   pintar();
 }

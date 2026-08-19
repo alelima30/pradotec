@@ -336,6 +336,11 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 .ag.curto{display:flex;align-items:center;padding-top:0;padding-bottom:0}
 .ag.curto span{display:none}
 .col-h{border-bottom:1px solid var(--borda)}
+/* Coluna de quem está fora da cota do plano: apagada, e a legenda diz por quê.
+   Sem isto o dono só descobre ao clicar e levar recusa do banco. */
+.col-h.sem-vaga .nm{color:var(--txt3)}
+.col-h.sem-vaga .fn{color:var(--wa-500);font-weight:550}
+.col-h.sem-vaga .pnt{opacity:.35}
 .col-h .nm{font-weight:580;font-size:13.5px}
 .col-h .fn{font-size:11px;letter-spacing:.002em}
 .hora{font-size:11px;font-variant-numeric:tabular-nums;font-weight:500}

@@ -461,11 +461,17 @@ let bd = null;
 
 const PLANOS = [
   {codigo:'trial',      nome:'Teste grátis', quem:'Para conhecer',    max:1,  preco:0,
-   ic:'<span data-ico="presente"></span>', recursos:['1 profissional','Todos os recursos','Sem cartão de crédito',
-                      'Suporte no WhatsApp','Configuração em 5 min']},
+   ic:'<span data-ico="presente"></span>',
+   recursos:['1 profissional','Tudo liberado por 7 dias','Sem cartão de crédito',
+             'Depois vira o plano Grátis','Configuração em 5 min']},
+  {codigo:'gratuito',   nome:'Grátis',       quem:'Para sempre',      max:1,  preco:0,
+   ic:'<span data-ico="casa"></span>',
+   recursos:['1 profissional','40 horários por mês','Link de agendamento',
+             'Comanda e comissão','Sem lembrete automático']},
   {codigo:'individual', nome:'Individual',   quem:'Para 1 profissional', max:1, preco:47,
-   ic:'<span data-ico="usuario"></span>', recursos:['1 profissional','Agenda ilimitada','Lembrete no WhatsApp',
-                      'Comanda e comissão','Relatórios básicos']},
+   ic:'<span data-ico="usuario"></span>',
+   recursos:['1 profissional','Horários ilimitados','Lembrete no WhatsApp',
+             'Comanda e comissão','Relatórios básicos']},
   {codigo:'duo',        nome:'Duo',          quem:'Para 2 profissionais', max:2, preco:87,
    ic:'<span data-ico="equipe"></span>', pop:true,
    recursos:['2 profissionais','Agenda ilimitada','Lembrete no WhatsApp',
@@ -537,7 +543,7 @@ function pintarPlanos(){
     quantos === 6 ? '6 ou mais profissionais'
                   : quantos + (quantos === 1 ? ' profissional' : ' profissionais');
 
-  const pagos = PLANOS.filter(p => p.codigo !== 'trial');
+  const pagos = PLANOS.filter(p => p.codigo !== 'trial' && p.codigo !== 'gratuito');
   const rec = pagos.find(p => p.max >= quantos) || pagos[pagos.length-1];
   document.getElementById('recomendado').textContent =
     rec.nome + ' — ' + real(preco(rec)) + '/mês';

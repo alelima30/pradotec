@@ -657,3 +657,261 @@ begin
           '2026-09-10 11:00-03', '2026-09-10 12:00-03', 'Médico');
   perform t_ok('atendimento cancelado libera o horário para bloqueio');
 end $$;
+
+\echo ''
+\echo 'Planos: quem assina, quem não assina, e quem parou de pagar'
+
+-- Nem todo salão vai assinar, e o sistema tem que continuar de pé para quem
+-- não assina — com teto. Estes testes prendem justamente a fronteira entre
+-- o Grátis e o Individual: sem ela, o plano de R$ 47 não vende para ninguém.
+
+insert into public.saloes (id, slug, nome, fuso) values
+  ('aaaaaaaa-0000-0000-0000-00000000000f', 'salao-do-plano', 'Salão do Plano',
+   'America/Sao_Paulo');
+insert into public.clientes (id, salao_id, nome) values
+  ('dddddddd-0000-0000-0000-00000000000f',
+   'aaaaaaaa-0000-0000-0000-00000000000f', 'Cliente do Plano');
+insert into public.assinaturas (salao_id, plano, status) values
+  ('aaaaaaaa-0000-0000-0000-00000000000f', 'time', 'ativa');
+-- `criado_em` explícito, e não é frescura: o default é now(), que dentro de
+-- uma transação vale o mesmo para as duas linhas. Com empate, quem decide a
+-- ordem da cota é o desempate por id — e aqui 'e' vem antes de 'f', o que
+-- deixaria a "Segunda" na frente da "Primeira". O teste ficaria dizendo o
+-- contrário do que o nome promete.
+insert into public.profissionais (id, salao_id, nome, criado_em) values
+  ('bbbbbbbb-0000-0000-0000-00000000000f',
+   'aaaaaaaa-0000-0000-0000-00000000000f', 'Primeira', now() - interval '2 days'),
+  ('bbbbbbbb-0000-0000-0000-00000000000e',
+   'aaaaaaaa-0000-0000-0000-00000000000f', 'Segunda',  now() - interval '1 day');
+
+do $$
+begin
+  if public.plano_efetivo('aaaaaaaa-0000-0000-0000-00000000000f') = 'time'
+  then perform t_ok('assinatura ativa sem vencimento vale o plano contratado');
+  else perform t_falha('plano ativo não valeu'); end if;
+end $$;
+
+-- Vencimento no passado: parou de pagar. Cai no Grátis, não some.
+do $$
+begin
+  update public.assinaturas set vence_em = current_date - 1
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  if public.plano_efetivo('aaaaaaaa-0000-0000-0000-00000000000f') = 'gratuito'
+  then perform t_ok('assinatura vencida cai no Grátis, não continua valendo');
+  else perform t_falha('assinatura vencida seguiu valendo o plano inteiro'); end if;
+end $$;
+
+do $$
+begin
+  update public.assinaturas set vence_em = current_date
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  if public.plano_efetivo('aaaaaaaa-0000-0000-0000-00000000000f') = 'time'
+  then perform t_ok('o dia do vencimento ainda vale — não corta na virada');
+  else perform t_falha('cortou no próprio dia do vencimento'); end if;
+end $$;
+
+-- Teste grátis vencido: mesma queda.
+do $$
+begin
+  update public.assinaturas
+     set plano='trial', status='trial', trial_ate = current_date - 1, vence_em = null
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  if public.plano_efetivo('aaaaaaaa-0000-0000-0000-00000000000f') = 'gratuito'
+     and public.limite_profissionais('aaaaaaaa-0000-0000-0000-00000000000f') = 1
+  then perform t_ok('teste vencido cai no Grátis, com 1 profissional');
+  else perform t_falha('teste vencido não caiu no Grátis'); end if;
+end $$;
+
+do $$
+begin
+  if public.recurso_num('aaaaaaaa-0000-0000-0000-00000000000f','agendamentos_mes') = 40
+     and public.recurso_bool('aaaaaaaa-0000-0000-0000-00000000000f','agenda_online')
+     and not public.recurso_bool('aaaaaaaa-0000-0000-0000-00000000000f','lembrete_whatsapp')
+  then perform t_ok('o Grátis tem link de agendamento, teto de 40 e nenhum lembrete');
+  else perform t_falha('os recursos do Grátis não bateram'); end if;
+end $$;
+
+-- Salão sem nenhuma assinatura: o padrão é o mais apertado, nunca ilimitado.
+do $$
+begin
+  insert into public.saloes (id, slug, nome)
+  values ('aaaaaaaa-0000-0000-0000-00000000000d','salao-sem-nada','Sem assinatura');
+  if public.plano_efetivo('aaaaaaaa-0000-0000-0000-00000000000d') = 'gratuito'
+     and public.limite_profissionais('aaaaaaaa-0000-0000-0000-00000000000d') = 1
+  then perform t_ok('salão sem assinatura nenhuma cai no Grátis, não em ilimitado');
+  else perform t_falha('falha de cadastro virou plano sem limite'); end if;
+end $$;
+
+\echo ''
+\echo 'O teto de horários do plano Grátis'
+
+do $$
+declare i int; entraram int := 0; base timestamptz;
+begin
+  base := (date_trunc('month', now() at time zone 'America/Sao_Paulo')
+           + interval '2 days') at time zone 'America/Sao_Paulo';
+  for i in 1..45 loop
+    begin
+      insert into public.agendamentos
+        (salao_id, cliente_id, profissional_id, inicio, fim)
+      values ('aaaaaaaa-0000-0000-0000-00000000000f',
+              'dddddddd-0000-0000-0000-00000000000f',
+              'bbbbbbbb-0000-0000-0000-00000000000f',
+              base + (i*2 || ' hours')::interval,
+              base + (i*2 || ' hours')::interval + interval '1 hour');
+      entraram := entraram + 1;
+    exception when others then exit;
+    end;
+  end loop;
+  if entraram = 40 then perform t_ok('o Grátis aceita 40 horários no mês e recusa o 41º');
+  else perform t_falha('o teto do mês deixou entrar ' || entraram); end if;
+end $$;
+
+do $$
+declare base timestamptz; n int;
+begin
+  base := (date_trunc('month', now() at time zone 'America/Sao_Paulo')
+           + interval '1 month 2 days') at time zone 'America/Sao_Paulo';
+  insert into public.agendamentos
+    (salao_id, cliente_id, profissional_id, inicio, fim)
+  values ('aaaaaaaa-0000-0000-0000-00000000000f','dddddddd-0000-0000-0000-00000000000f',
+          'bbbbbbbb-0000-0000-0000-00000000000f', base, base + interval '1 hour');
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('o mês seguinte começa com o balde vazio');
+  else perform t_falha('o teto vazou para o mês seguinte'); end if;
+end $$;
+
+do $$
+declare base timestamptz; n int;
+begin
+  -- Cancelar devolve a vaga do mês: o horário voltou a ficar livre.
+  update public.agendamentos set status = 'cancelado'
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f'
+     and inicio = (select min(inicio) from public.agendamentos
+                    where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f');
+  base := (date_trunc('month', now() at time zone 'America/Sao_Paulo')
+           + interval '26 days') at time zone 'America/Sao_Paulo';
+  insert into public.agendamentos
+    (salao_id, cliente_id, profissional_id, inicio, fim)
+  values ('aaaaaaaa-0000-0000-0000-00000000000f','dddddddd-0000-0000-0000-00000000000f',
+          'bbbbbbbb-0000-0000-0000-00000000000f', base, base + interval '1 hour');
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('cancelar devolve a vaga do mês');
+  else perform t_falha('cancelado continuou ocupando o teto'); end if;
+end $$;
+
+-- Plano pago não tem teto de horário nenhum.
+do $$
+declare i int; base timestamptz;
+begin
+  update public.assinaturas set plano='time', status='ativa',
+         trial_ate = null, vence_em = null
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  base := (date_trunc('month', now() at time zone 'America/Sao_Paulo')
+           + interval '20 days') at time zone 'America/Sao_Paulo';
+  for i in 1..25 loop
+    insert into public.agendamentos
+      (salao_id, cliente_id, profissional_id, inicio, fim)
+    values ('aaaaaaaa-0000-0000-0000-00000000000f','dddddddd-0000-0000-0000-00000000000f',
+            'bbbbbbbb-0000-0000-0000-00000000000e',
+            base + (i*3 || ' hours')::interval,
+            base + (i*3 || ' hours')::interval + interval '1 hour');
+  end loop;
+  perform t_ok('plano pago passa de 40 no mês sem esbarrar em teto');
+exception when others then
+  perform t_falha('o teto do Grátis pegou num plano pago: ' || sqlerrm);
+end $$;
+
+\echo ''
+\echo 'A vaga do plano, cobrada na hora de usar'
+
+-- Volta para o Grátis (teste vencido), com 2 profissionais ativos: a primeira
+-- está na cota, a segunda não.
+do $$
+begin
+  update public.profissionais set ativo = true
+   where id = 'bbbbbbbb-0000-0000-0000-00000000000e';
+  update public.assinaturas
+     set plano='trial', status='trial', trial_ate = current_date - 1, vence_em = null
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  if public.limite_profissionais('aaaaaaaa-0000-0000-0000-00000000000f') = 1
+  then perform t_ok('o plano venceu sozinho, sem UPDATE de plano nenhum');
+  else perform t_falha('o limite não caiu quando o teste venceu'); end if;
+end $$;
+
+do $$
+begin
+  if public.profissional_na_cota('bbbbbbbb-0000-0000-0000-00000000000f')
+     and not public.profissional_na_cota('bbbbbbbb-0000-0000-0000-00000000000e')
+  then perform t_ok('a primeira cadastrada fica na cota; a segunda, fora');
+  else perform t_falha('a cota não separou quem está dentro de quem está fora');
+  end if;
+end $$;
+
+do $$
+declare base timestamptz;
+begin
+  base := (date_trunc('month', now() at time zone 'America/Sao_Paulo')
+           + interval '2 months 3 days') at time zone 'America/Sao_Paulo';
+  if recusado($q$insert into public.agendamentos
+                   (salao_id, cliente_id, profissional_id, inicio, fim)
+                 values ('aaaaaaaa-0000-0000-0000-00000000000f',
+                         'dddddddd-0000-0000-0000-00000000000f',
+                         'bbbbbbbb-0000-0000-0000-00000000000e',
+                         '2027-03-10 10:00-03', '2027-03-10 11:00-03')$q$)
+  then perform t_ok('marcar com quem está fora da cota é recusado');
+  else perform t_falha('agendou com profissional fora do plano');
+  end if;
+end $$;
+
+do $$
+declare n int;
+begin
+  insert into public.agendamentos
+    (salao_id, cliente_id, profissional_id, inicio, fim)
+  values ('aaaaaaaa-0000-0000-0000-00000000000f','dddddddd-0000-0000-0000-00000000000f',
+          'bbbbbbbb-0000-0000-0000-00000000000f',
+          '2027-03-10 10:00-03', '2027-03-10 11:00-03');
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('com quem está dentro da cota, marca normalmente');
+  else perform t_falha('recusou quem estava dentro da cota'); end if;
+end $$;
+
+-- Desativar quem está na frente promove quem estava fora: é assim que o dono
+-- troca de profissional sem trocar de plano.
+do $$
+begin
+  update public.profissionais set ativo = false
+   where id = 'bbbbbbbb-0000-0000-0000-00000000000f';
+  if public.profissional_na_cota('bbbbbbbb-0000-0000-0000-00000000000e')
+  then perform t_ok('desativar quem estava na vaga promove quem estava fora');
+  else perform t_falha('a vaga não passou para o próximo'); end if;
+end $$;
+
+-- Assinar devolve as vagas. A ordem importa e é a natural: primeiro o plano,
+-- depois reativar. O contrário esbarra no limite — que é o gatilho fazendo o
+-- trabalho dele, não um defeito.
+do $$
+begin
+  update public.assinaturas set plano='time', status='ativa',
+         trial_ate = null, vence_em = current_date + 30
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  update public.profissionais set ativo = true
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  if public.profissional_na_cota('bbbbbbbb-0000-0000-0000-00000000000f')
+     and public.profissional_na_cota('bbbbbbbb-0000-0000-0000-00000000000e')
+  then perform t_ok('assinando de novo, os dois voltam para a cota');
+  else perform t_falha('assinar não devolveu as vagas'); end if;
+end $$;
+
+-- A plataforma precisa poder rebaixar sempre — cancelamento não pode ficar
+-- preso esperando o dono desativar alguém.
+do $$
+declare n int;
+begin
+  update public.assinaturas set plano = 'gratuito', status = 'cancelada'
+   where salao_id = 'aaaaaaaa-0000-0000-0000-00000000000f';
+  get diagnostics n = row_count;
+  if n = 1 then perform t_ok('a plataforma rebaixa mesmo com gente sobrando');
+  else perform t_falha('o cancelamento ficou preso'); end if;
+end $$;

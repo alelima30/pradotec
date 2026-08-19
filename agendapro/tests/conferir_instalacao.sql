@@ -124,7 +124,10 @@ anon_em_tabela as (
 --    médico, feriado). A trava EXCLUDE não alcança: são duas tabelas.
 gatilhos(nome, tabela) as (
   values ('tg_agend_vs_bloqueio','agendamentos'),
-         ('tg_bloqueio_vs_agend','bloqueios')
+         ('tg_bloqueio_vs_agend','bloqueios'),
+         ('tg_limite_agendamentos','agendamentos'),
+         ('tg_cota_profissional','agendamentos'),
+         ('tg_limite_prof','profissionais')
 ),
 
 gatilho_faltando as (
@@ -224,7 +227,7 @@ select * from (
 
   union all select 12,
          case when (select count(*) from gatilho_faltando) = 0 then '✓' else '✗' end,
-         'Bloqueio e atendimento não se atropelam',
+         'As 5 travas de agenda e de plano estão instaladas',
          coalesce((select string_agg(nome, ', ') from gatilho_faltando)
-                  || ' faltando — dá para marcar em cima do almoço', 'ok')
+                  || ' faltando', 'ok')
 ) r order by ord;
