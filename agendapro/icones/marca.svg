@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-labelledby="ap-t ap-d">
+  <title id="ap-t">AgendaPro</title>
+  <desc id="ap-d">Anel aberto com um visto saindo por cima e riscos de velocidade
+  atrás. É a versão reduzida do logotipo: o lettering em relevo do original tem
+  quatro camadas de chanfro por letra e vira mancha a 32px na barra lateral, ou a
+  16px na aba do navegador. Marca de produto tem duas versões, e esta é a que
+  aguenta tamanho pequeno.</desc>
+  <defs>
+    <linearGradient id="ap-g" x1="6" y1="10" x2="58" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F0247E"/>
+      <stop offset=".52" stop-color="#C21C9A"/>
+      <stop offset="1" stop-color="#6D1FD0"/>
+    </linearGradient>
+  </defs>
+  <g stroke="url(#ap-g)" stroke-width="4.6" stroke-linecap="round" opacity=".9">
+    <path d="M4 24h9"/>
+    <path d="M2 33h7.5"/>
+    <path d="M5 42h8"/>
+  </g>
+  <path d="M52.5 26.2A20.5 20.5 0 1 1 45 17.2"
+        fill="none" stroke="url(#ap-g)" stroke-width="6.4" stroke-linecap="round"/>
+  <path d="M23 33.6 31.6 42 59 12.5"
+        fill="none" stroke="url(#ap-g)" stroke-width="7.2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

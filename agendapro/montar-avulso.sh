@@ -18,6 +18,10 @@ mkdir -p "$AQUI/dist"
 # uma das três páginas seriam 300 KB a mais, repetidos. O @font-face do CSS
 # aponta para `fontes/`, então a pasta precisa viajar junto.
 cp -r "$AQUI/fontes" "$AQUI/dist/"
+# A marca vai como arquivo pelo mesmo motivo das fontes, e porque o <img> das
+# páginas aponta para icones/marca.svg.
+mkdir -p "$AQUI/dist/icones"
+cp "$AQUI/icones/marca.svg" "$AQUI/dist/icones/"
 
 python3 - "$AQUI" <<'PY'
 import io, os, sys, re

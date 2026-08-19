@@ -188,6 +188,11 @@
 /* O nome usa o degradê do logotipo — é o único lugar em que ele aparece.
    `background-clip:text` pinta a letra com o degradê em vez de pintar uma
    caixa atrás dela. */
+.marca-logo{ width:34px; height:34px; flex:none; display:block }
+/* O criar.html usava um quadrado de tinta com ícone; agora é a marca de
+   verdade, então o quadrado sai de baixo dela. */
+.logo img{ width:28px; height:28px; display:block }
+.logo i{ display:none }
 .marca-nome{
   font-size:1.32rem; font-weight:700; letter-spacing:-.03em; color:var(--lat-txt);
 }
