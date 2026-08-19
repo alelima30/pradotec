@@ -900,9 +900,19 @@ function carregar(){
   }
 }
 
+// O cadastro é a primeira porta do dono — quem chega por um anúncio cai aqui,
+// não no app.html. Sem registrar o service worker nesta página, a instalação
+// só passava a existir depois que ele já tinha conta, que é tarde.
+function registrarServiceWorker(){
+  if(!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  navigator.serviceWorker.register('sw.js')
+    .catch(e => console.error('[AgendaPro] service worker:', e));
+}
+
 (function(){
   bd = carregar();
   pintarPlanos();
+  registrarServiceWorker();
   if(location.protocol === 'file:'){
     document.getElementById('rodape').innerHTML =
       'Aberto direto do arquivo — funciona, mas para instalar como app sirva '
