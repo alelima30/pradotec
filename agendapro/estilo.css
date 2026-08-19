@@ -46,16 +46,26 @@
   --n-600:#5A554B; --n-700:#3E3A33; --n-800:#292620; --n-900:#191712;
   --n-950:#100F0C;
 
-  /* ── A cor da marca: magenta do logotipo, uma rampa para o sistema ──── */
-  --ma-50:#FDF2F8;  --ma-100:#FCE4F0; --ma-200:#F9C2DF; --ma-300:#F48FC5;
-  --ma-400:#EC55A5; --ma-500:#DE1F84; --ma-600:#C2126D; --ma-700:#9C0F58;
-  --ma-800:#750B42;
-  --ma-soft:rgba(222,31,132,.09);
-  --ma-line:rgba(222,31,132,.28);
-  /* A outra ponta do degradê do logotipo. Só o logotipo usa as duas juntas;
-     a interface usa o magenta chapado. */
-  --rx-500:#7A22CE; --rx-600:#6518AE;
-  --grad-marca:linear-gradient(96deg,#DE1F84 0%,#7A22CE 100%);
+  /* ── A cor da marca ──────────────────────────────────────────────────
+     O logotipo vai de magenta a roxo, e a interface usa a ponta ROXA.
+
+     Não é preferência: metade dos salões que usam isto é barbearia. Magenta
+     chapado em botão, em aba ativa e em etiqueta é lido como produto para
+     público feminino, e o barbeiro que abre a tela conclui em dois segundos
+     que o sistema não é para ele. Roxo profundo não carrega esse recado —
+     é a mesma família do logotipo, e serve os dois lados.
+
+     O magenta continua existindo, e continua sendo a marca: ele vive no
+     degradê do logotipo, que é onde uma cor pode ser expressiva sem estar
+     dizendo "este botão é para você". */
+  --mr-50:#F5F1FE;  --mr-100:#EBE3FD; --mr-200:#D6C6FB; --mr-300:#B79BF6;
+  --mr-400:#9366EE; --mr-500:#7A34E0; --mr-600:#6821C4; --mr-700:#551AA0;
+  --mr-800:#41147A;
+  --mr-soft:rgba(122,52,224,.09);
+  --mr-line:rgba(122,52,224,.28);
+  /* As duas pontas do degradê. Só o logotipo usa as duas juntas. */
+  --rx-500:#7A34E0; --rx-600:#6821C4;
+  --grad-marca:linear-gradient(96deg,#DE1F84 0%,#6D1FD0 100%);
 
   /* ── Semânticos, dessaturados para conviver com o dourado ──────────── */
   --su-500:#3F7A46; --su-soft:rgba(63,122,70,.10);
@@ -63,11 +73,11 @@
   --er-500:#A63328; --er-soft:rgba(166,51,40,.09);
 
   /* ── Tokens que as telas já usavam, redirecionados ─────────────────── */
-  --ac-500:var(--ma-500); --ac-600:var(--ma-600); --ac-700:var(--ma-700);
-  --ac-soft:var(--ma-soft); --ac-line:var(--ma-line);
-  --roxo:var(--rx-500); --roxo-esc:var(--rx-600); --rosa:var(--ma-500);
-  --ouro:var(--ma-500); --ouro-claro:var(--ma-400); --ouro-esc:var(--ma-700);
-  --info:var(--ma-600);
+  --ac-500:var(--mr-500); --ac-600:var(--mr-600); --ac-700:var(--mr-700);
+  --ac-soft:var(--mr-soft); --ac-line:var(--mr-line);
+  --roxo:var(--mr-500); --roxo-esc:var(--mr-600); --rosa:var(--mr-400);
+  --ouro:var(--mr-500); --ouro-claro:var(--mr-400); --ouro-esc:var(--mr-700);
+  --info:var(--mr-600);
 
   --bg:var(--n-50);   --painel:var(--n-0); --painel2:var(--n-25);
   /* A moldura: sempre escura, nos dois temas. */
@@ -80,7 +90,7 @@
 
   /* A ação primária é o magenta da marca. Guardá-lo só para detalhe e
      deixar o botão preto seria ter uma cor e não usá-la. */
-  --acao:var(--ma-600); --acao-hover:var(--ma-700); --acao-txt:#FFFFFF;
+  --acao:var(--mr-600); --acao-hover:var(--mr-700); --acao-txt:#FFFFFF;
   /* Ação de peso mas sem brilho: confirmar, salvar, tudo que é rotina. */
   --tinta:var(--n-900); --tinta-hover:var(--n-800); --tinta-txt:var(--n-0);
 
@@ -92,7 +102,7 @@
   --sombra:0 1px 2px rgba(25,23,18,.05), 0 2px 6px -1px rgba(25,23,18,.06);
   --sombra-md:0 2px 4px -1px rgba(25,23,18,.05), 0 8px 20px -4px rgba(25,23,18,.10);
   --sombra-lg:0 4px 8px -2px rgba(25,23,18,.06), 0 20px 44px -10px rgba(25,23,18,.16);
-  --sombra-marca:0 1px 2px rgba(156,15,88,.20), 0 6px 16px -5px rgba(194,18,109,.32);
+  --sombra-marca:0 1px 2px rgba(85,26,160,.20), 0 6px 16px -5px rgba(104,33,196,.32);
 
   /* ── Tipografia ──────────────────────────────────────────────────────
      A fonte do Windows, que é onde o salão trabalha: o computador da recepção
@@ -122,17 +132,17 @@
   --borda:#2A2340; --borda-forte:#3B3253;
   --txt:#F2EFF8; --txt2:#A49CBA; --txt3:#6E668A;
 
-  /* No escuro o magenta sobe na rampa: #C2126D sobre preto perde contraste. */
-  --ma-500:#F48FC5; --ma-600:#EC55A5; --ma-700:#DE1F84;
-  --ma-soft:rgba(244,143,197,.12); --ma-line:rgba(244,143,197,.30);
-  --ac-500:var(--ma-500); --ac-600:var(--ma-500); --ac-700:var(--ma-600);
-  --ac-soft:var(--ma-soft); --ac-line:var(--ma-line);
+  /* No escuro o roxo sobe na rampa: #6821C4 sobre preto perde contraste. */
+  --mr-500:#B79BF6; --mr-600:#9366EE; --mr-700:#7A34E0;
+  --mr-soft:rgba(183,155,246,.12); --mr-line:rgba(183,155,246,.30);
+  --ac-500:var(--mr-500); --ac-600:var(--mr-500); --ac-700:var(--mr-600);
+  --ac-soft:var(--mr-soft); --ac-line:var(--mr-line);
 
   --su-500:#6FA877; --wa-500:#D19A4E; --er-500:#D9695C;
   --su-soft:rgba(111,168,119,.12); --wa-soft:rgba(209,154,78,.12);
   --er-soft:rgba(217,105,92,.12);
 
-  --acao:var(--ma-600); --acao-hover:var(--ma-500); --acao-txt:#2A0518;
+  --acao:var(--mr-600); --acao-hover:var(--mr-500); --acao-txt:#150330;
   --tinta:#F2EFF8; --tinta-hover:#FFFFFF; --tinta-txt:#0F0C16;
 
   --sombra-xs:0 1px 1px rgba(0,0,0,.35);
@@ -194,8 +204,9 @@
    palavra cortada no meio. */
 .marca-etiqueta{
   font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
-  color:#fff; background:var(--grad-marca);
-  padding:3px 9px; border-radius:var(--r-pill); line-height:1.55;
+  color:var(--mr-200); background:rgba(147,102,238,.18);
+  border:1px solid rgba(147,102,238,.32);
+  padding:2px 9px; border-radius:var(--r-pill); line-height:1.6;
   align-self:center;
 }
 
@@ -228,14 +239,14 @@
 }
 .lat-nav .aba:hover{ background:rgba(255,255,255,.06); color:var(--lat-txt) }
 .lat-nav .aba.on{
-  background:var(--ma-soft); color:#F9C2DF; font-weight:600;
+  background:var(--mr-soft); color:var(--mr-200); font-weight:600;
   border-bottom:none !important;
 }
 /* A tarja da esquerda é o que diz "você está aqui" de longe, sem depender de
    distinguir dois tons de rosa no escuro. */
 .lat-nav .aba.on::before{
   content:""; position:absolute; left:-12px; top:6px; bottom:6px; width:3px;
-  border-radius:0 3px 3px 0; background:var(--ma-400);
+  border-radius:0 3px 3px 0; background:var(--mr-400);
 }
 .aba-ic{
   width:30px; height:30px; flex:none; border-radius:8px;
@@ -243,7 +254,7 @@
   transition:background .14s ease;
 }
 .lat-nav .aba:hover .aba-ic{ background:rgba(255,255,255,.09) }
-.lat-nav .aba.on .aba-ic{ background:rgba(236,85,165,.20) }
+.lat-nav .aba.on .aba-ic{ background:rgba(147,102,238,.22) }
 .aba-ic .ic-svg{ width:16px; height:16px }
 
 /* ── O pé da lateral ─────────────────────────────────────────────────── */
@@ -393,7 +404,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
    nenhum degradê — é assim que marca de software se comporta em tamanho
    pequeno, onde degradê vira borrão. */
 .marca-ic, .logo i{
-  background:var(--tinta) !important; color:var(--ma-400) !important;
+  background:var(--tinta) !important; color:var(--mr-400) !important;
   border-radius:var(--r-sm) !important; font-weight:600 !important;
   box-shadow:var(--sombra-xs);
 }
@@ -506,7 +517,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 .regua button:hover{border-color:var(--n-300);color:var(--txt)}
 /* Anel dourado em volta da ficha de tinta: o detalhe que amarra as duas
    cores sem colocá-las para brigar. */
-.regua button.on{box-shadow:0 0 0 3px var(--ma-soft) !important}
+.regua button.on{box-shadow:0 0 0 3px var(--mr-soft) !important}
 /* O plano em destaque é uma recomendação da casa, não uma escolha já feita:
    ele usa a cor de ação (a mesma do botão), e não o verde de seleção — senão
    a tela mostra dois planos "escolhidos", o marcado e o recomendado. */
@@ -659,7 +670,7 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 /* A aba ativa é o único lugar em que o dourado aparece como linha. Uma
    régua de 2px pesa mais que 1px sem virar barra colorida. */
 .aba.on{
-  color:var(--txt); border-bottom:2px solid var(--ma-500) !important;
+  color:var(--txt); border-bottom:2px solid var(--mr-500) !important;
   font-weight:600;
 }
 

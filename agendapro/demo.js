@@ -16,7 +16,12 @@
 
 // Cores das colunas da agenda: mesma luminosidade, saturação baixa, para
 // distinguir profissionais sem transformar a tela num painel de avisos.
-const CORES = ['#3D6B8E','#8A5A83','#4E7C5A','#9A6B45','#5B6E9C','#6B7B54','#7A5E70'];
+//
+// Nenhuma delas puxa para o rosa, e isso é intencional: metade dos salões que
+// usam isto é barbearia, e a coluna de um barbeiro pintada de lilás é a
+// primeira coisa que ele nota. Sete matizes bem separados em volta do azul,
+// do verde e do terroso resolvem a distinção sem esse recado.
+const CORES = ['#3D6B8E','#3F7A78','#4E7C5A','#9A6B45','#5B6E9C','#6B7B54','#5F5B6E'];
 
 function iso(d){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
