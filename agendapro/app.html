@@ -85,7 +85,11 @@ button{cursor:pointer;border:none;background:none}
 .aba.on{color:var(--roxo);border-bottom-color:var(--roxo)}
 
 /* ── Conteúdo ────────────────────────────────────────────────────────── */
-.corpo{max-width:1400px;margin:0 auto;padding:18px 16px 60px}
+/* `width:100%` é o que segura isto num celular. Sem ele, o `.corpo` é item de
+   um flex em coluna e o navegador o dimensiona pelo conteúdo: uma tabela de
+   610px empurrava a página inteira para o lado. E `max-width:min(1400px,100%)`
+   não resolve — encolhe o item para 233px numa tela de 390. */
+.corpo{width:100%;max-width:1400px;margin:0 auto;padding:18px 16px 60px}
 .tela{display:none}
 .tela.on{display:block}
 .barra{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -752,7 +756,11 @@ function pintarAgenda(){
   const altura = (totalMin / PASSO) * 15;   // 15px por bloco de 15 min
   const y = m => ((m - ABRE) / PASSO) * 15;
 
-  grade.style.gridTemplateColumns = `58px repeat(${profs.length}, minmax(148px, 1fr))`;
+  // A largura da coluna vem do CSS (`--col`), para o celular poder pedir uma
+  // medida que deixe a terceira coluna meio cortada — que é a pista de que a
+  // grade rola para o lado.
+  grade.style.gridTemplateColumns =
+    `58px repeat(${profs.length}, minmax(var(--col, 148px), 1fr))`;
 
   const semVaga = new Set(foraDaCota().map(x => x.id));
   let html = '<div class="col-h" style="position:sticky;left:0;z-index:25"></div>';
@@ -1734,6 +1742,25 @@ function salvarBloqueio(pid){
 }
 
 /* ── Pintura geral ───────────────────────────────────────────────────── */
+/* Copia o nome da coluna para dentro de cada célula.
+
+   No celular a tabela vira lista de cartões, e um cartão sem rótulo é uma
+   pilha de valores soltos: "Cabelo / 60 min / R$ 90,00" não diz qual é qual.
+   Fazer isso aqui, e não em cada `<td>` na hora de montar, evita que os
+   quatro lugares que desenham tabela saiam do compasso — e funciona para
+   qualquer tabela nova sem ninguém lembrar de nada. */
+function rotularTabelas(raiz){
+  (raiz || document).querySelectorAll('table.tabela').forEach(t => {
+    const cab = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    t.querySelectorAll('tbody tr').forEach(tr => {
+      [...tr.children].forEach((td, i) => {
+        if(cab[i]) td.setAttribute('data-r', cab[i]);
+        else td.setAttribute('data-acoes', '');   // a coluna dos botões
+      });
+    });
+  });
+}
+
 function pintar(){
   if(telaAtual === 'agenda')   pintarAgenda();
   if(telaAtual === 'clientes') pintarClientes();
@@ -1745,6 +1772,7 @@ function pintar(){
   if(telaAtual === 'plano')    pintarPlano();
   // Conteúdo desenhado agora pode trazer <span data-ico>; troca por SVG.
   if(window.aplicarIcones) aplicarIcones();
+  rotularTabelas();
 }
 
 /* ── Meu salão: identidade visual ────────────────────────────────────────

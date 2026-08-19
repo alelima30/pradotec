@@ -192,8 +192,17 @@
   display:flex; flex-direction:column;
   transition:transform .24s cubic-bezier(.4,0,.2,1);
 }
-.palco{ margin-left:var(--lat-largura); min-height:100vh; display:flex; flex-direction:column }
-.palco > .corpo{ flex:1 }
+.palco{
+  margin-left:var(--lat-largura); min-height:100vh;
+  display:flex; flex-direction:column;
+  /* `min-width:0` não é detalhe: item flex tem `min-width:auto` por padrão e
+     se RECUSA a encolher abaixo do conteúdo. Uma tabela de 610px dentro de um
+     celular de 390px empurrava o palco todo, e a página inteira rolava para o
+     lado — inclusive o cabeçalho. É o defeito nº 1 de layout em celular, e
+     quase sempre é esta linha que falta. */
+  min-width:0;
+}
+.palco > .corpo{ flex:1; min-width:0 }
 
 /* ── A marca, no alto da lateral ─────────────────────────────────────── */
 .lat-marca{
@@ -880,3 +889,129 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
 .selo .ic-svg, .selo-ok .ic-svg{width:34px;height:34px;stroke-width:2.2}
 .plano li .ic-svg{color:var(--su-500);width:15px;height:15px;margin-top:.18em}
 .plano li span{flex:1}
+
+
+/* ===========================================================================
+   O BLOCO DO CELULAR FICA POR ÚLTIMO
+   Media query não soma especificidade: entre duas regras de mesmo peso, ganha
+   a que vem depois. Este bloco já esteve no meio do arquivo e perdia para a
+   tipografia declarada abaixo dele — `.hora` continuava em 11px por mais que
+   a regra de celular pedisse 12. Ele precisa ser o último a falar.
+   =========================================================================== */
+
+/* ===========================================================================
+   CELULAR
+   ---------------------------------------------------------------------------
+   Não é a versão espremida do computador. O que muda de verdade:
+
+   1. Tabela vira cartão. Seis colunas não cabem em 390px de largura, e rolar
+      de lado para ler o preço é o pior jeito de consultar um preço. Cada
+      linha vira um bloco com rótulo à esquerda e valor à direita.
+
+   2. Alvo de toque de 44px. O dedo tem uns 9mm; botão de 30px erra. Quem usa
+      isto está de pé, com uma mão, no meio de um atendimento.
+
+   3. Nada abaixo de 12px. Texto de 10px é legível na mesa, no braço esticado
+      não.
+
+   4. A agenda rola dentro dela mesma, e nunca leva a página junto.
+   =========================================================================== */
+@media (max-width:720px){
+  /* ── Tabela vira cartão ─────────────────────────────────────────────── */
+  .tabela, .tabela tbody, .tabela tr, .tabela td{ display:block; width:auto }
+  .tabela{ border:none; background:none; box-shadow:none; overflow:visible }
+  .tabela thead{ display:none }        /* o rótulo agora vive em cada célula */
+
+  .tabela tbody tr{
+    background:var(--painel); border:1px solid var(--borda);
+    border-radius:var(--r); box-shadow:var(--sombra);
+    padding:4px 14px 10px; margin-bottom:11px;
+  }
+  .tabela tbody td{
+    display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+    padding:8px 0; border-bottom:1px solid var(--borda); font-size:14px;
+    text-align:right;
+  }
+  .tabela tbody td::before{
+    content:attr(data-r); flex:none; text-align:left;
+    font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--txt2);
+  }
+  /* A primeira célula é o nome da coisa: vira o título do cartão, sem rótulo
+     e sem competir com os campos de baixo. */
+  .tabela tbody td:first-child{
+    display:block; text-align:left; font-size:15.5px; padding:11px 0 9px;
+  }
+  .tabela tbody td:first-child::before{ content:none }
+  .tabela tbody td:last-child, .tabela tbody td[data-acoes]{
+    display:block; text-align:left; border-bottom:none; padding-top:11px;
+  }
+  .tabela tbody td[data-acoes]::before{ content:none }
+  .tabela tbody td[data-acoes] .btn{ width:100% }
+  .tabela tr:hover td{ background:none }
+
+  /* ── Respiro e alvos ────────────────────────────────────────────────── */
+  .kpis{ grid-template-columns:1fr 1fr; gap:9px }
+  .kpi{ padding:11px 12px }
+  .barra{ gap:8px }
+  /* O botão de ação da barra ocupa a linha: no celular ele é O que se faz
+     naquela tela, e meia largura sobrando ao lado não serve para nada. */
+  .barra > .btn-p{ width:100%; order:9 }
+
+  /* A lista precisa cobrir TODO botão do sistema, não os que eu lembrei: o
+     teste de celular pegou `.ciclo button` e `.entrar` do cadastro faltando. */
+  .btn, .b, .bp, .b2, .lat-acao, .regua button, .ciclo button, .btn-plano,
+  .plano .btn-plano, .grande, .olho, select, input, textarea,
+  .entrada input, .campo input, .campo select{ min-height:44px }
+  .btn-peq{ min-height:40px; min-width:40px }
+  .aba{ min-height:46px }
+  /* Botão de um caractere só (as setas ‹ › do dia) fica estreito porque o
+     glifo é estreito. A altura já vinha certa; faltava a largura. */
+  .btn-x, .btn-icone{ min-width:44px }
+  /* Link de texto no topo vira alvo de toque com o próprio respiro. */
+  .entrar{ display:inline-flex; align-items:center; min-height:44px; padding:0 4px }
+
+  /* Nada abaixo de 12px. */
+  .cat, .fn, .hora, .ajuda, .nota, .rodape, .lat-rodape,
+  .foto-txt .fmt, .cs-min, .dd, .bloqueio, .ag span{ font-size:12px }
+  .tb-tag{ font-size:12px }
+  .lat-grupo, .lat-salao label{ font-size:11px }
+  .marca-etiqueta{ font-size:11px }
+  .menu-botao{ width:44px; height:44px }
+
+  /* iOS dá zoom no campo com fonte menor que 16px, e depois não desfaz. */
+  input, select, textarea{ font-size:16px }
+
+  /* A grade da agenda mostra duas colunas e meia: a metade cortada é o que
+     conta que tem mais profissional à direita. Coluna inteira encaixada na
+     borda parece o fim da lista. */
+  .grade{ --col:44vw }
+}
+
+/* ── A pista de que a grade rola ─────────────────────────────────────────
+   Sombra que aparece só do lado em que existe conteúdo escondido, e some ao
+   chegar na ponta. É truque de background: as duas primeiras camadas são da
+   cor do painel e viajam COM a rolagem (`local`), tapando a sombra quando não
+   há mais nada além; as duas de baixo ficam paradas (`scroll`).
+
+   Sem isso a rolagem lateral é invisível: no celular só cabem duas colunas, e
+   o dono jura que o terceiro profissional sumiu da agenda.
+   ──────────────────────────────────────────────────────────────────────── */
+.grade-wrap{
+  background-image:
+    linear-gradient(to right,  var(--painel) 40%, rgba(255,255,255,0)),
+    linear-gradient(to left,   var(--painel) 40%, rgba(255,255,255,0)),
+    linear-gradient(to right,  rgba(21,19,28,.13), rgba(21,19,28,0)),
+    linear-gradient(to left,   rgba(21,19,28,.13), rgba(21,19,28,0));
+  background-position:left center, right center, left center, right center;
+  background-repeat:no-repeat;
+  background-size:36px 100%, 36px 100%, 15px 100%, 15px 100%;
+  background-attachment:local, local, scroll, scroll;
+}
+[data-tema="escuro"] .grade-wrap{
+  background-image:
+    linear-gradient(to right,  var(--painel) 40%, rgba(0,0,0,0)),
+    linear-gradient(to left,   var(--painel) 40%, rgba(0,0,0,0)),
+    linear-gradient(to right,  rgba(0,0,0,.45), rgba(0,0,0,0)),
+    linear-gradient(to left,   rgba(0,0,0,.45), rgba(0,0,0,0));
+}
+
