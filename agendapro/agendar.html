@@ -520,6 +520,7 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 
 <script src="icones.js"></script>
 <script src="imagens.js"></script>
+<script src="endereco.js"></script>
 <script src="demo.js"></script>
 <script src="config.js"></script>
 <script src="dados.js"></script>
@@ -842,7 +843,7 @@ function desenharSaloes(){
     <button class="opcao" onclick="entrarNoSalao('${s.slug}')">
       <span class="ic">${(s.nome||'?').trim().charAt(0).toUpperCase()}</span>
       <span class="txt"><span class="tt">${s.nome}</span>
-        <span class="dd">${s.endereco || ''}</span>
+        <span class="dd">${Endereco.linha(s.endereco)}</span>
         <span class="dd" style="color:var(--txt3)">?salao=${s.slug}</span></span>
       <span style="color:var(--txt3);font-size:20px">&rsaquo;</span>
     </button>`).join('');
@@ -859,7 +860,7 @@ function desenharCapa(){
                      : (salao.nome || '?').trim().charAt(0).toUpperCase()}
       </div>
       <h2>${salao.nome}</h2>
-      <p class="sub">${salao.endereco || 'Agende seu horário'}</p>
+      <p class="sub">${Endereco.linha(salao.endereco) || 'Agende seu horário'}</p>
     </div>`;
 
   document.getElementById('capaFoto').innerHTML = salao.capa
@@ -1709,7 +1710,7 @@ function confirmarAgendamento(){
       <b style="font-size:15px;letter-spacing:0">${nomesEscolhidos()}</b><br>
       ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}<br>
       com ${prof.nome}<br><br>
-      ${salao.endereco || ''}
+      ${Endereco.linha(salao.endereco)}
       <div class="hr">${h} &#10003;&#10003;</div>
     </div>`;
 

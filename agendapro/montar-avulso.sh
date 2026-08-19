@@ -14,6 +14,11 @@ set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$AQUI/dist"
 
+# As fontes vão como arquivo, não embutidas: 74 KB em base64 dentro de cada
+# uma das três páginas seriam 300 KB a mais, repetidos. O @font-face do CSS
+# aponta para `fontes/`, então a pasta precisa viajar junto.
+cp -r "$AQUI/fontes" "$AQUI/dist/"
+
 python3 - "$AQUI" <<'PY'
 import io, os, sys, re
 raiz = sys.argv[1]

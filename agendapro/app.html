@@ -272,22 +272,54 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 </head>
 <body>
 
-<header class="topo">
-  <div class="topo-in">
-    <div class="marca">
-      <span class="marca-ic" data-ico="relogio"></span>
-      <span>AgendaPro<small id="mTipo">SALÃO</small></span>
-    </div>
-    <select class="sel-salao" id="selSalao" onchange="trocarSalao(this.value)"></select>
-    <span class="espaco"></span>
-    <button class="btn btn-p" id="btInstalar" style="display:none" onclick="instalarApp()"><span data-ico="baixo"></span>Instalar app</button>
-    <button class="btn btn-x" onclick="trocarTema()" title="Tema claro ou escuro" id="btTema" aria-label="Trocar tema"><span data-ico="tema"></span></button>
-    <button class="btn" onclick="recomecar()" title="Apaga os dados de demonstração e recria">Recomeçar</button>
-  </div>
-  <nav class="abas" id="abas"></nav>
-</header>
+<!-- ══════════════════════════════════════════════════════════════════════
+     A MOLDURA
+     Lateral escura fixa + topo + conteúdo. É o arranjo do AdminPro, e é o
+     certo aqui: o dono fica o dia inteiro na mesma tela trocando de assunto,
+     e aba horizontal encolhe quando a lista de assuntos cresce.
+     ══════════════════════════════════════════════════════════════════════ -->
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
 
-<main class="corpo">
+<aside class="lateral" id="lateral">
+  <div class="lat-marca">
+    <span class="marca-nome">Agenda<b>pro</b></span>
+    <span class="marca-etiqueta">Gestão</span>
+  </div>
+
+  <div class="lat-salao">
+    <label for="selSalao">Estabelecimento</label>
+    <select class="sel-salao" id="selSalao" onchange="trocarSalao(this.value)"></select>
+  </div>
+
+  <nav class="lat-nav" id="abas" aria-label="Seções do sistema"></nav>
+
+  <div class="lat-pe">
+    <button class="lat-acao" id="btInstalar" style="display:none" onclick="instalarApp()">
+      <span data-ico="baixo"></span>Instalar aplicativo</button>
+    <button class="lat-acao" onclick="trocarTema()" id="btTema">
+      <span data-ico="tema"></span><span id="rotuloTema">Tema escuro</span></button>
+    <button class="lat-acao" onclick="recomecar()"
+            title="Apaga os dados de demonstração e recria">
+      <span data-ico="menos"></span>Recomeçar demonstração</button>
+    <p class="lat-rodape">AgendaPro · <span id="mTipo">salão</span></p>
+  </div>
+</aside>
+
+<div class="palco">
+  <header class="topo">
+    <button class="menu-botao" onclick="alternarLateral()" aria-label="Abrir menu">
+      <span data-ico="mais"></span></button>
+    <div class="trilha-topo">
+      <h1 id="tituloTela">Agenda</h1>
+      <span class="tb-tag" id="tbSalao">—</span>
+    </div>
+    <span class="espaco"></span>
+    <span class="tb-data" id="tbData"></span>
+  </header>
+
+  <div class="veu" id="veu" onclick="alternarLateral()"></div>
+
+<main class="corpo" id="conteudo">
 
   <!-- ══════════ AGENDA ══════════ -->
   <section class="tela on" id="tela-agenda">
@@ -310,7 +342,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   <!-- ══════════ CLIENTES ══════════ -->
   <section class="tela" id="tela-clientes">
     <div class="barra">
-      <h2>Clientes</h2><span class="espaco"></span>
+      <span class="espaco"></span>
       <input id="buscaCliente" placeholder="Buscar por nome ou telefone"
              oninput="pintarClientes()"
              style="padding:8px 11px;border:1px solid var(--borda);border-radius:9px;background:var(--painel);min-width:220px">
@@ -322,7 +354,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   <!-- ══════════ SERVIÇOS ══════════ -->
   <section class="tela" id="tela-servicos">
     <div class="barra">
-      <h2>Serviços</h2><span class="espaco"></span>
+      <span class="espaco"></span>
       <button class="btn btn-p" onclick="abrirServico()">+ Serviço</button>
     </div>
     <div id="listaServicos"></div>
@@ -331,7 +363,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   <!-- ══════════ EQUIPE ══════════ -->
   <section class="tela" id="tela-equipe">
     <div class="barra">
-      <h2>Equipe</h2><span class="espaco"></span>
+      <span class="espaco"></span>
       <button class="btn btn-p" onclick="abrirProf()">+ Profissional</button>
     </div>
     <div class="cards" id="listaEquipe"></div>
@@ -339,7 +371,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 
   <!-- ══════════ CAIXA ══════════ -->
   <section class="tela" id="tela-caixa">
-    <div class="barra"><h2>Caixa do dia</h2><span class="espaco"></span>
+    <div class="barra">
       <span class="dia" id="rotuloCaixa" style="min-width:auto;font-size:14px;color:var(--txt2)"></span>
     </div>
     <div class="kpis" id="kpisCaixa"></div>
@@ -350,7 +382,6 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 
   <!-- ══════════ PLANO E ASSINATURA ══════════ -->
   <section class="tela" id="tela-plano">
-    <div class="barra"><h2>Seu plano</h2></div>
     <div id="painelPlano"></div>
     <h2 style="margin:24px 0 6px;font-size:16px">Trocar de plano</h2>
     <p style="color:var(--txt2);font-size:14px;margin-bottom:14px">
@@ -361,7 +392,6 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 
   <!-- ══════════ MEU SALÃO ══════════ -->
   <section class="tela" id="tela-salao">
-    <div class="barra"><h2>Meu salão</h2></div>
     <div id="painelSalao"></div>
   </section>
 
@@ -419,6 +449,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   AgendaPro · demonstração com dados no próprio navegador (localStorage).
   Nada é enviado para servidor nenhum.
 </footer>
+</div><!-- /palco -->
 
 <!-- ══════════ MODAL ══════════ -->
 <div class="fundo" id="fundo" onclick="if(event.target===this)fecharModal()">
@@ -435,6 +466,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 
 <script src="icones.js"></script>
 <script src="imagens.js"></script>
+<script src="endereco.js"></script>
 <script src="demo.js"></script>
 <script src="config.js"></script>
 <script src="dados.js"></script>
@@ -610,21 +642,35 @@ function rotuloServicos(ag){
 }
 
 /* ── Navegação ───────────────────────────────────────────────────────── */
+/* As seções, em grupos. O agrupamento não é enfeite: com oito itens soltos
+   a pessoa lê a lista inteira toda vez. Separados por assunto — o dia a dia,
+   os cadastros, a conta — o olho pula direto para o bloco certo. */
 const TELAS = [
-  ['agenda',   'Agenda'],
-  ['clientes', 'Clientes'],
-  ['servicos', 'Serviços'],
-  ['equipe',   'Equipe'],
-  ['caixa',    'Caixa'],
-  ['salao',    'Meu salão'],
-  ['publico',  'Ver como cliente'],
-  ['plano',    'Plano'],
+  ['agenda',   'Agenda',           'calendario', 'Dia a dia'],
+  ['caixa',    'Caixa',            'cartao',     'Dia a dia'],
+  ['clientes', 'Clientes',         'usuario',    'Cadastros'],
+  ['servicos', 'Serviços',         'tesoura',    'Cadastros'],
+  ['equipe',   'Equipe',           'equipe',     'Cadastros'],
+  ['salao',    'Meu salão',        'predio',     'Cadastros'],
+  ['publico',  'Ver como cliente', 'olho',       'A conta'],
+  ['plano',    'Plano',            'etiqueta',   'A conta'],
 ];
 
 function montarAbas(){
-  document.getElementById('abas').innerHTML = TELAS.map(([k,r]) =>
-    `<button class="aba${k===telaAtual?' on':''}" onclick="irPara('${k}')">${r}</button>`
-  ).join('');
+  let html = '', grupoAtual = null;
+  for(const [k, rotulo, icone, grupo] of TELAS){
+    if(grupo !== grupoAtual){
+      html += `<div class="lat-grupo">${grupo}</div>`;
+      grupoAtual = grupo;
+    }
+    html += `<button class="aba${k === telaAtual ? ' on' : ''}"
+                     onclick="irPara('${k}')" ${k === telaAtual ? 'aria-current="page"' : ''}>
+               <span class="aba-ic" data-ico="${icone}"></span>
+               <span class="aba-txt">${rotulo}</span>
+             </button>`;
+  }
+  document.getElementById('abas').innerHTML = html;
+  if(window.aplicarIcones) aplicarIcones(document.getElementById('abas'));
 }
 
 function irPara(k){
@@ -632,7 +678,22 @@ function irPara(k){
   document.querySelectorAll('.tela').forEach(t => t.classList.remove('on'));
   document.getElementById('tela-' + k).classList.add('on');
   montarAbas();
+  // O topo repete onde a pessoa está. Com a lateral fechada no celular, é a
+  // única pista que sobra.
+  const t = TELAS.find(x => x[0] === k);
+  document.getElementById('tituloTela').textContent = t ? t[1] : '';
+  fecharLateral();
+  window.scrollTo(0, 0);
   pintar();
+}
+
+/* No celular a lateral vira gaveta. Sem isso, 252px fixos comem metade da
+   tela de um telefone — e a agenda é justamente o que precisa de largura. */
+function alternarLateral(){
+  document.body.classList.toggle('lateral-aberta');
+}
+function fecharLateral(){
+  document.body.classList.remove('lateral-aberta');
 }
 
 function mudarDia(n){ diaAtual = somarDias(diaAtual, n); pintar(); }
@@ -641,7 +702,8 @@ function irHoje(){ diaAtual = hoje(); pintar(); }
 function trocarSalao(sid){
   salaoAtual = sid;
   const s = acharSalao(sid);
-  document.getElementById('mTipo').textContent = (s.tipo || 'salão').toUpperCase();
+  document.getElementById('mTipo').textContent = (s.tipo || 'salão');
+  document.getElementById('tbSalao').textContent = s.nome;
   const sel = document.getElementById('selSalao');
   if(sel && sel.value !== sid) sel.value = sid;   // chamada de código também move o seletor
   salvar();
@@ -653,6 +715,23 @@ function trocarTema(){
   const novo = atual === 'escuro' ? 'claro' : 'escuro';
   document.documentElement.setAttribute('data-tema', novo);
   try{ localStorage.setItem(CHAVE + '.tema', novo); }catch(e){}
+  rotularTema();
+}
+// O botão diz para onde vai, não onde está: "Tema escuro" quando está claro.
+function rotularTema(){
+  const r = document.getElementById('rotuloTema');
+  if(!r) return;
+  r.textContent = document.documentElement.getAttribute('data-tema') === 'escuro'
+    ? 'Tema claro' : 'Tema escuro';
+}
+
+// A data por extenso no topo, como no AdminPro. Serve de âncora: numa agenda,
+// saber que dia é hoje é metade do trabalho.
+function pintarDataTopo(){
+  const el = document.getElementById('tbData');
+  if(!el) return;
+  el.textContent = new Date().toLocaleDateString('pt-BR',
+    { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
 }
 
 /* ── Desenho: agenda ─────────────────────────────────────────────────── */
@@ -907,7 +986,8 @@ function pintarCaixa(){
 function prepararPublico(){
   const s = acharSalao(salaoAtual);
   document.getElementById('pubNome').textContent = s.nome;
-  document.getElementById('pubEnd').textContent = s.endereco || 'Agende seu horário';
+  document.getElementById('pubEnd').textContent =
+    Endereco.linha(s.endereco) || 'Agende seu horário';
 
   // O endereço do salão sai do `slug`. É a mesma coluna `saloes.slug` do banco,
   // e é o que separa um salão do outro na porta de entrada do cliente.
@@ -1703,8 +1783,82 @@ function pintarSalao(){
       </div>
     </div>`;
 
+  const end = Endereco.normalizar(sl.endereco);
+  const doc = (bd.documentosCobranca || []).find(d => d.salaoId === salaoAtual);
+
   document.getElementById('painelSalao').innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <h3 class="secao">Dados do estabelecimento</h3>
+      <p class="secao-sub">É o que aparece para o cliente na página de
+        agendamento, e o que vai na cobrança.</p>
+
+      <div class="dupla">
+        <div class="campo"><label for="cNome">Nome</label>
+          <input id="cNome" value="${sl.nome || ''}" placeholder="Studio Bella"></div>
+        <div class="campo"><label for="cTipo">Tipo de negócio</label>
+          <select id="cTipo">
+            ${['salao','barbearia','estetica','manicure','clinica','tatuagem','pet','outro']
+              .map(t => `<option value="${t}" ${sl.tipo === t ? 'selected' : ''}>${
+                 ({salao:'Salão de beleza', barbearia:'Barbearia',
+                   estetica:'Estética', manicure:'Manicure e pedicure',
+                   clinica:'Clínica', tatuagem:'Tatuagem', pet:'Pet shop',
+                   outro:'Outro'})[t]}</option>`).join('')}
+          </select>
+          <span class="ajuda">Define o vocabulário do sistema: barbearia diz
+            "barbeiro", esmalteria diz "manicure".</span></div>
+      </div>
+
+      <div class="dupla">
+        <div class="campo"><label for="cTel">Telefone</label>
+          <input id="cTel" value="${sl.telefone || ''}" placeholder="(11) 3333-4444"></div>
+        <div class="campo"><label for="cZap">WhatsApp</label>
+          <input id="cZap" value="${sl.whatsapp || ''}" placeholder="(11) 99999-8888">
+          <span class="ajuda">É por onde sai a confirmação do cliente.</span></div>
+      </div>
+
+      <div class="campo">
+        <label>CPF ou CNPJ</label>
+        <input value="${doc ? Endereco.documento(doc.documento) : '—'}" disabled>
+        <span class="ajuda">Trocar o documento do contrato é assunto de
+          suporte, não de tela — é ele que identifica quem assina a
+          assinatura.</span>
+      </div>
+
+      <h3 class="secao" style="margin-top:22px">Endereço</h3>
+      <div class="tripla">
+        <div class="campo" style="grid-column:span 2"><label for="cRua">Logradouro</label>
+          <input id="cRua" value="${end.logradouro}" placeholder="Rua das Flores"></div>
+        <div class="campo"><label for="cNum">Número</label>
+          <input id="cNum" value="${end.numero}" placeholder="210"></div>
+      </div>
+      <div class="tripla">
+        <div class="campo"><label for="cCompl">Complemento</label>
+          <input id="cCompl" value="${end.complemento}" placeholder="Sala 2"></div>
+        <div class="campo"><label for="cBairro">Bairro</label>
+          <input id="cBairro" value="${end.bairro}" placeholder="Centro"></div>
+        <div class="campo"><label for="cCep">CEP</label>
+          <input id="cCep" value="${Endereco.mascaraCep(end.cep)}" placeholder="13300-000"
+                 inputmode="numeric" oninput="this.value=Endereco.mascaraCep(this.value)"></div>
+      </div>
+      <div class="tripla">
+        <div class="campo" style="grid-column:span 2"><label for="cCidade">Cidade</label>
+          <input id="cCidade" value="${end.cidade}" placeholder="Itu"></div>
+        <div class="campo"><label for="cUf">UF</label>
+          <select id="cUf">
+            <option value="">—</option>
+            ${Endereco.UFS.map(u => `<option ${end.uf === u ? 'selected' : ''}>${u}</option>`).join('')}
+          </select></div>
+      </div>
+
+      <div class="card-acoes">
+        <button class="btn btn-p" onclick="salvarCadastroSalao()">Salvar dados</button>
+        <span id="salvouSalao" class="salvou"></span>
+      </div>
+    </div>
+
     <div class="card">
+      <h3 class="secao">Identidade visual</h3>
+      <p class="secao-sub">O que o cliente vê ao abrir o link do salão.</p>
       ${cartao('logo', 'Logo',
         'Aparece no topo da página do cliente e na lista de salões dele.',
         'Quadrada. JPG, PNG ou WEBP.')}
@@ -1727,6 +1881,43 @@ function estadoDoEspaco(){
   const usado = Imagens.ocupadoNoNavegador();
   const pct = Math.round(usado / Imagens.TETO_NAVEGADOR * 100);
   return 'Você usou cerca de ' + pct + '%.';
+}
+
+function salvarCadastroSalao(){
+  const v = id => (document.getElementById(id).value || '').trim();
+  const nome = v('cNome');
+  if(nome.length < 2){ alert('O estabelecimento precisa de um nome.'); return; }
+
+  const sl = acharSalao(salaoAtual);
+  sl.nome     = nome;
+  sl.tipo     = v('cTipo');
+  sl.telefone = v('cTel');
+  sl.whatsapp = v('cZap');
+  sl.endereco = {
+    logradouro:  v('cRua'),
+    numero:      v('cNum'),
+    complemento: v('cCompl'),
+    bairro:      v('cBairro'),
+    cidade:      v('cCidade'),
+    uf:          v('cUf'),
+    cep:         v('cCep').replace(/\D/g, ''),
+  };
+  salvar();
+
+  // `iniciar()` ANTES da confirmação, não depois: ele redesenha o painel
+  // inteiro, e a mensagem escrita antes some junto com o elemento que a
+  // continha. Foi o que aconteceu na primeira versão — salvava certo e não
+  // dizia nada.
+  iniciar();   // nome e tipo mudam a moldura: seletor, topo e vocabulário
+
+  const aviso = document.getElementById('salvouSalao');
+  if(aviso){
+    aviso.textContent = 'Salvo';
+    setTimeout(() => {
+      const ainda = document.getElementById('salvouSalao');
+      if(ainda) ainda.textContent = '';
+    }, 2600);
+  }
 }
 
 async function subirImagemSalao(chave, campo){
@@ -2119,7 +2310,12 @@ function iniciar(){
   sel.innerHTML = bd.saloes.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
   sel.value = salaoAtual;
   const s = acharSalao(salaoAtual);
-  document.getElementById('mTipo').textContent = (s.tipo || 'salão').toUpperCase();
+  document.getElementById('mTipo').textContent = (s.tipo || 'salão');
+  document.getElementById('tbSalao').textContent = s.nome;
+  const t = TELAS.find(x => x[0] === telaAtual);
+  document.getElementById('tituloTela').textContent = t ? t[1] : '';
+  pintarDataTopo();
+  rotularTema();
   montarAbas();
   pintar();
 }

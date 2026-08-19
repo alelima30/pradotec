@@ -13,7 +13,7 @@
    Só quando a rede falha é que o cache aparece.
    =========================================================================== */
 
-const VERSAO = 'agendapro-v2';
+const VERSAO = 'agendapro-v3';
 
 const ESSENCIAIS = [
   './',
@@ -24,6 +24,12 @@ const ESSENCIAIS = [
   './estilo.css',
   './icones.js',
   './demo.js',
+  './imagens.js',
+  './endereco.js',
+  './fontes/instrument-sans-latin.woff2',
+  './fontes/instrument-sans-latin-ext.woff2',
+  './fontes/instrument-serif-latin.woff2',
+  './fontes/instrument-serif-latin-ext.woff2',
   './config.js',
   './dados.js',
   './manifest.webmanifest',

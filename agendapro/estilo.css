@@ -1,178 +1,458 @@
 /* ===========================================================================
    AgendaPro — sistema visual
    ---------------------------------------------------------------------------
-   Uma folha só, carregada DEPOIS do estilo de cada página. Ela redefine os
-   tokens que as três telas já usavam, então o visual inteiro muda daqui —
-   sem mexer na estrutura de nenhuma delas.
+   Uma folha só, carregada DEPOIS do estilo de cada página. O visual inteiro
+   sai daqui — sem mexer na estrutura de nenhuma tela.
 
-   AS DECISÕES
+   A ARQUITETURA VEM DO ADMINPRO
 
-   Uma cor de destaque, e só uma. Produto que muda de cor por tela parece
-   montado por gente diferente. O verde-azulado aparece em seleção, foco e
-   dado; o resto é neutro. Ação primária é quase-preta no claro e quase-branca
-   no escuro — é o contraste mais forte que existe, e não gasta a cor de
-   destaque no botão de "salvar".
+   Barra lateral escura de 252px, fixa, em qualquer tema; conteúdo claro ao
+   lado; topo com trilha e data. É o arranjo do AdminPro, e é o certo para
+   este tipo de produto: o dono do salão fica o dia inteiro na mesma tela e
+   troca de assunto dezenas de vezes. Aba horizontal some quando a lista de
+   assuntos cresce; barra lateral aguenta doze itens sem encolher nada.
 
-   Neutros quentes, não cinza-azulado. Cinza frio deixa qualquer interface com
-   ar de painel de servidor. Um toque de bege no neutro aproxima do setor sem
-   precisar de rosa nem dourado.
+   A lateral é escura nos dois temas de propósito. Ela é moldura, não
+   conteúdo — escura, ela some da atenção e joga o olho para a agenda.
 
-   Nada de gradiente decorativo. Fundo chapado, uma borda de 1px e sombra
-   curta. Gradiente colorido em cabeçalho é o traço mais fácil de reconhecer
-   num layout genérico.
+   A COR VEM DA MARCA
 
-   Escala de 4px, raio de 10px, sombra de dois níveis. Repetição é o que faz
-   a coisa parecer desenhada de uma vez.
+   O logotipo do AgendaPro é magenta virando roxo. Então é essa a cor do
+   sistema, e não o laranja do AdminPro — dois produtos irmãos com o mesmo
+   laranja e logotipos diferentes pareceria clone mal-acabado.
 
-   Nenhum emoji em elemento de interface. Emoji muda de desenho em cada
-   sistema, não aceita cor nem espessura, e envelhece rápido. Ícone é SVG
-   traçado (icones.js), herda a cor do texto e alinha com a tipografia.
+   O degradê fica no LOGOTIPO. Na interface, o mesmo magenta entra chapado.
+   Degradê em botão e em cabeçalho é o traço mais fácil de reconhecer num
+   layout genérico, e some no primeiro screenshot comprimido.
+
+   Sombra em camadas, nunca uma só. Elevação de verdade tem duas partes: um
+   contato curto e escuro que gruda o objeto na superfície, e uma difusa e
+   larga que dá altura. Uma sombra só, chapada, denuncia layout às pressas.
+
+   Duas famílias, desenhadas como par. Instrument Serif carrega o nome do
+   salão e as aberturas; Instrument Sans faz o trabalho de interface. Serifa
+   em título e grotesca em dado é a combinação da imprensa e da hotelaria —
+   e é o oposto do "tudo em Inter" que virou marca de tela gerada.
+
+   As fontes são servidas do próprio projeto (fontes/), não do Google. São
+   74 KB, funcionam offline no aplicativo instalado, e não vazam o IP de cada
+   cliente do salão para um terceiro a cada abertura de página.
    =========================================================================== */
 
+@font-face{
+  font-family:"Instrument Sans"; font-style:normal; font-weight:400 700;
+  font-display:swap; src:url(fontes/instrument-sans-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,
+                U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,
+                U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:"Instrument Sans"; font-style:normal; font-weight:400 700;
+  font-display:swap; src:url(fontes/instrument-sans-latin-ext.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,
+                U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,
+                U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face{
+  font-family:"Instrument Serif"; font-style:normal; font-weight:400;
+  font-display:swap; src:url(fontes/instrument-serif-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,
+                U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,
+                U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:"Instrument Serif"; font-style:normal; font-weight:400;
+  font-display:swap; src:url(fontes/instrument-serif-latin-ext.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,
+                U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,
+                U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
 :root{
-  /* ── Neutros (quentes) ─────────────────────────────────────────────── */
-  --n-0:#FFFFFF;  --n-25:#FCFCFB; --n-50:#F7F6F4; --n-100:#EFEEEB;
-  --n-200:#E3E1DC; --n-300:#CFCCC5; --n-400:#A8A49B; --n-500:#7C786F;
-  --n-600:#5B574F; --n-700:#403D37; --n-800:#2A2823; --n-900:#1A1917;
-  --n-950:#111110;
+  /* ── Neutros quentes ───────────────────────────────────────────────── */
+  --n-0:#FFFFFF;   --n-25:#FDFCFA;  --n-50:#F8F6F2;  --n-100:#F1EEE8;
+  --n-200:#E5E0D6; --n-300:#D2CBBD; --n-400:#A9A192; --n-500:#7D766A;
+  --n-600:#5A554B; --n-700:#3E3A33; --n-800:#292620; --n-900:#191712;
+  --n-950:#100F0C;
 
-  /* ── Destaque ──────────────────────────────────────────────────────── */
-  --ac-500:#0F8B7B; --ac-600:#0C7568; --ac-700:#0A5E54;
-  --ac-soft:rgba(15,139,123,.10); --ac-line:rgba(15,139,123,.28);
+  /* ── A cor da marca: magenta do logotipo, uma rampa para o sistema ──── */
+  --ma-50:#FDF2F8;  --ma-100:#FCE4F0; --ma-200:#F9C2DF; --ma-300:#F48FC5;
+  --ma-400:#EC55A5; --ma-500:#DE1F84; --ma-600:#C2126D; --ma-700:#9C0F58;
+  --ma-800:#750B42;
+  --ma-soft:rgba(222,31,132,.09);
+  --ma-line:rgba(222,31,132,.28);
+  /* A outra ponta do degradê do logotipo. Só o logotipo usa as duas juntas;
+     a interface usa o magenta chapado. */
+  --rx-500:#7A22CE; --rx-600:#6518AE;
+  --grad-marca:linear-gradient(96deg,#DE1F84 0%,#7A22CE 100%);
 
-  /* ── Semânticos, dessaturados de propósito ─────────────────────────── */
-  --su-500:#15803D; --su-soft:rgba(21,128,61,.10);
-  --wa-500:#B45309; --wa-soft:rgba(180,83,9,.10);
-  --er-500:#B42318; --er-soft:rgba(180,35,24,.09);
+  /* ── Semânticos, dessaturados para conviver com o dourado ──────────── */
+  --su-500:#3F7A46; --su-soft:rgba(63,122,70,.10);
+  --wa-500:#A9631A; --wa-soft:rgba(169,99,26,.10);
+  --er-500:#A63328; --er-soft:rgba(166,51,40,.09);
 
-  /* ── Tokens que as telas já usavam ─────────────────────────────────── */
-  --roxo:var(--ac-600); --roxo-esc:var(--ac-700); --rosa:var(--ac-500);
-  --ouro:var(--ac-500); --ouro-claro:var(--ac-500); --ouro-esc:var(--ac-700);
-  --info:var(--ac-600);
+  /* ── Tokens que as telas já usavam, redirecionados ─────────────────── */
+  --ac-500:var(--ma-500); --ac-600:var(--ma-600); --ac-700:var(--ma-700);
+  --ac-soft:var(--ma-soft); --ac-line:var(--ma-line);
+  --roxo:var(--rx-500); --roxo-esc:var(--rx-600); --rosa:var(--ma-500);
+  --ouro:var(--ma-500); --ouro-claro:var(--ma-400); --ouro-esc:var(--ma-700);
+  --info:var(--ma-600);
 
   --bg:var(--n-50);   --painel:var(--n-0); --painel2:var(--n-25);
-  --borda:var(--n-200);
+  /* A moldura: sempre escura, nos dois temas. */
+  --lat:#141021; --lat-2:#1C1630; --lat-borda:rgba(255,255,255,.08);
+  --lat-txt:#EDE9F5; --lat-txt2:rgba(237,233,245,.60); --lat-txt3:rgba(237,233,245,.34);
+  --lat-largura:252px;
+  --borda:var(--n-200); --borda-forte:var(--n-300);
   --txt:var(--n-900); --txt2:var(--n-600); --txt3:var(--n-400);
   --ok:var(--su-500); --alerta:var(--wa-500); --erro:var(--er-500);
 
-  /* Ação primária: o preto é o contraste máximo. A cor de destaque fica
-     reservada para seleção e informação, onde ela carrega significado. */
-  --acao:var(--n-900); --acao-hover:var(--n-800); --acao-txt:var(--n-0);
+  /* A ação primária é o magenta da marca. Guardá-lo só para detalhe e
+     deixar o botão preto seria ter uma cor e não usá-la. */
+  --acao:var(--ma-600); --acao-hover:var(--ma-700); --acao-txt:#FFFFFF;
+  /* Ação de peso mas sem brilho: confirmar, salvar, tudo que é rotina. */
+  --tinta:var(--n-900); --tinta-hover:var(--n-800); --tinta-txt:var(--n-0);
 
-  --r:10px; --r-sm:8px; --r-lg:14px;
-  --sombra:0 1px 2px rgba(17,17,16,.05), 0 1px 3px rgba(17,17,16,.06);
-  --sombra-md:0 2px 4px rgba(17,17,16,.04), 0 8px 20px rgba(17,17,16,.07);
+  /* ── Forma ─────────────────────────────────────────────────────────── */
+  --r:12px; --r-sm:9px; --r-lg:16px; --r-pill:999px;
+
+  /* ── Elevação em camadas ───────────────────────────────────────────── */
+  --sombra-xs:0 1px 1px rgba(25,23,18,.04);
+  --sombra:0 1px 2px rgba(25,23,18,.05), 0 2px 6px -1px rgba(25,23,18,.06);
+  --sombra-md:0 2px 4px -1px rgba(25,23,18,.05), 0 8px 20px -4px rgba(25,23,18,.10);
+  --sombra-lg:0 4px 8px -2px rgba(25,23,18,.06), 0 20px 44px -10px rgba(25,23,18,.16);
+  --sombra-marca:0 1px 2px rgba(156,15,88,.20), 0 6px 16px -5px rgba(194,18,109,.32);
+
+  /* ── Tipografia ────────────────────────────────────────────────────── */
+  --fonte:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",
+          Roboto,"Helvetica Neue",Arial,sans-serif;
+  --fonte-display:"Instrument Serif",ui-serif,Georgia,"Times New Roman",serif;
 }
 
+/* No escuro o dourado sobe na rampa: #8F7220 sobre preto some, e o mesmo
+   tom que dá contraste no papel branco não dá na tinta. */
 [data-tema="escuro"], html[data-tema="escuro"]{
-  --bg:var(--n-950); --painel:#1A1A18; --painel2:#211F1D;
-  --borda:#302E2A;
-  --txt:var(--n-50); --txt2:#A8A49B; --txt3:#6E6A62;
-  --ac-500:#2DB39F; --ac-600:#25A18E; --ac-700:#1D8878;
-  --ac-soft:rgba(45,179,159,.13); --ac-line:rgba(45,179,159,.34);
-  --su-500:#3FA463; --wa-500:#D08A3C; --er-500:#E06A5F;
-  --su-soft:rgba(63,164,99,.12); --wa-soft:rgba(208,138,60,.12);
-  --er-soft:rgba(224,106,95,.12);
-  --acao:var(--n-50); --acao-hover:#FFFFFF; --acao-txt:var(--n-950);
-  --sombra:0 1px 2px rgba(0,0,0,.4);
-  --sombra-md:0 2px 6px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.3);
+  --bg:#0F0C16; --painel:#171226; --painel2:#1D1730;
+  --borda:#2A2340; --borda-forte:#3B3253;
+  --txt:#F2EFF8; --txt2:#A49CBA; --txt3:#6E668A;
+
+  /* No escuro o magenta sobe na rampa: #C2126D sobre preto perde contraste. */
+  --ma-500:#F48FC5; --ma-600:#EC55A5; --ma-700:#DE1F84;
+  --ma-soft:rgba(244,143,197,.12); --ma-line:rgba(244,143,197,.30);
+  --ac-500:var(--ma-500); --ac-600:var(--ma-500); --ac-700:var(--ma-600);
+  --ac-soft:var(--ma-soft); --ac-line:var(--ma-line);
+
+  --su-500:#6FA877; --wa-500:#D19A4E; --er-500:#D9695C;
+  --su-soft:rgba(111,168,119,.12); --wa-soft:rgba(209,154,78,.12);
+  --er-soft:rgba(217,105,92,.12);
+
+  --acao:var(--ma-600); --acao-hover:var(--ma-500); --acao-txt:#2A0518;
+  --tinta:#F2EFF8; --tinta-hover:#FFFFFF; --tinta-txt:#0F0C16;
+
+  --sombra-xs:0 1px 1px rgba(0,0,0,.35);
+  --sombra:0 1px 2px rgba(0,0,0,.45), 0 2px 6px -1px rgba(0,0,0,.35);
+  --sombra-md:0 2px 6px rgba(0,0,0,.42), 0 12px 28px -6px rgba(0,0,0,.45);
+  --sombra-lg:0 4px 10px rgba(0,0,0,.45), 0 24px 52px -12px rgba(0,0,0,.55);
+  --sombra-marca:0 1px 2px rgba(0,0,0,.5), 0 6px 18px -6px rgba(216,192,119,.30);
 }
 
+
+/* ===========================================================================
+   A MOLDURA — lateral escura, palco claro
+   ---------------------------------------------------------------------------
+   A lateral é `position:fixed` e o palco recebe uma margem do mesmo tamanho.
+   Poderia ser grid, mas fixed é o que garante que a rolagem do conteúdo não
+   arrasta o menu junto — que é o defeito clássico deste layout.
+   =========================================================================== */
+.pular{
+  position:absolute; left:-9999px; top:0; z-index:200;
+  background:var(--acao); color:var(--acao-txt); padding:10px 16px;
+  border-radius:0 0 var(--r-sm) 0; font-weight:600;
+}
+.pular:focus{ left:0 }
+
+.lateral{
+  position:fixed; inset:0 auto 0 0; width:var(--lat-largura); z-index:60;
+  background:var(--lat); border-right:1px solid var(--lat-borda);
+  display:flex; flex-direction:column;
+  transition:transform .24s cubic-bezier(.4,0,.2,1);
+}
+.palco{ margin-left:var(--lat-largura); min-height:100vh; display:flex; flex-direction:column }
+.palco > .corpo{ flex:1 }
+
+/* ── A marca, no alto da lateral ─────────────────────────────────────── */
+.lat-marca{
+  padding:22px 20px 18px; border-bottom:1px solid var(--lat-borda);
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+}
+/* O nome usa o degradê do logotipo — é o único lugar em que ele aparece.
+   `background-clip:text` pinta a letra com o degradê em vez de pintar uma
+   caixa atrás dela. */
+.marca-nome{
+  font-size:1.32rem; font-weight:700; letter-spacing:-.03em; color:var(--lat-txt);
+}
+.marca-nome b{
+  font-weight:700;
+  background:var(--grad-marca); -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; color:transparent;
+}
+/* `marca-etiqueta`, e não `marca-selo`: aquele nome já é o selo de 76px da
+   capa do cliente, e reaproveitar deixou esta pílula com 76px de altura e a
+   palavra cortada no meio. */
+.marca-etiqueta{
+  font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+  color:#fff; background:var(--grad-marca);
+  padding:3px 9px; border-radius:var(--r-pill); line-height:1.55;
+  align-self:center;
+}
+
+/* ── O seletor de salão ──────────────────────────────────────────────── */
+.lat-salao{ padding:16px 16px 6px }
+.lat-salao label{
+  display:block; font-size:10px; font-weight:600; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--lat-txt3); margin-bottom:7px;
+}
+.lateral .sel-salao{
+  width:100%; max-width:none !important;
+  background:var(--lat-2) !important; color:var(--lat-txt) !important;
+  border:1px solid var(--lat-borda) !important; border-radius:var(--r-sm) !important;
+  padding:10px 11px !important; font-size:13.5px; font-weight:560;
+}
+.lateral .sel-salao option{ background:var(--lat); color:var(--lat-txt) }
+
+/* ── Os itens ────────────────────────────────────────────────────────── */
+.lat-nav{ flex:1; overflow-y:auto; padding:10px 12px 16px; display:block }
+.lat-grupo{
+  font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--lat-txt3); padding:16px 8px 7px;
+}
+.lat-nav .aba{
+  display:flex; align-items:center; gap:11px; width:100%;
+  padding:9px 10px; margin-bottom:2px; border-radius:var(--r-sm);
+  border:none; background:none; color:var(--lat-txt2);
+  font-size:14px; font-weight:530; text-align:left; cursor:pointer;
+  position:relative; transition:background .14s ease, color .14s ease;
+}
+.lat-nav .aba:hover{ background:rgba(255,255,255,.06); color:var(--lat-txt) }
+.lat-nav .aba.on{
+  background:var(--ma-soft); color:#F9C2DF; font-weight:600;
+  border-bottom:none !important;
+}
+/* A tarja da esquerda é o que diz "você está aqui" de longe, sem depender de
+   distinguir dois tons de rosa no escuro. */
+.lat-nav .aba.on::before{
+  content:""; position:absolute; left:-12px; top:6px; bottom:6px; width:3px;
+  border-radius:0 3px 3px 0; background:var(--ma-400);
+}
+.aba-ic{
+  width:30px; height:30px; flex:none; border-radius:8px;
+  display:grid; place-items:center; background:rgba(255,255,255,.05);
+  transition:background .14s ease;
+}
+.lat-nav .aba:hover .aba-ic{ background:rgba(255,255,255,.09) }
+.lat-nav .aba.on .aba-ic{ background:rgba(236,85,165,.20) }
+.aba-ic .ic-svg{ width:16px; height:16px }
+
+/* ── O pé da lateral ─────────────────────────────────────────────────── */
+.lat-pe{ padding:12px; border-top:1px solid var(--lat-borda) }
+.lat-acao{
+  display:flex; align-items:center; gap:9px; width:100%;
+  padding:8px 10px; margin-bottom:3px; border-radius:var(--r-sm);
+  border:none; background:none; color:var(--lat-txt2);
+  font-size:13px; font-weight:520; text-align:left; cursor:pointer;
+  transition:background .14s ease, color .14s ease;
+}
+.lat-acao:hover{ background:rgba(255,255,255,.06); color:var(--lat-txt) }
+.lat-acao .ic-svg{ width:15px; height:15px; flex:none }
+.lat-rodape{
+  font-size:11px; color:var(--lat-txt3); text-align:center;
+  padding:10px 4px 4px; margin:0;
+}
+
+/* ── O topo do palco ─────────────────────────────────────────────────── */
+.palco > .topo{
+  position:sticky; top:0; z-index:40;
+  background:var(--painel); border-bottom:1px solid var(--borda);
+  padding:0 22px; min-height:60px;
+  display:flex; align-items:center; gap:12px;
+  box-shadow:var(--sombra-xs);
+}
+.trilha-topo{ display:flex; align-items:center; gap:10px; min-width:0 }
+.trilha-topo h1{ font-size:1.14rem; font-weight:620; letter-spacing:-.018em; margin:0 }
+.tb-tag{
+  font-size:11px; font-weight:600; letter-spacing:.02em;
+  color:var(--ac-700); background:var(--ac-soft);
+  border:1px solid var(--ac-line); padding:3px 9px; border-radius:var(--r-pill);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:22ch;
+}
+.tb-data{
+  font-size:12.5px; color:var(--txt2); white-space:nowrap;
+  border:1px solid var(--borda); border-radius:var(--r-pill); padding:6px 13px;
+  background:var(--painel2);
+}
+.tb-data::first-letter{ text-transform:uppercase }
+.menu-botao{
+  display:none; width:38px; height:38px; flex:none;
+  border:1px solid var(--borda); border-radius:var(--r-sm);
+  background:var(--painel); color:var(--txt); cursor:pointer;
+  place-items:center;
+}
+.veu{ display:none }
+
+/* ── Celular: a lateral vira gaveta ──────────────────────────────────── */
+@media (max-width:900px){
+  .lateral{ transform:translateX(-100%); box-shadow:var(--sombra-lg) }
+  body.lateral-aberta .lateral{ transform:none }
+  .palco{ margin-left:0 }
+  .menu-botao{ display:grid }
+  .palco > .topo{ padding:0 14px }
+  body.lateral-aberta .veu{
+    display:block; position:fixed; inset:0; z-index:50;
+    background:rgba(15,12,22,.55);
+  }
+  .tb-data{ display:none }
+}
+@media (max-width:520px){
+  .tb-tag{ display:none }
+}
 
 /* ===========================================================================
    TIPOGRAFIA
-   Uma escala, com peso e espaçamento acompanhando o tamanho. Título grande
-   pede letra mais junta; texto pequeno pede o contrário.
+   Uma escala só. Título grande pede letra mais junta; texto pequeno pede o
+   contrário. A serifa entra só onde o assunto é identidade — nome do salão,
+   abertura de página — e nunca em dado, tabela ou botão.
    =========================================================================== */
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,
-              "Helvetica Neue",Arial,sans-serif;
+  font-family:var(--fonte);
   font-size:15px; line-height:1.55;
-  font-feature-settings:"cv11","ss01"; /* algarismos e "a" de forma simples */
-  letter-spacing:-.006em;
+  letter-spacing:-.004em;
   color:var(--txt); background:var(--bg);
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
 }
-h1{font-size:1.75rem;font-weight:640;letter-spacing:-.028em;line-height:1.18}
-h2{font-size:1.125rem;font-weight:620;letter-spacing:-.018em;line-height:1.3}
-h3{font-size:.95rem;font-weight:600;letter-spacing:-.012em}
+h1{font-size:1.7rem;font-weight:600;letter-spacing:-.024em;line-height:1.2}
+h2{font-size:1.1rem;font-weight:600;letter-spacing:-.016em;line-height:1.32}
+h3{font-size:.95rem;font-weight:600;letter-spacing:-.01em}
 b,strong{font-weight:600}
+
+/* A serifa da marca. `font-optical-sizing` e o peso 400 são o desenho dela:
+   Instrument Serif tem um peso só, e engrossar por CSS borra a haste fina
+   que é justamente o que a torna elegante. */
+.display, .marca-salao h2, .cabeca h1, .pub-topo h3{
+  font-family:var(--fonte-display); font-weight:400;
+  letter-spacing:-.012em; line-height:1.14;
+}
+
+/* Rótulo de seção: pequeno, espaçado, em maiúscula — o jeito editorial de
+   separar blocos sem gastar uma linha de título. */
+.cat, .recomendado small, .eyebrow{
+  font-size:11px; font-weight:600; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--txt3);
+}
 
 /* Número em tabela e horário alinham em coluna quando a fonte é tabular. */
 .kpi .v, .valor, .quantos, .hora, .dia b, .resumo b, .plano .valor,
-td, .tabela td, .hslot, .horas button{ font-variant-numeric:tabular-nums }
+td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
+  font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+}
 
 /* ===========================================================================
-   SUPERFÍCIES — chapadas, uma borda, sombra curta
+   SUPERFÍCIES — papel sobre papel, hairline e elevação em camadas
    =========================================================================== */
 .card, .caixa, .plano, .item, .bloco, .grade-wrap, .tabela, .kpi,
-.resumo, .modal, .pub-corpo, .proximos{
+.resumo, .pub-corpo, .proximos, .card-servico{
   border-radius:var(--r); box-shadow:var(--sombra);
 }
-.card, .caixa, .plano, .item, .bloco, .kpi{ border:1px solid var(--borda) }
+.card, .caixa, .plano, .item, .bloco, .kpi, .card-servico{
+  border:1px solid var(--borda);
+}
+.modal{ border-radius:var(--r-lg); box-shadow:var(--sombra-lg) }
 
-/* Cabeçalhos sem gradiente. O contraste vem da cor chapada e da borda. */
+/* O cartão sobe um degrau quando o dedo passa. Sem mover — mover cartão de
+   lista faz a página inteira parecer instável. */
+.card-servico{ transition:box-shadow .18s ease, border-color .18s ease }
+.card-servico:hover{ box-shadow:var(--sombra-md); border-color:var(--borda-forte) }
+
+/* Cabeçalhos chapados. O contraste vem da cor e da hairline, não de degradê. */
 .cabeca, .pub-topo{
   background:var(--painel) !important; color:var(--txt) !important;
   border-bottom:1px solid var(--borda);
 }
-.cabeca h1{color:var(--txt);font-size:1.0625rem;font-weight:620;letter-spacing:-.015em}
+.cabeca h1{color:var(--txt);font-size:1.2rem}
 .cabeca p, .pub-topo p{color:var(--txt2) !important;opacity:1}
-.pub-topo h3{color:var(--txt);font-size:1.25rem;font-weight:640;letter-spacing:-.02em}
+.pub-topo h3{color:var(--txt);font-size:1.4rem}
 .voltar, .cabeca .voltar{
-  background:var(--painel2) !important; color:var(--txt2) !important;
-  border:1px solid var(--borda);
+  background:var(--painel) !important; color:var(--txt2) !important;
+  border:1px solid var(--borda); box-shadow:var(--sombra-xs);
 }
 .voltar:hover{color:var(--txt) !important;background:var(--n-100) !important}
 [data-tema="escuro"] .voltar:hover{background:var(--painel2) !important}
 .eu{
-  background:var(--painel2) !important; color:var(--txt) !important;
-  border:1px solid var(--borda);
+  background:var(--painel) !important; color:var(--txt) !important;
+  border:1px solid var(--borda); box-shadow:var(--sombra-xs);
 }
 .avatar-salao{
-  background:var(--acao) !important; color:var(--acao-txt) !important;
-  border-radius:var(--r-sm) !important;
+  background:var(--tinta) !important; color:var(--tinta-txt) !important;
+  border-radius:var(--r-sm) !important; box-shadow:var(--sombra-xs);
 }
 
-/* Marca: quadrado sólido, sem degradê. */
+/* A marca do sistema: quadrado de tinta com o ícone em dourado. Dois tons,
+   nenhum degradê — é assim que marca de software se comporta em tamanho
+   pequeno, onde degradê vira borrão. */
 .marca-ic, .logo i{
-  background:var(--acao) !important; color:var(--acao-txt) !important;
+  background:var(--tinta) !important; color:var(--ma-400) !important;
   border-radius:var(--r-sm) !important; font-weight:600 !important;
+  box-shadow:var(--sombra-xs);
 }
 .marca-ic svg, .logo i svg{width:17px;height:17px}
 
 /* ===========================================================================
    BOTÕES
+   Três pesos, e a regra é uma só: um dourado por tela. O segundo dourado
+   rouba o primeiro, e aí nenhum dos dois é o caminho principal.
    =========================================================================== */
 .btn, .b, .bp, .grande, .btn-plano, .b2{
-  border-radius:var(--r-sm); font-weight:550; letter-spacing:-.008em;
-  transition:background .14s ease, border-color .14s ease, color .14s ease;
+  border-radius:var(--r-sm); font-weight:560; letter-spacing:-.004em;
+  transition:background .16s ease, border-color .16s ease,
+             color .16s ease, box-shadow .16s ease;
 }
+
+/* Primário — dourado, com a sombra na cor dele. Sombra neutra sob botão
+   colorido deixa o botão parecendo colado por cima; na cor, ele parece
+   apoiado na página. */
 .btn-primary, .btn-p, .b, .grande{
   background:var(--acao) !important; color:var(--acao-txt) !important;
-  border:1px solid var(--acao) !important; box-shadow:none !important;
-  font-weight:560 !important;
+  border:1px solid var(--acao) !important;
+  box-shadow:var(--sombra-marca) !important;
+  font-weight:580 !important;
 }
 .btn-primary:hover, .btn-p:hover, .b:hover, .grande:hover{
   background:var(--acao-hover) !important; border-color:var(--acao-hover) !important;
 }
+.btn-primary:active, .btn-p:active, .b:active, .grande:active{
+  box-shadow:var(--sombra-xs) !important;
+}
+
+/* Secundário — papel com hairline. É a maioria dos botões do sistema. */
 .btn:not(.btn-primary):not(.btn-p), .b2, .bp, .btn-plano{
   background:var(--painel); color:var(--txt);
-  border:1px solid var(--borda);
+  border:1px solid var(--borda); box-shadow:var(--sombra-xs);
 }
 .btn:not(.btn-primary):not(.btn-p):hover, .bp:hover, .btn-plano:hover{
-  background:var(--n-100); border-color:var(--n-300); color:var(--txt);
+  background:var(--n-100); border-color:var(--borda-forte); color:var(--txt);
+  box-shadow:var(--sombra);
 }
 [data-tema="escuro"] .btn:not(.btn-primary):not(.btn-p):hover,
 [data-tema="escuro"] .bp:hover, [data-tema="escuro"] .btn-plano:hover{
-  background:var(--painel2); border-color:var(--n-600);
+  background:var(--painel2); border-color:var(--borda-forte);
 }
-/* Botão desligado: em vez de baixar a opacidade do preto — que vira um bloco
-   cinza pesado, mais chamativo que o conteúdo — ele fica chapado e sem peso,
-   dizendo "ainda não" sem disputar a atenção. */
+
+/* Desligado: chapado e sem peso. Baixar a opacidade de um botão colorido
+   deixa um bloco lavado que continua chamando mais atenção que o conteúdo. */
 .grande:disabled, .b:disabled, .btn-p:disabled, .btn-primary:disabled{
   background:var(--n-100) !important; color:var(--n-400) !important;
-  border-color:var(--n-200) !important; opacity:1 !important; box-shadow:none !important;
+  border-color:var(--n-200) !important; opacity:1 !important;
+  box-shadow:none !important;
 }
 [data-tema="escuro"] .grande:disabled, [data-tema="escuro"] .b:disabled,
 [data-tema="escuro"] .btn-p:disabled{
@@ -184,22 +464,35 @@ td, .tabela td, .hslot, .horas button{ font-variant-numeric:tabular-nums }
    já separa ele do resto sem parecer promoção de site. */
 .espera{
   background:var(--wa-soft) !important; color:var(--txt) !important;
-  border:1px solid rgba(180,83,9,.35) !important; box-shadow:none !important;
+  border:1px solid var(--wa-500) !important; box-shadow:none !important;
   border-radius:var(--r) !important; font-weight:580 !important;
 }
 .espera small{color:var(--txt2) !important;opacity:1 !important;font-weight:450 !important}
 
 /* ===========================================================================
-   SELEÇÃO E FOCO — onde a cor de destaque trabalha
+   SELEÇÃO E FOCO
+   ---------------------------------------------------------------------------
+   Com o dourado virando a cor de AÇÃO, a seleção não pode ser dourada também.
+   Se o dia escolhido, a hora escolhida e o botão "continuar" forem todos da
+   mesma cor, a tela perde a hierarquia: não dá para saber onde clicar.
+
+   Então são dois papéis, e cada um tem sua cor:
+     dourado  o que fazer  — um por tela, o caminho principal
+     tinta    o que já foi escolhido — forte, mas sem convidar ao clique
+   O dourado sobra para os detalhes: aba ativa, rótulo de seção, o anel de
+   foco, o ícone da marca.
    =========================================================================== */
 .opcao.sel, .hora.sel, .dia.sel, .segmento button.sel, .regua button.on,
-.ciclo button.on, .plano.pop{
-  border-color:var(--ac-600) !important;
+.ciclo button.on{
+  border-color:var(--tinta) !important;
 }
-.opcao.sel{background:var(--ac-soft) !important}
+.opcao.sel{
+  background:var(--painel) !important;
+  box-shadow:0 0 0 1px var(--tinta), var(--sombra) !important;
+}
 .hora.sel, .dia.sel, .segmento button.sel, .regua button.on,
 .opcao.sel .marca{
-  background:var(--ac-600) !important; color:#fff !important;
+  background:var(--tinta) !important; color:var(--tinta-txt) !important;
 }
 /* O seletor mensal/anual é um controle segmentado, não uma escolha de peso:
    a metade ativa sobe como uma ficha clara, do jeito que o sistema desenha
@@ -209,7 +502,7 @@ td, .tabela td, .hslot, .horas button{ font-variant-numeric:tabular-nums }
   background:var(--painel) !important; color:var(--txt) !important;
   box-shadow:var(--sombra) !important; border-color:transparent !important;
 }
-.dia.sel small, .dia.sel i{color:rgba(255,255,255,.82) !important}
+.dia.sel small, .dia.sel i{color:var(--tinta-txt) !important;opacity:.72}
 /* A régua de planos é a mesma nas duas telas: o cadastro e o app do salão. */
 .regua{display:flex;gap:7px;flex-wrap:wrap}
 .regua button{
@@ -218,7 +511,9 @@ td, .tabela td, .hslot, .horas button{ font-variant-numeric:tabular-nums }
   font-weight:560;font-size:15px;font-variant-numeric:tabular-nums;transition:.15s;
 }
 .regua button:hover{border-color:var(--n-300);color:var(--txt)}
-.regua button.on{box-shadow:0 0 0 3px var(--ac-soft) !important}
+/* Anel dourado em volta da ficha de tinta: o detalhe que amarra as duas
+   cores sem colocá-las para brigar. */
+.regua button.on{box-shadow:0 0 0 3px var(--ma-soft) !important}
 /* O plano em destaque é uma recomendação da casa, não uma escolha já feita:
    ele usa a cor de ação (a mesma do botão), e não o verde de seleção — senão
    a tela mostra dois planos "escolhidos", o marcado e o recomendado. */
@@ -245,7 +540,7 @@ input, select, textarea, .busca, .entrada input, .entrada select, .campo input{
   border-radius:var(--r-sm) !important; background:var(--painel2) !important;
   border:1px solid var(--borda) !important;
 }
-input.bom{border-color:rgba(21,128,61,.5) !important}
+input.bom{border-color:var(--su-500) !important}
 input.ruim, select.ruim{border-color:var(--er-500) !important}
 
 /* ===========================================================================
@@ -265,18 +560,18 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
   color:var(--txt) !important;
 }
 .aviso.ok, .aviso.verde, .recado.ok, .garantia{
-  background:var(--su-soft) !important; border-color:rgba(21,128,61,.3) !important;
+  background:var(--su-soft) !important; border-color:var(--su-500) !important;
   color:var(--txt) !important; border-left-color:var(--su-500) !important;
 }
 .aviso.verde b, .garantia b{color:var(--su-500) !important}
 .aviso.ruim, .recado.erro{
-  background:var(--er-soft) !important; border-color:rgba(180,35,24,.32) !important;
+  background:var(--er-soft) !important; border-color:var(--er-500) !important;
   color:var(--txt) !important; border-left:3px solid var(--er-500) !important;
 }
 .aviso.ruim b, .recado.erro b{color:var(--er-500) !important}
 /* Chegar no limite do plano é atenção, não informação nem erro: âmbar. */
 .aviso.atencao{
-  background:var(--wa-soft) !important; border-color:rgba(180,83,9,.28) !important;
+  background:var(--wa-soft) !important; border-color:var(--wa-500) !important;
   border-left:3px solid var(--wa-500) !important; color:var(--txt) !important;
 }
 .aviso.atencao b{color:var(--wa-500) !important}
@@ -307,7 +602,7 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 .card p, .caixa p, .bloco p, .sub, .ajuda, .sob-botao, .proximos p{
   max-width:74ch;
 }
-.na-fila{background:var(--wa-soft) !important;border-color:rgba(180,83,9,.3) !important}
+.na-fila{background:var(--wa-soft) !important;border-color:var(--wa-500) !important}
 .simul{background:var(--painel2) !important;border-style:dashed !important}
 
 /* ===========================================================================
@@ -368,7 +663,12 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 
 /* Abas: sublinhado fino, sem pílula. */
 .aba{font-weight:520;font-size:13.5px;letter-spacing:-.006em}
-.aba.on{color:var(--txt);border-bottom-color:var(--acao);font-weight:580}
+/* A aba ativa é o único lugar em que o dourado aparece como linha. Uma
+   régua de 2px pesa mais que 1px sem virar barra colorida. */
+.aba.on{
+  color:var(--txt); border-bottom:2px solid var(--ma-500) !important;
+  font-weight:600;
+}
 
 /* Trilha de passos: barra, não bolinha. */
 .bolas i{width:26px;height:3px;border-radius:2px;background:var(--borda)}
@@ -457,6 +757,29 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
 /* A bolinha do profissional aceita foto sem virar outra coisa. */
 .opcao .ic img{ width:100%; height:100%; object-fit:cover; display:block }
 .opcao .ic{ overflow:hidden }
+
+/* ── Formulário de cadastro ──────────────────────────────────────────── */
+.secao{
+  font-size:.95rem; font-weight:620; letter-spacing:-.012em; margin-bottom:2px;
+}
+.secao-sub{ font-size:13px; color:var(--txt2); margin:0 0 16px; max-width:60ch }
+.dupla{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px }
+.tripla{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px }
+@media (max-width:640px){
+  .dupla, .tripla{ grid-template-columns:1fr }
+}
+.campo input:disabled, .campo select:disabled{
+  background:var(--painel2) !important; color:var(--txt2) !important;
+  cursor:not-allowed;
+}
+.card-acoes{ display:flex; align-items:center; gap:12px; margin-top:18px; flex-wrap:wrap }
+/* "Salvo" no lugar onde o dedo estava. Alerta modal para confirmar salvamento
+   é a forma mais rápida de fazer alguém odiar um formulário. */
+.salvou{
+  font-size:13px; font-weight:600; color:var(--su-500);
+  opacity:0; transition:opacity .2s ease;
+}
+.salvou:not(:empty){ opacity:1 }
 
 /* ── Escolher imagem, no app do dono ────────────────────────────────── */
 .foto-linha{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap }
