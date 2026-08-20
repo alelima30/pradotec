@@ -31,3 +31,44 @@ begin
 exception when others then
   return true;
 end $$;
+
+-- Asserção booleana. `t_igual` só serve para número, e escrever
+-- `count(*) = 1` para conferir uma condição deixa o teste ilegível.
+create or replace function t_verdade(msg text, cond boolean) returns void
+language plpgsql as $$
+begin
+  if cond then perform t_ok(msg);
+  else perform t_falha(format('%s — esperava verdadeiro', msg));
+  end if;
+end $$;
+
+create or replace function t_falso(msg text, cond boolean) returns void
+language plpgsql as $$
+begin
+  if not cond then perform t_ok(msg);
+  else perform t_falha(format('%s — esperava falso', msg));
+  end if;
+end $$;
+
+-- Igualdade de texto. Usada para conferir a MENSAGEM da recusa, não só que
+-- houve recusa: `recusado()` fica verde tanto quando a regra barrou quanto
+-- quando o SQL do próprio teste tinha um erro de digitação.
+create or replace function t_texto(msg text, obtido text, esperado text)
+returns void language plpgsql as $$
+begin
+  if obtido is not distinct from esperado then perform t_ok(msg);
+  else perform t_falha(format('%s — esperava «%s», veio «%s»',
+                              msg, coalesce(esperado,'null'), coalesce(obtido,'null')));
+  end if;
+end $$;
+
+-- Roda um comando e devolve a MENSAGEM do erro (null se passou). É o
+-- `recusado()` com olhos: prova que barrou pelo motivo certo.
+create or replace function erro_de(sql text) returns text
+language plpgsql as $$
+begin
+  execute sql;
+  return null;
+exception when others then
+  return sqlerrm;
+end $$;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Junta 01 + 02 + 03 + 04 no 00_tudo.sql, que é o arquivo para colar de uma vez
+# Junta 01 + 02 + 03 + 04 + 05 no 00_tudo.sql, que é o arquivo para colar de uma vez
 # no SQL Editor do Supabase. Rode isto sempre que mexer em algum deles.
 set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,7 +10,8 @@ cat > "$SAIDA" <<'CAB'
 -- AgendaPro — INSTALAÇÃO COMPLETA
 --
 -- Cole ESTE arquivo inteiro no SQL Editor do Supabase e clique em Run.
--- É a junção de 01_schema.sql + 02_rls.sql + 03_onboarding.sql + 04_imagens.sql,
+-- É a junção de 01_schema.sql + 02_rls.sql + 03_onboarding.sql + 04_imagens.sql
+-- + 05_agenda.sql,
 -- nesta ordem.
 --
 -- Pode rodar mais de uma vez sem medo: tudo aqui é 'create if not exists',
@@ -23,7 +24,7 @@ cat > "$SAIDA" <<'CAB'
 
 CAB
 
-for f in 01_schema.sql 02_rls.sql 03_onboarding.sql 04_imagens.sql; do
+for f in 01_schema.sql 02_rls.sql 03_onboarding.sql 04_imagens.sql 05_agenda.sql; do
   {
     echo ''
     echo '-- ###########################################################################'
