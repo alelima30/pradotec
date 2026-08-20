@@ -379,7 +379,7 @@ input.bom{border-color:rgba(21,128,61,.5)!important}
           </select></div>
       </div>
 
-      <button class="grande" onclick="criarConta()">Criar minha agenda</button>
+      <button class="grande" id="btCriar" onclick="criarConta()">Criar minha agenda</button>
       <p class="sob-botao">Pronto em 2 minutos · Você escolhe o plano depois,
         dentro do sistema</p>
     </div>
@@ -767,7 +767,20 @@ async function criarConta(){
   // de dono e o primeiro profissional numa transação só. Meia criação
   // deixaria um salão sem dono, que ninguém alcança nem para apagar.
   if(window.Dados && Dados.ligado){
-    const bt = document.querySelector('button.grande');
+    /* ── O BOTÃO QUE ESPERA TEM QUE SER O BOTÃO QUE FOI APERTADO ──────────
+       Aqui estava `document.querySelector('button.grande')`, que devolve o
+       PRIMEIRO da página — e o primeiro é o "Continuar" do passo 1, que
+       continua no DOM, só escondido. Resultado: quem ficava desabilitado e
+       escrito "Criando…" era um botão que ninguém estava vendo, enquanto o
+       "Criar minha agenda" seguia aceso e clicável.
+
+       Medido na bancada com 1,2 s de rede: 400 ms depois do clique o botão
+       visível ainda dizia "Criar minha agenda", habilitado. Do lado de cá da
+       tela isso tem um nome só — "o botão não vai" — e leva ao segundo
+       clique, que dispara um segundo cadastro do mesmo e-mail.
+
+       Pelo id não há primeiro nem segundo: é este. */
+    const bt = document.getElementById('btCriar');
     const rotulo = bt.textContent;
     bt.disabled = true; bt.textContent = 'Criando…';
     try{

@@ -548,6 +548,25 @@ create or replace view public.profissionais_publicos as
 -- mesmo num projeto criado por outra pessoa.
 -- ---------------------------------------------------------------------------
 
+-- ⚠ ESTA LINHA TEM ALCANCE MAIOR QUE ESTE ARQUIVO ⚠
+--
+-- `all tables` inclui as VISTAS, e algumas delas são liberadas mais adiante,
+-- por OUTROS arquivos: o 03 dá `select` em `minha_assinatura` para quem fez
+-- login, e o 06 decide o que acontece com as três vistas públicas. Na
+-- instalação completa a ordem resolve — 02 zera, 03 e 06 devolvem o que deve
+-- ser devolvido.
+--
+-- O que NÃO funciona é reaplicar só este arquivo depois, que é a coisa mais
+-- natural do mundo quando se quer reforçar a segurança. Ele zera e ninguém
+-- devolve nada: todo dono de salão logado perde `minha_assinatura` e o painel
+-- do plano passa a responder "permission denied for view minha_assinatura".
+-- Aconteceu numa bancada aqui, e o erro não fala em permissão revogada — fala
+-- como se a tela estivesse errada.
+--
+-- Então a regra é: para reaplicar segurança, cole o 00_tudo.sql inteiro. Ele
+-- é idempotente de ponta a ponta e existe exatamente para isso. Se precisar
+-- conferir se um banco ficou meio aplicado, tests/conferir_instalacao.sql tem
+-- um item só para isso.
 revoke all on all tables in schema public from anon, authenticated;
 
 -- E as tabelas que ainda não existem. `alter default privileges` sem `for
@@ -557,18 +576,36 @@ revoke all on all tables in schema public from anon, authenticated;
 alter default privileges in schema public
   revoke all on tables from anon, authenticated;
 
--- Agora sim, o que cada um recebe de volta.
-grant select on public.saloes_publicos        to anon, authenticated;
-grant select on public.servicos_publicos      to anon, authenticated;
-grant select on public.profissionais_publicos to anon, authenticated;
+-- ---------------------------------------------------------------------------
+-- AS VISTAS PÚBLICAS NÃO RECEBEM NADA AQUI
+--
+-- Até pouco tempo estas três linhas existiam:
+--
+--   grant select on public.saloes_publicos        to anon, authenticated;
+--   grant select on public.servicos_publicos      to anon, authenticated;
+--   grant select on public.profissionais_publicos to anon, authenticated;
+--
+-- O 06_vitrine.sql desfaz as três, porque um `GET /rest/v1/saloes_publicos`
+-- devolvia a plataforma inteira — nome, endereço e WhatsApp de todo salão
+-- cliente. Como o 06 roda depois, na instalação completa o resultado ficava
+-- certo, e por isso a contradição passava despercebida.
+--
+-- Só que "certo porque roda na ordem" não sobrevive ao dia em que alguém abre
+-- o SQL Editor e reaplica ESTE arquivo sozinho — que é a coisa mais natural
+-- do mundo quando se quer reforçar a segurança. Medido: `anon` volta a ter
+-- select em `saloes_publicos`, e o catálogo reabre em silêncio.
+--
+-- Dois arquivos mandando no mesmo grant é um bug esperando a ordem mudar.
+-- Quem manda nas vistas públicas é o 06, sozinho.
+-- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
 -- 11) PERMISSÕES DE TABELA
 --
 -- O RLS filtra LINHA; o grant decide se a pessoa chega na TABELA. Precisa dos
--- dois. `anon` não recebe nada: quem não fez login só enxerga as vistas acima.
--- A zeragem que garante esse "nada" está mais acima, antes dos grants das
--- vistas — se estivesse aqui, apagaria os três.
+-- dois. `anon` quase não recebe nada: quem não fez login enxerga a lista de
+-- planos (a página de preços precisa dela) e chega no salão pela função
+-- `vitrine()` do 06, que pede o apelido. Nada além disso.
 -- ---------------------------------------------------------------------------
 
 grant usage on schema public to anon, authenticated;

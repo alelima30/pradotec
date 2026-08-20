@@ -2,9 +2,21 @@
 -- AgendaPro — INSTALAÇÃO COMPLETA
 --
 -- Cole ESTE arquivo inteiro no SQL Editor do Supabase e clique em Run.
--- É a junção de 01_schema.sql + 02_rls.sql + 03_onboarding.sql + 04_imagens.sql
--- + 05_agenda.sql,
--- nesta ordem.
+--
+-- É a junção, nesta ordem, de:
+--   01_schema.sql      as tabelas
+--   02_rls.sql         quem enxerga o quê
+--   03_onboarding.sql  criar_salao(), o cadastro em uma transação
+--   04_imagens.sql     as pastas de foto, uma por salão
+--   05_agenda.sql      horarios_livres() e agendar(), o lado da cliente
+--   06_vitrine.sql     vitrine(), e o catálogo fechado para quem não tem o link
+--   07_plataforma.sql  o painel de quem é dono do AgendaPro
+--   08_conta.sql       o perfil que nasce junto com a conta
+--
+-- A ORDEM IMPORTA, e não é só arrumação: o 02 fecha o balcão que o Supabase
+-- abre sozinho em toda tabela e vista nova, e só consegue fechar o que o 01
+-- já criou. Rodar os arquivos avulsos e fora de ordem monta um banco
+-- diferente deste. Na dúvida, cole este aqui inteiro.
 --
 -- Pode rodar mais de uma vez sem medo: tudo aqui é 'create if not exists',
 -- 'create or replace' ou 'drop policy if exists' antes de criar.
@@ -1478,18 +1490,36 @@ revoke all on all tables in schema public from anon, authenticated;
 alter default privileges in schema public
   revoke all on tables from anon, authenticated;
 
--- Agora sim, o que cada um recebe de volta.
-grant select on public.saloes_publicos        to anon, authenticated;
-grant select on public.servicos_publicos      to anon, authenticated;
-grant select on public.profissionais_publicos to anon, authenticated;
+-- ---------------------------------------------------------------------------
+-- AS VISTAS PÚBLICAS NÃO RECEBEM NADA AQUI
+--
+-- Até pouco tempo estas três linhas existiam:
+--
+--   grant select on public.saloes_publicos        to anon, authenticated;
+--   grant select on public.servicos_publicos      to anon, authenticated;
+--   grant select on public.profissionais_publicos to anon, authenticated;
+--
+-- O 06_vitrine.sql desfaz as três, porque um `GET /rest/v1/saloes_publicos`
+-- devolvia a plataforma inteira — nome, endereço e WhatsApp de todo salão
+-- cliente. Como o 06 roda depois, na instalação completa o resultado ficava
+-- certo, e por isso a contradição passava despercebida.
+--
+-- Só que "certo porque roda na ordem" não sobrevive ao dia em que alguém abre
+-- o SQL Editor e reaplica ESTE arquivo sozinho — que é a coisa mais natural
+-- do mundo quando se quer reforçar a segurança. Medido: `anon` volta a ter
+-- select em `saloes_publicos`, e o catálogo reabre em silêncio.
+--
+-- Dois arquivos mandando no mesmo grant é um bug esperando a ordem mudar.
+-- Quem manda nas vistas públicas é o 06, sozinho.
+-- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
 -- 11) PERMISSÕES DE TABELA
 --
 -- O RLS filtra LINHA; o grant decide se a pessoa chega na TABELA. Precisa dos
--- dois. `anon` não recebe nada: quem não fez login só enxerga as vistas acima.
--- A zeragem que garante esse "nada" está mais acima, antes dos grants das
--- vistas — se estivesse aqui, apagaria os três.
+-- dois. `anon` quase não recebe nada: quem não fez login enxerga a lista de
+-- planos (a página de preços precisa dela) e chega no salão pela função
+-- `vitrine()` do 06, que pede o apelido. Nada além disso.
 -- ---------------------------------------------------------------------------
 
 grant usage on schema public to anon, authenticated;

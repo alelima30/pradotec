@@ -459,13 +459,45 @@ async function baixar(salaoId){
   const bd = {};
   for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)){
     try{
-      // `saloes`, `planos` e `perfis` não têm salao_id; as outras filtram.
-      const filtro = (['saloes','planos','perfis','vinculos'].includes(t) || !salaoId)
-        ? {} : { salaoId };
+      /* ── QUEM PODE SER FILTRADA POR SALÃO ────────────────────────────────
+         Aqui havia uma lista escrita à mão — `['saloes','planos','perfis',
+         'vinculos']` — com as tabelas que não têm `salao_id`. A lista estava
+         incompleta, e faltavam quatro: `jornadas`, `servicos_profissionais`,
+         `comanda_itens` e `pagamentos`.
+
+         Nessas quatro o filtro saía como `salaoId=eq.…`, o PostgREST punha em
+         minúsculas, procurava a coluna `salaoid`, não achava e devolvia 400.
+         O `catch` logo abaixo engolia o 400 e devolvia lista vazia — então o
+         painel na nuvem abria sem jornada de trabalho (agenda sem horário
+         livre nenhum), sem o vínculo serviço↔profissional, e com o Caixa
+         zerado: item de comanda e pagamento são o histórico de dinheiro do
+         salão, e ele simplesmente não chegava na tela. Nenhum teste pegou
+         porque todos abrem o painel em `?demo=1`, e no navegador o campo se
+         chama `salaoId` mesmo.
+
+         Lista escrita à mão envelhece calada. O mapa COLUNAS já sabe quem tem
+         `salao_id` — e é conferido contra o schema de verdade pelo
+         colunas.test.js. Perguntando a ele, tabela nova entra certa sozinha.
+
+         `vinculos` fica de fora de propósito, mesmo tendo a coluna: é por ela
+         que se descobre a QUAIS salões a pessoa pertence. Filtrar pelo salão
+         atual esconderia os outros dela. */
+      const temSalao = t !== 'vinculos' && !!(COLUNAS[t] && COLUNAS[t].salaoId);
+      const filtro = (salaoId && temSalao) ? { salaoId } : {};
       bd[t] = await Dados.lista(t, filtro);
     }catch(e){
-      // Tabela que esta pessoa não alcança não é erro: é o RLS funcionando.
-      console.info('[dados] sem acesso a "' + t + '": ' + e.message);
+      /* Tabela que esta pessoa não alcança não é erro: é o RLS funcionando, e
+         seguir com lista vazia é o certo. Mas "não alcança" e "a pergunta
+         estava malfeita" chegavam aqui com a mesma cara, e foi assim que os
+         400 acima passaram anos parecendo permissão. Agora o segundo caso
+         grita — porque ele é defeito nosso, e some se ninguém olhar. */
+      const cru = String(e.message || '');
+      if(/does not exist|malformed|invalid input|400/i.test(cru)){
+        console.error('[dados] pergunta malfeita para "' + t + '" — isto é '
+          + 'defeito do código, não permissão: ' + cru);
+      } else {
+        console.info('[dados] sem acesso a "' + t + '": ' + cru);
+      }
       bd[t] = [];
     }
   }

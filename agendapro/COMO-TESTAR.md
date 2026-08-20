@@ -111,16 +111,38 @@ juntos, numa transação só.
 
 Precisa de Postgres e Node na máquina.
 
+São dez suítes. Um comando roda todas:
+
 ```bash
-# 1) O banco: regras, isolamento, travas — 90 verificações
+# num terminal, os dois servidores
+python3 -m http.server 8099 --directory .
+bash tests/bancada/subir.sh
+
+# noutro, a suíte inteira
+bash tests/tudo.sh
+```
+
+Ele acha o Playwright sozinho e **reprova quem não roda**, com o mesmo peso de
+quem falha. Isso não é preciosismo: as suítes de navegador pediam uma variável
+`PLAYWRIGHT=` cujo valor certo não estava escrito em canto nenhum, e com o
+caminho errado o Node cospe um rastro de pilha e sai. Cinco suítes já deixaram
+de rodar aqui sem nenhum ✗ na tela — que é exatamente a cara de tudo passando.
+
+Para rodar uma de cada vez:
+
+```bash
+# O banco: regras, isolamento, travas
 bash tests/rodar.sh
 
-# 2) O mapa de colunas bate com o schema — 96 verificações
+# O mapa de colunas bate com o schema — 96 verificações
 node tests/colunas.test.js
 
-# 3) A camada de dados contra um Postgres de verdade — 33 verificações
+# A camada de dados contra um Postgres de verdade — 35 verificações
 bash tests/bancada/subir.sh      # num terminal
 node tests/nuvem.test.mjs        # noutro
+
+# O funil inteiro na nuvem: cadastrar, sair, voltar e entrar — 13 verificações
+node tests/funil-nuvem.test.mjs
 ```
 
 A **bancada** (`tests/bancada/`) é um PostgREST caseiro apontando para um

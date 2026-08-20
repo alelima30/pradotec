@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# ===========================================================================
+# AgendaPro — roda TUDO, de uma vez
+#
+#   bash tests/tudo.sh
+#
+# ── POR QUE ISTO EXISTE ────────────────────────────────────────────────────
+# Antes eram nove comandos diferentes, um por suíte, e cinco deles pediam uma
+# variável `PLAYWRIGHT=` cujo valor certo não estava escrito em lugar nenhum —
+# o cabeçalho dos arquivos diz `.../node_modules/playwright`, que é reticência,
+# não caminho.
+#
+# Com o caminho errado o Node não avisa que a suíte não rodou: ele cospe um
+# rastro de pilha e sai. Rodando as suítes em sequência e batendo o olho, o que
+# se vê é uma tela sem nenhum ✗ — que é exatamente a cara de tudo passando.
+# Aconteceu comigo: cinco suítes não rodaram e o placar parecia limpo.
+#
+# Então aqui a regra é outra: quem não roda REPROVA, com o mesmo peso de quem
+# falha. Suíte que não rodou não é suíte verde; é suíte sem notícia.
+# ===========================================================================
+set -uo pipefail
+
+AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RAIZ="$(dirname "$AQUI")"
+cd "$RAIZ"
+
+# ── Achar o Playwright sozinho ─────────────────────────────────────────────
+# Pedir o caminho para quem roda o teste é transferir para a pessoa um problema
+# que o script resolve em três tentativas.
+if [ -z "${PLAYWRIGHT:-}" ]; then
+  for tentativa in \
+    "$AQUI/bancada/node_modules/playwright" \
+    "$RAIZ/node_modules/playwright" \
+    "$(npm root -g 2>/dev/null)/playwright"
+  do
+    [ -d "$tentativa" ] && { PLAYWRIGHT="$tentativa"; break; }
+  done
+fi
+if [ -z "${PLAYWRIGHT:-}" ]; then
+  echo "✗ Não achei o Playwright. Instale com 'npm i -g playwright' ou aponte:"
+  echo "    PLAYWRIGHT=/caminho/para/node_modules/playwright bash tests/tudo.sh"
+  exit 1
+fi
+export PLAYWRIGHT
+export CHROMIUM="${CHROMIUM:-/opt/pw-browsers/chromium}"
+
+ESTATICO="${ESTATICO:-http://127.0.0.1:8099}"
+BANCADA="${BANCADA:-http://127.0.0.1:8123}"
+export BASE="${BASE:-$ESTATICO/}"
+export BANCADA
+
+no_ar() { curl -s -o /dev/null --max-time 2 "$1" 2>/dev/null; }
+
+echo "▸ Playwright: $PLAYWRIGHT"
+no_ar "$ESTATICO/criar.html" \
+  || { echo "✗ Nada servindo em $ESTATICO — rode:  python3 -m http.server 8099 --directory ."; exit 1; }
+no_ar "$BANCADA/" \
+  || { echo "✗ A bancada não está de pé em $BANCADA — rode:  bash tests/bancada/subir.sh"; exit 1; }
+
+falhou=0
+reprovadas=()
+
+rodar() {
+  local nome="$1"; shift
+  echo ""
+  echo "▸ $nome"
+  local saida
+  saida="$("$@" 2>&1)"
+  local codigo=$?
+  # Só as duas últimas linhas: o placar. O detalhe fica para quem reprova.
+  echo "$saida" | tail -2
+  if [ $codigo -ne 0 ]; then
+    # Se saiu por erro sem ter falhado teste — módulo faltando, bancada caída —
+    # o rastro inteiro importa, porque ninguém adivinha isso pelo placar.
+    echo "$saida" | grep -q "falharam" || { echo "   ── não chegou a rodar ──"; echo "$saida" | tail -12; }
+    falhou=1; reprovadas+=("$nome")
+  fi
+}
+
+rodar "banco (SQL)"        bash "$AQUI/rodar.sh"
+rodar "colunas"            node "$AQUI/colunas.test.js"
+rodar "nuvem"              node "$AQUI/nuvem.test.mjs"
+rodar "cota"               node "$AQUI/cota.test.mjs"
+rodar "funil na nuvem"     node "$AQUI/funil-nuvem.test.mjs"
+rodar "cadastro"           node "$AQUI/cadastro.test.mjs"
+rodar "abertura"           node "$AQUI/abertura.test.mjs"
+rodar "celular"            node "$AQUI/celular.test.mjs"
+rodar "imagens"            node "$AQUI/imagens.test.mjs"
+rodar "plataforma"         node "$AQUI/plataforma.test.mjs"
+
+echo ""
+if [ "$falhou" -eq 0 ]; then
+  echo "✓ Tudo passou — as 10 suítes."
+else
+  echo "✗ Reprovaram: ${reprovadas[*]}"
+  echo "  Nada deve ser publicado assim."
+  exit 1
+fi

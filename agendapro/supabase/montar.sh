@@ -10,9 +10,21 @@ cat > "$SAIDA" <<'CAB'
 -- AgendaPro — INSTALAÇÃO COMPLETA
 --
 -- Cole ESTE arquivo inteiro no SQL Editor do Supabase e clique em Run.
--- É a junção de 01_schema.sql + 02_rls.sql + 03_onboarding.sql + 04_imagens.sql
--- + 05_agenda.sql,
--- nesta ordem.
+--
+-- É a junção, nesta ordem, de:
+--   01_schema.sql      as tabelas
+--   02_rls.sql         quem enxerga o quê
+--   03_onboarding.sql  criar_salao(), o cadastro em uma transação
+--   04_imagens.sql     as pastas de foto, uma por salão
+--   05_agenda.sql      horarios_livres() e agendar(), o lado da cliente
+--   06_vitrine.sql     vitrine(), e o catálogo fechado para quem não tem o link
+--   07_plataforma.sql  o painel de quem é dono do AgendaPro
+--   08_conta.sql       o perfil que nasce junto com a conta
+--
+-- A ORDEM IMPORTA, e não é só arrumação: o 02 fecha o balcão que o Supabase
+-- abre sozinho em toda tabela e vista nova, e só consegue fechar o que o 01
+-- já criou. Rodar os arquivos avulsos e fora de ordem monta um banco
+-- diferente deste. Na dúvida, cole este aqui inteiro.
 --
 -- Pode rodar mais de uma vez sem medo: tudo aqui é 'create if not exists',
 -- 'create or replace' ou 'drop policy if exists' antes de criar.

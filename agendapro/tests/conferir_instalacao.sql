@@ -120,6 +120,34 @@ anon_em_tabela as (
      and table_name <> 'planos'
 ),
 
+-- 7b) O BANCO MEIO APLICADO
+--
+--     O 02_rls.sql começa com `revoke all on all tables`, e `all tables`
+--     inclui vistas. Os arquivos seguintes devolvem o que deve ser devolvido —
+--     o 03 dá `minha_assinatura` para quem fez login. Instalação completa,
+--     ordem certa, tudo no lugar.
+--
+--     Mas quem reaplica só o 02 — o que é natural querendo reforçar a
+--     segurança — zera sem ninguém devolver. O sintoma que chega é
+--     "permission denied for view minha_assinatura" no painel do plano, uma
+--     frase que parece defeito da tela e não fala em permissão perdida.
+--
+--     Daí este item: ele não pergunta se a segurança está apertada, pergunta
+--     se ela ficou apertada DEMAIS por meia aplicação. A cura é colar o
+--     00_tudo.sql inteiro.
+concessoes(nome, papel) as (
+  values ('minha_assinatura','authenticated'),
+         ('comandas_totais', 'authenticated'),
+         ('planos',          'anon')
+),
+concessao_faltando as (
+  select c.nome from concessoes c
+   where not exists (
+     select 1 from information_schema.role_table_grants g
+      where g.table_schema = 'public' and g.table_name = c.nome
+        and g.grantee = c.papel and g.privilege_type = 'SELECT')
+),
+
 -- 8) O par de gatilhos que impede marcar em cima de um bloqueio (almoço,
 --    médico, feriado). A trava EXCLUDE não alcança: são duas tabelas.
 balde as (
@@ -269,4 +297,11 @@ select * from (
          case when (select n from pol_img) = 4 then 'ok'
               else 'só ' || (select n from pol_img) || ' de 4 — um salão pode '
                    || 'trocar a imagem do outro' end
+
+  union all select 15,
+         case when (select count(*) from concessao_faltando) = 0 then '✓' else '✗' end,
+         'Quem fez login continua alcançando o que é dele',
+         coalesce((select string_agg(nome, ', ') from concessao_faltando)
+                  || ' sem select — o banco ficou meio aplicado; cole o '
+                  || '00_tudo.sql inteiro de novo', 'ok')
 ) r order by ord;
