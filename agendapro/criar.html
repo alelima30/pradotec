@@ -181,10 +181,18 @@ h2{margin-bottom:6px}
 input.ruim,select.ruim{border-color:var(--er-500)!important}
 input.bom{border-color:rgba(21,128,61,.5)!important}
 
-.forca{display:flex;gap:4px;margin-top:8px}
+.forca{display:flex;gap:4px;margin-top:8px;align-items:center}
 .forca i{height:3px;flex:1;border-radius:99px;background:var(--borda);transition:.2s}
 .forca i.n1{background:var(--er-500)} .forca i.n2{background:var(--wa-500)}
 .forca i.n3{background:var(--su-500)}
+/* O medidor precisa DIZER o que mede. Três barras mudas viram enigma: a
+   pessoa não sabe se está sendo avaliada ou barrada — e aqui ela nunca é
+   barrada por isto, só por tamanho. `min-width` para o texto trocar de
+   palavra sem as barras pularem de largura. */
+.forca span{font-size:11.5px;font-weight:600;color:var(--txt3);
+            min-width:8ch;text-align:right;flex:none}
+.forca span.n1{color:var(--er-500)} .forca span.n2{color:var(--wa-500)}
+.forca span.n3{color:var(--su-500)}
 
 .previa-link{
   margin-top:8px;padding:10px 12px;border-radius:var(--r-sm);background:var(--painel2);
@@ -268,7 +276,7 @@ input.bom{border-color:rgba(21,128,61,.5)!important}
       <div class="campo">
         <label for="fNome">Seu nome <em>*</em></label>
         <div class="entrada"><span class="ic" data-ico="usuario"></span>
-          <input id="fNome" placeholder="Como você quer ser chamado"
+          <input id="fNome" placeholder="Nome e sobrenome"
                  autocomplete="name" oninput="validarCampo('fNome')"></div>
         <div class="erro-campo" id="e-fNome" style="display:none"></div>
       </div>
@@ -290,7 +298,8 @@ input.bom{border-color:rgba(21,128,61,.5)!important}
                  oninput="forcaSenha(this.value);validarCampo('fSenha')">
           <button class="olho" onclick="verSenha('fSenha')" type="button"
                   aria-label="Mostrar senha" data-ico="olho"></button></div>
-        <div class="forca"><i id="s1"></i><i id="s2"></i><i id="s3"></i></div>
+        <div class="forca"><i id="s1"></i><i id="s2"></i><i id="s3"></i>
+          <span id="sTexto"></span></div>
         <div class="erro-campo" id="e-fSenha" style="display:none"></div>
       </div>
 
@@ -590,9 +599,16 @@ const REGRAS = {
             ? '' : 'Escreva seu nome e sobrenome.',
   fEmail:  v => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v.trim())
             ? '' : 'Esse email não parece válido.',
-  fSenha:  v => v.length < 8 ? 'A senha precisa de pelo menos 8 caracteres.'
-            : (!/[a-zA-Z]/.test(v) || !/\d/.test(v))
-              ? 'Misture letras e números.' : '',
+  // SÓ tamanho. A versão anterior também exigia um número, e não avisava em
+  // lugar nenhum: o campo dizia "Pelo menos 8 caracteres", a pessoa escrevia
+  // treze letras, o medidor acendia duas barras de três — e o botão recusava.
+  // Medidor dizendo "boa" e porta dizendo "não" é o pior dos dois mundos.
+  //
+  // Exigir número também não protege ninguém. Regra de composição não produz
+  // senha forte, produz "Senha123": a pessoa atende a regra pelo caminho mais
+  // curto, e o caminho mais curto é o que o atacante tenta primeiro. É o que o
+  // NIST recomenda desde 2017 — comprimento importa, composição não.
+  fSenha:  v => v.length < 8 ? 'A senha precisa de pelo menos 8 caracteres.' : '',
   fZap:    v => soDigitos(v).length >= 10 ? '' : 'Faltam dígitos — inclua o DDD.',
   fTipo:   v => v ? '' : 'Escolha o tipo de negócio.',
   fSalao:  v => v.trim().length >= 2 ? '' : 'Dê um nome ao estabelecimento.',
@@ -610,6 +626,11 @@ function validarCampo(id, mostrarVazio){
       const b = document.getElementById('s'+i);
       b.className = (el.value && i <= n) ? 'n' + n : '';
     }
+    // O medidor é CONSELHO, não porta: quem barra é a REGRAS.fSenha, e ela só
+    // olha tamanho. Por isso o texto sugere em vez de exigir.
+    const t = document.getElementById('sTexto');
+    t.textContent = !el.value ? '' : ['curta','fraca','boa','forte'][n];
+    t.className = el.value ? 'n' + n : '';
   }
 
   // Enquanto está vazio e a pessoa ainda não tentou enviar, não acusa nada:
