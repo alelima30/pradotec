@@ -721,6 +721,23 @@ function irNegocio(){
   irPasso(2);
 }
 
+/* ── AVISO QUE A PESSOA VÊ ────────────────────────────────────────────────
+   O recado do passo 2 é desenhado no topo do formulário, e o botão fica no
+   fim — em tela de celular, ou com o navegador rolado, os dois não cabem
+   juntos. O resultado é o pior possível: a pessoa clica, o sistema responde,
+   e ela não vê resposta nenhuma. "O botão não faz nada."
+
+   Nenhum aviso vale a pena se ele aparece fora da vista. `scrollIntoView`
+   custa uma linha e transforma silêncio aparente em explicação.
+   ──────────────────────────────────────────────────────────────────────── */
+function avisar(tipo, titulo, texto){
+  const alvo = document.getElementById('avisoNegocio');
+  alvo.innerHTML = '<div class="aviso ' + tipo + '"><span class="ic">'
+    + ico(tipo === 'ruim' ? 'alerta' : 'info') + '</span>'
+    + '<div><b>' + titulo + '</b>' + texto + '</div></div>';
+  alvo.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 async function criarConta(){
   const campos = ['fSalao','fTipo','fZap'];
   let ok = true, primeiro = null;
@@ -730,9 +747,8 @@ async function criarConta(){
 
   const geral = document.getElementById('avisoNegocio');
   if(!ok){
-    geral.innerHTML = '<div class="aviso ruim"><span class="ic">' + ico('alerta') + '</span>'
-      + '<div><b>Faltou conferir alguns campos</b>'
-      + 'Os que estão em vermelho precisam de ajuste.</div></div>';
+    avisar('ruim', 'Faltou conferir alguns campos',
+           'Os que estão em vermelho precisam de ajuste.');
     document.getElementById(primeiro).focus();
     document.getElementById(primeiro).scrollIntoView({block:'center', behavior:'smooth'});
     return;
@@ -755,9 +771,31 @@ async function criarConta(){
     const rotulo = bt.textContent;
     bt.disabled = true; bt.textContent = 'Criando…';
     try{
-      await Dados.criarConta({ email: document.getElementById('fEmail').value.trim(),
+      const conta = await Dados.criarConta({
+        email: document.getElementById('fEmail').value.trim(),
         senha: document.getElementById('fSenha').value,
         nome, telefone: paraE164(tel) });
+
+      /* ── QUANDO A CONTA NASCE MAS A SESSÃO NÃO ────────────────────────
+         O Supabase pode exigir confirmação por e-mail. Nesse caso o signup
+         devolve a conta SEM `access_token`: a pessoa existe e não está
+         logada. A chamada seguinte, `criar_salao()`, roda como anônima e
+         levanta "Faça login antes de criar o salão" — uma frase que não
+         explica nada para quem acabou de preencher tudo.
+
+         Pior: sem sessão, tentar de novo esbarra em "e-mail já cadastrado".
+         O cadastro fica num beco, com a conta criada e o salão não.
+
+         Então isto é conferido AQUI, com nome próprio, antes de seguir. */
+      if(!(conta && conta.access_token)){
+        avisar('ruim', 'Confirme seu e-mail para terminar',
+          'Sua conta foi criada, mas este projeto exige confirmação por '
+        + 'e-mail antes de entrar. Abra o link que acabamos de enviar e '
+        + 'depois volte em <b>Entrar</b> — o salão você cria lá dentro, '
+        + 'em um passo só.');
+        bt.disabled = false; bt.textContent = rotulo;
+        return;
+      }
 
       const r = await Dados.chamar('criar_salao', {
         p_nome_salao: nomeSalao, p_tipo: tipo, p_slug: slug,

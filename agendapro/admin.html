@@ -191,6 +191,28 @@ function zap(numero){
    ──────────────────────────────────────────────────────────────────────── */
 async function carregar(){
   const corpo = document.getElementById('corpo');
+  /* ── TRÊS RECUSAS DIFERENTES, TRÊS FRASES DIFERENTES ────────────────────
+     A primeira versão tinha duas: "não é da plataforma" e "não consegui
+     carregar". Quem abrisse esta tela SEM TER FEITO LOGIN caía na primeira —
+     e lia que a conta dele não era da plataforma, quando conta nenhuma
+     estava em jogo. A pessoa vai conferir o super_admin, que está certo, e
+     perde a tarde.
+
+     Sem sessão, `Dados.chamar` vai como anônimo, o banco levanta
+     `insufficient_privilege`, e a mensagem é idêntica à de uma conta comum.
+     Só a TELA sabe distinguir — e por isso é ela que precisa perguntar
+     primeiro se há alguém logado. */
+  const temSessao = !!(Dados.sessaoAtual && Dados.sessaoAtual());
+  if(!temSessao){
+    document.getElementById('subtopo').textContent = '';
+    corpo.innerHTML = `<div class="recado"><b>Você não está logado.</b>
+      Esta tela lê o negócio inteiro, então ela precisa saber quem é você
+      antes de mostrar qualquer número.<br><br>
+      <a href="entrar.html" style="color:var(--rx-claro,#B79BF6);font-weight:600">
+      Entrar &rsaquo;</a></div>`;
+    return;
+  }
+
   try{
     painel = await Dados.chamar('painel_plataforma');
     if(Array.isArray(painel)) painel = painel[0];
@@ -201,6 +223,7 @@ async function carregar(){
     const negado = /privilege|permiss|plataforma abre/i.test(e.message || '');
     corpo.innerHTML = negado
       ? `<div class="recado erro"><b>Esta conta não é da plataforma.</b>
+         Você está logado, mas esta conta não tem <code>super_admin</code>.
          O banco recusou, que é o certo — quem decide isso é o
          <code>is_super()</code>, não esta tela.<br><br>
          Para promover uma conta, rode <code>tests/promover_admin.sql</code> no

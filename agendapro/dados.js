@@ -561,6 +561,16 @@ Dados.TABELAS_SINCRONIZADAS = TABELAS_SINCRONIZADAS;
 Dados.enviarImagem = enviarImagem;
 Dados.apagarImagem = apagarImagem;
 
+/* Quem está logado, se é que alguém está. Existe porque uma tela precisa
+   saber a diferença entre "ninguém entrou" e "entrou, mas não pode".
+
+   Sem isto, o admin.html olhava só a recusa do banco — que é a mesma nos dois
+   casos, `insufficient_privilege` — e dizia "esta conta não é da plataforma"
+   para quem não tinha conta nenhuma na jogada. A pessoa vai conferir o
+   super_admin, encontra tudo certo, e perde a tarde procurando o que não
+   está quebrado. */
+Dados.sessaoAtual = () => (sessao && sessao.token) ? sessao : null;
+
 Dados.ligado = LIGADO;
 Dados.ambiente = cfg.ambiente || (LIGADO ? 'nuvem' : 'demonstração');
 Dados.COLUNAS = COLUNAS;      // exposto para o teste de colunas
