@@ -618,3 +618,68 @@ begin;
     else perform t_falha('a vitrine não enxerga as imagens'); end if;
   end $$;
 commit;
+
+\echo ''
+\echo 'A exposição automática do Supabase'
+
+-- Este banco de teste nasce com a mesma opção que o Supabase liga sozinho:
+-- ALL para anon e authenticated em toda tabela nova do schema public. O que
+-- se prova aqui é que o 02_rls.sql desfaz isso.
+--
+-- Por que importa, se o RLS já segura: com o grant no lugar, uma policy
+-- escrita com pressa — um `using (true)` — vira vazamento público na hora.
+-- Sem o grant, a mesma policy descuidada continua inalcançável, porque quem
+-- não fez login nem chega na tabela para a policy ser consultada. Duas
+-- camadas custam uma linha de SQL.
+do $$
+declare v_sobrou text;
+begin
+  select string_agg(distinct table_name, ', ' order by table_name)
+    into v_sobrou
+    from information_schema.role_table_grants g
+   where g.grantee = 'anon' and g.table_schema = 'public'
+     and g.table_name in (select table_name from information_schema.tables
+                           where table_schema='public' and table_type='BASE TABLE')
+     -- `planos` é exceção deliberada: é tabela de preço, e a tela de cadastro
+     -- precisa mostrá-la antes de a pessoa ter conta.
+     and g.table_name <> 'planos';
+
+  if v_sobrou is null then
+    perform t_ok('anon não alcança nenhuma tabela — só as vistas e planos');
+  else
+    perform t_falha('anon ainda alcança: ' || v_sobrou);
+  end if;
+end $$;
+
+do $$
+declare v_n int;
+begin
+  -- As vistas públicas TÊM que continuar de pé depois da revogação. Elas são
+  -- a vitrine: sem elas o link do salão abre vazio para a cliente.
+  select count(*) into v_n from information_schema.role_table_grants
+   where grantee='anon' and table_schema='public'
+     and table_name in ('saloes_publicos','servicos_publicos','profissionais_publicos')
+     and privilege_type='SELECT';
+  perform t_igual('as 3 vistas públicas sobreviveram à revogação', v_n::bigint, 3);
+end $$;
+
+do $$
+declare v_n int;
+begin
+  -- E o dono logado precisa continuar escrevendo o que é dele.
+  select count(*) into v_n from information_schema.role_table_grants
+   where grantee='authenticated' and table_schema='public'
+     and table_name='agendamentos' and privilege_type in ('SELECT','INSERT','UPDATE','DELETE');
+  perform t_igual('authenticated mantém as 4 operações na agenda', v_n::bigint, 4);
+end $$;
+
+do $$
+declare v_n int;
+begin
+  -- Mas NÃO ganha escrita em assinaturas: é a linha que decide quanto ele
+  -- paga. Quem muda plano é a plataforma, nunca o salão.
+  select count(*) into v_n from information_schema.role_table_grants
+   where grantee='authenticated' and table_schema='public'
+     and table_name='assinaturas' and privilege_type in ('INSERT','UPDATE','DELETE');
+  perform t_igual('e continua sem poder escrever na própria assinatura', v_n::bigint, 0);
+end $$;

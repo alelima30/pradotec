@@ -1442,6 +1442,43 @@ create or replace view public.profissionais_publicos as
     join public.saloes sa on sa.id = p.salao_id
    where p.ativo and p.aceita_online and sa.status = 'ativo';
 
+-- ── A LIMPEZA VEM ANTES DE QUALQUER GRANT ─────────────────────────────────
+-- Precisa estar AQUI, e não lá embaixo junto do resto das permissões: um
+-- `revoke all on all tables` alcança as vistas também, e colocado depois ele
+-- apagaria os três grants logo abaixo. Zerar primeiro, distribuir depois.
+--
+-- O que se zera: o Supabase liga por padrão a opção "Automatically expose new
+-- tables", que dá ALL — select, insert, update, delete, truncate — para
+-- `anon` e `authenticated` em toda tabela nova do schema `public`. Quer dizer
+-- que no momento em que o 01_schema.sql cria as tabelas, elas já nascem com o
+-- balcão aberto, antes deste arquivo dizer qualquer coisa.
+--
+-- Conferido num projeto de verdade: as 20 tabelas apareceram liberadas para
+-- `anon`. Ninguém leu nada — o RLS segurou, e escrever levou "new row
+-- violates row-level security policy". A dona do salão também não conseguiu
+-- se promover de plano: `update 0`.
+--
+-- Mas depender só do RLS é usar uma camada quando dá para ter duas. Com o
+-- grant no lugar, UMA policy escrita com pressa — um `using (true)` num
+-- sábado à noite — vira vazamento público na hora. Sem o grant, a mesma
+-- policy descuidada continua inalcançável: quem não fez login nem chega na
+-- tabela para a policy ser consultada.
+--
+-- E fazer isso em SQL, e não na caixinha da interface, é o que mantém o banco
+-- certo mesmo que a opção esteja ligada, mesmo que alguém religue depois, e
+-- mesmo num projeto criado por outra pessoa.
+-- ---------------------------------------------------------------------------
+
+revoke all on all tables in schema public from anon, authenticated;
+
+-- E as tabelas que ainda não existem. `alter default privileges` sem `for
+-- role` vale para o papel que está rodando isto — o `postgres`, que é o que o
+-- SQL Editor usa e o mesmo para quem o Supabase definiu o padrão permissivo.
+-- Sem esta linha, a próxima tabela nasceria aberta de novo.
+alter default privileges in schema public
+  revoke all on tables from anon, authenticated;
+
+-- Agora sim, o que cada um recebe de volta.
 grant select on public.saloes_publicos        to anon, authenticated;
 grant select on public.servicos_publicos      to anon, authenticated;
 grant select on public.profissionais_publicos to anon, authenticated;
@@ -1451,6 +1488,8 @@ grant select on public.profissionais_publicos to anon, authenticated;
 --
 -- O RLS filtra LINHA; o grant decide se a pessoa chega na TABELA. Precisa dos
 -- dois. `anon` não recebe nada: quem não fez login só enxerga as vistas acima.
+-- A zeragem que garante esse "nada" está mais acima, antes dos grants das
+-- vistas — se estivesse aqui, apagaria os três.
 -- ---------------------------------------------------------------------------
 
 grant usage on schema public to anon, authenticated;

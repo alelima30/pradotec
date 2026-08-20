@@ -41,6 +41,16 @@ preparar() {
   psql -q -d postgres -c "drop database if exists ${BANCO};" >/dev/null
   psql -q -d postgres -c "create database ${BANCO};" >/dev/null
   carregar "$AQUI/00_stub_supabase.sql"
+
+  # O Supabase liga por padrão "Automatically expose new tables", que dá ALL
+  # para anon e authenticated em toda tabela nova do schema public. O banco de
+  # teste precisa nascer assim, senão os testes rodam num mundo mais limpo que
+  # o real e aprovam um schema que lá fora está com o balcão aberto — foi
+  # exatamente o que aconteceu: a instalação num projeto de verdade acusou as
+  # 20 tabelas liberadas para anon, e a suíte inteira estava verde.
+  psql -q -d "$BANCO" -c "alter default privileges in schema public \
+    grant all on tables to anon, authenticated;" >/dev/null
+
   carregar "$RAIZ/supabase/01_schema.sql"
   carregar "$RAIZ/supabase/02_rls.sql"
   carregar "$RAIZ/supabase/03_onboarding.sql"
