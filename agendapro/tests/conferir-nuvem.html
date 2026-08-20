@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conferir o projeto no Supabase — AgendaPro</title>
+<style>
+/* ===========================================================================
+   Conferidor de fora
+   ---------------------------------------------------------------------------
+   O tests/conferir_instalacao.sql roda DENTRO do banco, como dono, e diz que
+   as regras estão escritas. Esta página roda FORA, do navegador, sem
+   credencial nenhuma além da chave pública — e diz que as regras estão
+   PEGANDO. É a diferença entre ter uma tranca e testar a tranca.
+
+   Sozinha de propósito: sem estilo.css, sem dados.js, sem nada. Se o
+   diagnóstico dependesse do sistema, ele não serviria para diagnosticar o
+   sistema. Abre direto do disco e funciona.
+   =========================================================================== */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font:15px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  background:#0E0B15; color:#F2EFF8; padding:32px 20px 60px;
+}
+.folha{max-width:760px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:640;letter-spacing:-.025em;margin-bottom:6px}
+.sub{color:rgba(242,239,248,.58);margin-bottom:26px}
+.campo{margin-bottom:14px}
+label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+input{
+  width:100%;padding:11px 13px;font:inherit;font-size:14px;
+  background:#171122;color:#F2EFF8;
+  border:1px solid rgba(147,102,238,.24);border-radius:8px;
+}
+input:focus{outline:2px solid #7B2FF7;outline-offset:1px}
+button{
+  font:inherit;font-weight:600;font-size:15px;cursor:pointer;
+  padding:12px 22px;border:none;border-radius:8px;
+  background:#6321D6;color:#fff;margin-top:8px;
+}
+button:disabled{opacity:.5;cursor:default}
+.grupo{margin-top:26px}
+.grupo h2{
+  font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:rgba(242,239,248,.42);margin-bottom:10px;
+}
+.linha{
+  display:flex;gap:11px;align-items:flex-start;padding:9px 12px;
+  border-radius:7px;background:#171122;margin-bottom:5px;font-size:14px;
+}
+.linha .m{flex:none;width:17px;text-align:center;font-weight:700;line-height:1.5}
+.bom  .m{color:#4ADE80}
+.ruim .m{color:#FB7185}
+.ruim{background:rgba(251,113,133,.09)}
+.linha .porque{
+  display:block;color:rgba(242,239,248,.5);font-size:12.5px;margin-top:3px;
+  word-break:break-word;
+}
+.placar{
+  margin-top:24px;padding:15px 18px;border-radius:9px;font-weight:600;
+  background:#171122;border-left:3px solid #6321D6;
+}
+.placar.tudo{border-left-color:#4ADE80}
+.placar.falha{border-left-color:#FB7185}
+.nota{
+  margin-top:22px;font-size:13px;color:rgba(242,239,248,.5);line-height:1.7;
+  border-top:1px solid rgba(147,102,238,.16);padding-top:16px;
+}
+code{
+  background:#171122;padding:1px 6px;border-radius:4px;font-size:12.5px;
+  border:1px solid rgba(147,102,238,.2);
+}
+</style>
+</head>
+<body>
+<div class="folha">
+
+  <h1>Conferir o projeto no Supabase</h1>
+  <p class="sub">Bate na API do seu projeto do jeito que um estranho na
+     internet bateria: só com a chave pública, sem login nenhum.</p>
+
+  <div class="campo">
+    <label for="url">Project URL</label>
+    <input id="url" placeholder="https://xxxxxxxxxxxx.supabase.co"
+           autocomplete="off" spellcheck="false">
+  </div>
+
+  <div class="campo">
+    <label for="chave">Publishable key (ou a anon, em projeto antigo)</label>
+    <input id="chave" placeholder="sb_publishable_..."
+           autocomplete="off" spellcheck="false">
+  </div>
+
+  <button id="bt">Conferir</button>
+
+  <div id="saida"></div>
+
+  <p class="nota">
+    Esta página não guarda nem envia nada para lugar nenhum: ela fala direto do
+    seu navegador com o seu projeto. A chave publicável pode ficar à vista — é
+    pública por natureza, e quem protege os dados é o RLS. A
+    <code>Secret key</code> (<code>sb_secret_…</code>, o antigo
+    <code>service_role</code>) <b>não deve ser colada aqui</b>: ela passa por
+    cima de todo o RLS, e os testes abaixo passariam sem provar nada.
+  </p>
+</div>
+
+<script>
+'use strict';
+
+let ok = 0, mau = 0, saida;
+
+function linha(bom, msg, porque){
+  bom ? ok++ : mau++;
+  const d = document.createElement('div');
+  d.className = 'linha ' + (bom ? 'bom' : 'ruim');
+  d.innerHTML = '<span class="m">' + (bom ? '✓' : '✗') + '</span><div>'
+    + escapar(msg)
+    + (porque && !bom ? '<span class="porque">' + escapar(porque) + '</span>' : '')
+    + '</div>';
+  saida.appendChild(d);
+}
+
+function grupo(titulo){
+  const d = document.createElement('div');
+  d.className = 'grupo';
+  d.innerHTML = '<h2>' + escapar(titulo) + '</h2>';
+  saida.appendChild(d);
+  return d;
+}
+
+const escapar = t => String(t).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function bater(base, chave, caminho, cabs){
+  try{
+    const r = await fetch(base + '/rest/v1/' + caminho,
+                          { headers: cabs || { apikey: chave } });
+    let corpo = null;
+    try { corpo = await r.json(); } catch(e){}
+    return { status: r.status, ok: r.ok, corpo };
+  }catch(e){
+    // Rede caída, URL errada, CORS. Vale distinguir de uma recusa do banco:
+    // "não cheguei lá" e "cheguei e me barraram" pedem consertos diferentes.
+    return { status: 0, ok: false, corpo: null, rede: e.message };
+  }
+}
+
+async function conferir(){
+  const bt = document.getElementById('bt');
+  const base = document.getElementById('url').value.trim().replace(/\/+$/, '');
+  const chave = document.getElementById('chave').value.trim();
+
+  saida = document.getElementById('saida');
+  saida.innerHTML = '';
+  ok = 0; mau = 0;
+
+  // O 127.0.0.1 entra de propósito: é o endereço da bancada de teste
+  // (tests/bancada), e uma página de diagnóstico que não pode ser
+  // diagnosticada não presta.
+  if(!/^https:\/\/.+\.supabase\.co$/.test(base) && !/^http:\/\/127\.0\.0\.1:\d+$/.test(base)){
+    saida.innerHTML = '<div class="placar falha">A URL parece errada. Ela é '
+      + 'https:// + o Project ID + .supabase.co — o Project ID está em '
+      + 'Settings → General.</div>';
+    return;
+  }
+  if(chave.startsWith('sb_secret_') || chave.includes('service_role')){
+    saida.innerHTML = '<div class="placar falha">Essa é a chave secreta. Ela '
+      + 'passa por cima do RLS, então tudo passaria aqui sem provar nada. '
+      + 'Use a Publishable key.</div>';
+    return;
+  }
+  if(!chave){ return; }
+
+  bt.disabled = true; bt.textContent = 'Conferindo…';
+
+  try{
+    grupo('A chave e a vitrine pública');
+
+    const planos = await bater(base, chave, 'planos?select=codigo,nome&order=codigo');
+    linha(planos.ok, 'a chave é aceita pelo projeto',
+      planos.rede ? 'não cheguei no servidor: ' + planos.rede
+                  : 'status ' + planos.status + ' — ' + JSON.stringify(planos.corpo));
+
+    linha(Array.isArray(planos.corpo) && planos.corpo.length >= 6,
+      'os planos estão semeados (esperado 6 ou mais)',
+      'vieram ' + (Array.isArray(planos.corpo) ? planos.corpo.length : 0));
+
+    for(const v of ['saloes_publicos','servicos_publicos','profissionais_publicos']){
+      const r = await bater(base, chave, v + '?select=id&limit=1');
+      linha(r.ok, 'a vitrine ' + v + ' abre sem login', 'status ' + r.status);
+    }
+
+    grupo('O que precisa continuar fechado');
+
+    // Estas quatro são as que viram manchete. A leitura tem que voltar VAZIA
+    // — e vazia com status 200, não com erro: erro pode ser o servidor fora
+    // do ar, e aí o teste passaria sem ter testado nada.
+    for(const t of ['clientes','agendamentos','perfis','pagamentos','contadores']){
+      const r = await bater(base, chave, t + '?select=*&limit=1');
+      const vazio = Array.isArray(r.corpo) && r.corpo.length === 0;
+      const barrado = r.status === 401 || r.status === 403 ||
+                      (r.corpo && /permission denied/i.test(JSON.stringify(r.corpo)));
+      linha(vazio || barrado,
+        t + ': quem não fez login não lê nada',
+        r.rede ? 'não cheguei no servidor: ' + r.rede
+               : 'status ' + r.status + ' — veio '
+                 + JSON.stringify(r.corpo).slice(0, 160));
+    }
+
+    // E escrever, que é o que estraga de verdade.
+    try{
+      const r = await fetch(base + '/rest/v1/saloes', {
+        method: 'POST',
+        headers: { apikey: chave, 'Content-Type': 'application/json',
+                   'Prefer': 'return=representation' },
+        body: JSON.stringify({ slug: 'invasor-' + Date.now(),
+                               nome: 'Teste de invasão', tipo: 'salao' }),
+      });
+      linha(!r.ok, 'e não consegue criar salão nenhum', 'status ' + r.status
+        + ' — se veio 201, QUALQUER PESSOA cria salão no seu banco');
+    }catch(e){ linha(true, 'e não consegue criar salão nenhum'); }
+
+    grupo('Os cabeçalhos');
+
+    const errado = await bater(base, chave, 'planos?select=codigo',
+      { apikey: chave, 'Authorization': 'Bearer ' + chave });
+    linha(!errado.ok,
+      'a chave no Authorization é recusada',
+      'status ' + errado.status + ' — veio 200, então a exceção "valores '
+      + 'iguais" está valendo neste projeto. Não é problema: o dados.js não '
+      + 'manda mais a chave ali.');
+
+    grupo('As funções que a cliente usa sem ter conta');
+
+    for(const [fn, arg, esperado] of [
+      ['slug_disponivel', { p_slug: 'nao-existe-' + Date.now() }, true],
+    ]){
+      try{
+        const r = await fetch(base + '/rest/v1/rpc/' + fn, {
+          method: 'POST',
+          headers: { apikey: chave, 'Content-Type': 'application/json' },
+          body: JSON.stringify(arg),
+        });
+        const v = await r.json().catch(() => null);
+        // Função que devolve escalar vem como `true` no PostgREST; a bancada
+        // de teste devolve `[{slug_disponivel:true}]`. Aceitar as duas formas
+        // não é frouxidão: é não deixar o diagnóstico acusar defeito que não
+        // existe, que é o jeito mais rápido de a pessoa parar de olhar para
+        // ele.
+        const escalar = Array.isArray(v)
+          ? (v.length === 1 && typeof v[0] === 'object' ? Object.values(v[0])[0] : v[0])
+          : v;
+        linha(r.ok && escalar === esperado,
+          fn + '() responde para quem não fez login',
+          'status ' + r.status + ' — ' + JSON.stringify(v));
+      }catch(e){ linha(false, fn + '() responde para quem não fez login', e.message); }
+    }
+
+    // horarios_livres() e agendar() existem e são chamáveis por anon, mas
+    // precisam de um salão cadastrado para dizer algo útil. Aqui só se prova
+    // que a porta existe: a função responde em vez de dar "not found".
+    for(const fn of ['horarios_livres','agendar']){
+      const r = await fetch(base + '/rest/v1/rpc/' + fn, {
+        method: 'POST',
+        headers: { apikey: chave, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      // 404 = a função não foi instalada. Qualquer outro erro significa que
+      // ela existe e reclamou dos argumentos, que é o que se quer aqui.
+      linha(r.status !== 404, fn + '() está instalada e alcançável',
+        'status ' + r.status + ' — 404 quer dizer que o 05_agenda.sql não rodou');
+    }
+
+    const total = ok + mau;
+    const p = document.createElement('div');
+    p.className = 'placar ' + (mau ? 'falha' : 'tudo');
+    p.textContent = mau
+      ? '✗ ' + mau + ' de ' + total + ' falharam.'
+      : '✓ ' + total + ' verificações contra o projeto de verdade.';
+    saida.appendChild(p);
+
+  } finally {
+    bt.disabled = false; bt.textContent = 'Conferir de novo';
+  }
+}
+
+document.getElementById('bt').addEventListener('click', conferir);
+// Enter em qualquer campo também confere.
+for(const id of ['url','chave'])
+  document.getElementById(id).addEventListener('keydown',
+    e => { if(e.key === 'Enter') conferir(); });
+</script>
+</body>
+</html>
