@@ -9,6 +9,25 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/png" href="icones/icone-192.png" />
 <link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
+<script>
+/* A abertura é LIGADA por este script, no <head>, antes de qualquer pixel.
+   Duas razões para não deixá-la ligada no HTML:
+
+   1. Sem JavaScript ela ficaria por cima do login para sempre, e o sistema
+      viraria uma tela preta bonita que não deixa ninguém entrar. Assim, sem
+      JavaScript simplesmente não há abertura — e o login funciona.
+   2. Aqui em cima, e não no fim da página: ligada depois, o navegador já
+      teria pintado o formulário, e a abertura entraria por cima de uma tela
+      que a pessoa começou a ler. O piscado é pior que não ter abertura.
+
+   Quem pediu menos animação no sistema operacional não recebe: a abertura
+   inteira dura 300ms de esmaecimento, sem movimento. */
+try{
+  document.documentElement.className +=
+    matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? ' com-abertura sem-movimento' : ' com-abertura';
+}catch(e){}
+</script>
 <style>
 /* ===========================================================================
    AgendaPro — entrar
@@ -22,6 +41,82 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:none;background:none}
+
+/* ── A ABERTURA ───────────────────────────────────────────────────────────
+   Três segundos de marca antes do login. É tempo que se cobra da pessoa, e
+   por isso três coisas são obrigatórias:
+
+     · qualquer clique, toque ou tecla pula na hora — quem já viu não precisa
+       ver de novo, e quem está com pressa não deve ser obrigado a esperar;
+     · o formulário já está montado atrás, então quando a cortina sobe não há
+       carregamento nenhum, só a tela pronta;
+     · `pointer-events:none` no fim, e depois some do DOM. Camada invisível
+       sobrando por cima é o clássico "o botão não clica e ninguém sabe por
+       quê".
+   ──────────────────────────────────────────────────────────────────────── */
+.abertura{ display:none }
+.com-abertura .abertura{
+  display:grid; place-items:center; position:fixed; inset:0; z-index:120;
+  background:var(--lat); overflow:hidden;
+}
+/* O brilho nasce junto com a marca, atrás dela. Sozinho seria só um borrão
+   roxo; o que ele faz é dar profundidade ao logotipo, que é plano. */
+.abertura::before{
+  content:""; position:absolute; width:720px; height:720px; border-radius:50%;
+  background:radial-gradient(circle, rgba(123,47,247,.34), rgba(123,47,247,0) 68%);
+  animation:brilho-nasce 1.5s cubic-bezier(.22,.61,.36,1) both;
+}
+.abertura-in{ position:relative; text-align:center; padding:0 24px }
+.abertura-marca{
+  width:min(340px, 74vw); height:auto; display:block; margin:0 auto;
+  animation:marca-sobe .78s cubic-bezier(.22,.61,.36,1) both;
+}
+/* O traço não é enfeite: ele mostra que a espera tem fim. Barra parada por
+   três segundos faz a pessoa achar que travou. */
+.abertura-traco{
+  width:min(212px, 52vw); height:2px; margin:30px auto 0; border-radius:2px;
+  background:rgba(242,239,248,.13); overflow:hidden;
+}
+.abertura-traco i{
+  display:block; height:100%; width:100%; border-radius:2px;
+  background:linear-gradient(90deg, var(--mg-500), var(--rx-fundo));
+  transform-origin:left; transform:scaleX(0);
+  animation:traco-corre 2.35s cubic-bezier(.4,0,.2,1) .28s both;
+}
+.abertura-pular{
+  position:absolute; left:0; right:0; bottom:34px; text-align:center;
+  font-size:12px; letter-spacing:.04em; color:var(--lat-txt3);
+  animation:aparece-devagar .5s ease 1.5s both;
+}
+
+@keyframes brilho-nasce{
+  from{ opacity:0; transform:scale(.62) } to{ opacity:1; transform:scale(1) }
+}
+@keyframes marca-sobe{
+  from{ opacity:0; transform:translateY(12px) scale(.955) }
+  to  { opacity:1; transform:none }
+}
+@keyframes traco-corre{ from{ transform:scaleX(0) } to{ transform:scaleX(1) } }
+@keyframes aparece-devagar{ from{ opacity:0 } to{ opacity:1 } }
+
+/* A saída. `visibility` junto do `opacity` porque elemento com opacidade
+   zero continua clicável, e um formulário atrás de vidro invisível é o pior
+   defeito possível numa tela de entrar. */
+.abertura.saindo{
+  opacity:0; visibility:hidden; transform:scale(1.035);
+  transition:opacity .5s ease, transform .5s ease, visibility 0s linear .5s;
+  pointer-events:none;
+}
+/* Enquanto a cortina está de pé, a página atrás não rola. */
+html.com-abertura, html.com-abertura body{ overflow:hidden }
+
+/* Quem pediu menos animação recebe a marca parada, e curta. */
+.sem-movimento .abertura::before,
+.sem-movimento .abertura-marca,
+.sem-movimento .abertura-traco i,
+.sem-movimento .abertura-pular{ animation:none }
+.sem-movimento .abertura-traco{ display:none }
+.sem-movimento .abertura.saindo{ transform:none; transition-duration:.3s }
 
 .entrada-tela{ min-height:100dvh; display:grid; grid-template-columns:1fr 1fr }
 
@@ -153,6 +248,17 @@ button{cursor:pointer;border:none;background:none}
 </head>
 <body>
 
+<!-- A cortina. `aria-hidden` porque para quem usa leitor de tela ela não
+     existe: o logotipo já está na página atrás, e anunciar a mesma marca duas
+     vezes só atrapalha. -->
+<div class="abertura" id="abertura" aria-hidden="true">
+  <div class="abertura-in">
+    <img class="abertura-marca" src="icones/logotipo-branco.svg" alt="">
+    <div class="abertura-traco"><i></i></div>
+  </div>
+  <div class="abertura-pular">toque para pular</div>
+</div>
+
 <div class="entrada-tela">
 
   <section class="lado-marca">
@@ -232,6 +338,42 @@ button{cursor:pointer;border:none;background:none}
    =========================================================================== */
 const NA_NUVEM = !!(window.Dados && window.Dados.ligado);
 
+/* ── A abertura ────────────────────────────────────────────────────────────
+   Sobe sozinha aos 3 segundos, ou na hora em que a pessoa tocar em qualquer
+   lugar. `fechada` existe porque as duas coisas podem acontecer juntas: o
+   toque aos 2,9s dispararia a saída, e o relógio dispararia de novo em
+   seguida — a segunda chamada reiniciaria a transição e a cortina piscaria
+   de volta.
+
+   No fim ela sai do DOM. Enquanto está lá, mesmo invisível, ela é um
+   retângulo do tamanho da tela por cima de tudo.
+   ──────────────────────────────────────────────────────────────────────── */
+function abrirCortina(){
+  const cortina = document.getElementById('abertura');
+  if(!cortina || !document.documentElement.classList.contains('com-abertura')) return;
+
+  let fechada = false;
+  const fechar = () => {
+    if(fechada) return;
+    fechada = true;
+    cortina.classList.add('saindo');
+    document.documentElement.classList.remove('com-abertura');
+    // Depois da transição, fora do DOM de vez.
+    setTimeout(() => cortina.remove(), 700);
+    // O primeiro campo ganha o cursor: quem esperou a abertura já pode
+    // digitar sem precisar clicar em nada.
+    setTimeout(() => { try{ document.getElementById('email').focus(); }catch(e){} }, 520);
+  };
+
+  const relogio = setTimeout(fechar, 3000);
+  const pular = () => { clearTimeout(relogio); fechar(); };
+
+  // `once` para o ouvinte se remover sozinho; `passive` no toque para o
+  // navegador não esperar para saber se vamos cancelar a rolagem.
+  addEventListener('pointerdown', pular, { once:true, passive:true });
+  addEventListener('keydown',     pular, { once:true });
+}
+
 function mostrar(tipo, texto){
   document.getElementById('recado').innerHTML =
     `<div class="aviso ${tipo}">${texto}</div>`;
@@ -287,6 +429,8 @@ function esqueci(){
     const t = localStorage.getItem('agendapro.demo.v1.tema');
     if(t) document.documentElement.setAttribute('data-tema', t);
   }catch(e){}
+
+  abrirCortina();
 
   document.getElementById('ambiente').textContent =
     NA_NUVEM ? (window.Dados.ambiente || 'produção') : 'demonstração';
