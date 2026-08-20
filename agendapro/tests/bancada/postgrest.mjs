@@ -11,6 +11,9 @@ const RAIZ = new URL('../..', import.meta.url).pathname;
 const pool = new pg.Pool({ host:'/tmp', port:5444, user:'postgres', database:'app' });
 
 const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8',
+  // .svg entrou quando o logotipo apareceu quebrado no painel da plataforma:
+  // sem o tipo certo, o navegador recebe o arquivo e não sabe desenhá-lo.
+  '.svg':'image/svg+xml',
   '.css':'text/css', '.png':'image/png', '.webmanifest':'application/manifest+json' };
 
 // token → id do usuário. O Supabase usa JWT assinado; aqui basta o mapa,
