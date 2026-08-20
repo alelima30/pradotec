@@ -235,10 +235,57 @@ begin;
     end if;
   end $$;
 
-  -- Mas a vitrine tem que abrir: é dela que sai a página de agendamento.
-  do $$ begin perform t_igual(
-    'a vitrine pública mostra os 2 salões ativos',
-    (select count(*) from public.saloes_publicos), 2); end $$;
+  -- ── O CATÁLOGO NÃO PODE SER FOLHEADO ────────────────────────────────────
+  -- Esta verificação já foi o contrário: ela exigia que a vitrine listasse os
+  -- 2 salões ativos para quem não fez login. Funcionava, e o isolamento entre
+  -- donos continuava intacto — nenhum salão lia agendamento ou cliente de
+  -- outro.
+  --
+  -- Mas vazava outra coisa, e não é dado de cliente: é a lista de clientes DA
+  -- PLATAFORMA. Com a chave publicável, que fica à vista no código da página,
+  -- um GET em saloes_publicos devolvia todos os salões com nome, endereço e
+  -- WhatsApp — lista de prospecção pronta para um concorrente.
+  do $$
+  begin
+    if recusado($q$select count(*) from public.saloes_publicos$q$)
+    then perform t_ok('o catálogo de salões é inalcançável sem login');
+    else perform t_falha('o catálogo de salões ainda pode ser folheado: '
+                       || (select count(*) from public.saloes_publicos)::text
+                       || ' salões numa requisição');
+    end if;
+  end $$;
+
+  do $$ begin
+    if recusado($q$select count(*) from public.servicos_publicos$q$)
+      and recusado($q$select count(*) from public.profissionais_publicos$q$)
+    then perform t_ok('serviços e profissionais também não são enumeráveis');
+    else perform t_falha('serviços ou profissionais ainda listam a plataforma inteira');
+    end if;
+  end $$;
+
+  -- ── MAS QUEM TEM O LINK ENTRA ───────────────────────────────────────────
+  -- O apelido não é segredo: quem recebeu o link tem o salão, e é assim que
+  -- deve ser. O que mudou é que ninguém ENUMERA — descobrir um salão passa a
+  -- exigir já conhecê-lo.
+  do $$
+  declare v jsonb;
+  begin
+    v := public.vitrine('salao-a');
+    if v is null then perform t_falha('a vitrine não respondeu para quem tem o link');
+    else perform t_ok('quem tem o apelido abre a vitrine daquele salão');
+    end if;
+
+    perform t_texto('e vem o salão certo', v->'salao'->>'nome', 'Salão A');
+    -- O salão A tem 2 profissionais (Ana e Bia) e o B tem 1 (Zé). Vir 2 aqui
+    -- prova as duas coisas de uma vez: os de casa entram, e os do vizinho não.
+    perform t_igual('com os 2 profissionais dele, e nenhum do salão vizinho',
+                    jsonb_array_length(v->'profissionais')::bigint, 2);
+    perform t_verdade('e a lista de serviços vem junto, mesmo vazia',
+                      jsonb_typeof(v->'servicos') = 'array');
+  end $$;
+
+  do $$ begin perform t_verdade('apelido que não existe devolve nada',
+    public.vitrine('salao-que-nunca-existiu') is null); end $$;
 rollback;
 
 
@@ -654,13 +701,20 @@ end $$;
 do $$
 declare v_n int;
 begin
-  -- As vistas públicas TÊM que continuar de pé depois da revogação. Elas são
-  -- a vitrine: sem elas o link do salão abre vazio para a cliente.
+  -- Esta verificação já exigiu o CONTRÁRIO: que as 3 vistas continuassem
+  -- abertas para anon, porque era delas que a página de agendamento vivia.
+  -- Elas viviam, e vazavam o catálogo inteiro da plataforma junto — nome,
+  -- endereço e WhatsApp de todo salão, numa requisição.
+  --
+  -- Agora quem serve a página é vitrine(), que pede o apelido. As vistas
+  -- continuam existindo para o painel do dono, mas fecharam para fora.
   select count(*) into v_n from information_schema.role_table_grants
    where grantee='anon' and table_schema='public'
-     and table_name in ('saloes_publicos','servicos_publicos','profissionais_publicos')
-     and privilege_type='SELECT';
-  perform t_igual('as 3 vistas públicas sobreviveram à revogação', v_n::bigint, 3);
+     and table_name in ('saloes_publicos','servicos_publicos','profissionais_publicos');
+  perform t_igual('as 3 vistas fecharam para quem não fez login', v_n::bigint, 0);
+
+  perform t_verdade('e no lugar delas anon pode chamar vitrine()',
+    has_function_privilege('anon', 'public.vitrine(text)', 'execute'));
 end $$;
 
 do $$

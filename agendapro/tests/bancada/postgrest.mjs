@@ -148,7 +148,21 @@ const http_ = http.createServer(async (req, res) => {
         const args = nomes.map((n,i) => `${n} => $${i+1}`).join(', ');
         const r = await comPapel(req, cli =>
           cli.query(`select * from public.${fn}(${args})`, nomes.map(n => b[n])));
-        return json(res, 200, r.rows);
+
+        /* ── DESEMBRULHAR O ESCALAR ─────────────────────────────────────────
+           O PostgREST devolve o VALOR quando a função retorna um escalar:
+           `vitrine()` devolve o jsonb cru, `slug_disponivel()` devolve `true`.
+           A bancada devolvia a linha inteira — [{"vitrine":{...}}] — e o
+           dados.js, que procurava `.salao` ali dentro, achava undefined e
+           concluía que o salão não existia.
+
+           Bancada que responde diferente do real é bancada que aprova código
+           quebrado, ou reprova código certo. Aqui foi a segunda: o defeito
+           era da bancada, e ela acusou a tela. */
+        const escalar = r.rows.length === 1
+          && r.fields.length === 1
+          && r.fields[0].name === fn;
+        return json(res, 200, escalar ? r.rows[0][fn] : r.rows);
       }
 
       const tabela = alvo;

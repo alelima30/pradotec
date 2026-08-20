@@ -296,11 +296,30 @@ const Nuvem = {
       method: 'POST', body: JSON.stringify(argumentos || {}) });
   },
 
-  // ── A vitrine, que abre sem login ──
+  /* ── A vitrine, que abre sem login ────────────────────────────────────
+     Antes isto lia a vista `saloes_publicos` filtrando pelo apelido. Lia bem,
+     e vazava do lado que ninguém olha: quem tirasse o filtro recebia TODOS os
+     salões da plataforma, com nome, endereço e WhatsApp. Não é dado de
+     cliente — é a lista de clientes DO NEGÓCIO, entregue numa requisição a
+     qualquer concorrente com a chave publicável, que fica à vista no código
+     da página de propósito.
+
+     Agora é uma função que só responde a quem já sabe o apelido. E vem tudo
+     de uma vez — salão, serviços e profissionais — em vez de três idas ao
+     servidor: no 3G da cliente, é a diferença entre abrir e demorar.
+     ──────────────────────────────────────────────────────────────────── */
+  async vitrine(slug){
+    const r = await rest('rpc/vitrine', {
+      method: 'POST', body: JSON.stringify({ p_slug: slug }) });
+    // Função que devolve escalar vem crua; a de conjunto vem em lista.
+    const v = Array.isArray(r) ? r[0] : r;
+    return v && v.salao ? v : null;
+  },
+
+  // Compatibilidade: quem só quer o salão continua chamando isto.
   async salaoPorSlug(slug){
-    const r = await rest('saloes_publicos?slug=eq.' + encodeURIComponent(slug)
-                       + '&select=*&limit=1');
-    return r && r[0] ? paraTela('saloes', r[0]) : null;
+    const v = await this.vitrine(slug);
+    return v ? v.salao : null;
   },
 };
 

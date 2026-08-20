@@ -151,11 +151,23 @@ vitrine(nome) as (
   values ('saloes_publicos'),('servicos_publicos'),('profissionais_publicos')
 ),
 
-vitrine_fechada as (
+-- O catálogo tem que estar FECHADO para quem não fez login. Já foi o
+-- contrário: as três vistas abertas deixavam qualquer um listar todos os
+-- salões da plataforma com nome, endereço e WhatsApp. Quem abre a página de
+-- agendamento agora é a função vitrine(), que só responde a quem já sabe o
+-- apelido do salão.
+catalogo_aberto as (
   select v.nome from vitrine v
-   where not exists (select 1 from information_schema.role_table_grants g
-                      where g.grantee = 'anon' and g.table_schema = 'public'
-                        and g.table_name = v.nome and g.privilege_type = 'SELECT')
+   where exists (select 1 from information_schema.role_table_grants g
+                  where g.grantee = 'anon' and g.table_schema = 'public'
+                    and g.table_name = v.nome and g.privilege_type = 'SELECT')
+),
+
+vitrine_sem_funcao as (
+  select 1 where not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'vitrine'
+       and has_function_privilege('anon', p.oid, 'execute'))
 ),
 
 extensao as (
@@ -227,10 +239,17 @@ select * from (
                   || ' liberada para anon', 'ok')
 
   union all select 11,
-         case when (select count(*) from vitrine_fechada) = 0 then '✓' else '✗' end,
-         'A vitrine pública abre para quem não fez login',
-         coalesce((select string_agg(nome, ', ') from vitrine_fechada)
-                  || ' fechada — a página de agendamento não carrega', 'ok')
+         case when (select count(*) from catalogo_aberto) = 0
+                    and (select count(*) from vitrine_sem_funcao) = 0
+              then '✓' else '✗' end,
+         'A vitrine abre por apelido, e o catálogo não é folheável',
+         case
+           when (select count(*) from catalogo_aberto) > 0 then
+             (select string_agg(nome, ', ') from catalogo_aberto)
+             || ' aberta para anon — dá para listar todos os salões'
+           when (select count(*) from vitrine_sem_funcao) > 0 then
+             'a função vitrine() não existe ou anon não pode executá-la'
+           else 'ok' end
 
   union all select 12,
          case when (select count(*) from gatilho_faltando) = 0 then '✓' else '✗' end,

@@ -2318,3 +2318,102 @@ create or replace view public.profissionais_publicos as
      and public.profissional_na_cota(p.id);
 
 grant select on public.profissionais_publicos to anon, authenticated;
+
+-- ###########################################################################
+-- ## 06_vitrine.sql
+-- ###########################################################################
+
+-- ===========================================================================
+-- AgendaPro — 06: a vitrine de UM salão
+--
+-- ── O PROBLEMA QUE ESTE ARQUIVO FECHA ──────────────────────────────────────
+-- As vistas `saloes_publicos`, `servicos_publicos` e `profissionais_publicos`
+-- estavam liberadas para `anon` sem nenhum filtro. Funcionava, e o isolamento
+-- entre donos continuava intacto: nenhum salão lia agendamento, cliente ou
+-- faturamento de outro — isso o RLS garante e os testes provam.
+--
+-- Mas havia outra coisa vazando, e não é dado de cliente: é a SUA LISTA DE
+-- CLIENTES. Qualquer pessoa com a chave publicável — que fica à vista no
+-- código da página, de propósito — pedia
+--
+--     GET /rest/v1/saloes_publicos
+--
+-- e recebia TODOS os salões da plataforma, com nome, endereço e WhatsApp. Um
+-- concorrente monta com isso uma lista de prospecção pronta: exatamente quem
+-- usa o AgendaPro, onde fica e por onde falar. Você levou meses para reunir
+-- essa lista; ela sai numa requisição.
+--
+-- ── O QUE MUDA ─────────────────────────────────────────────────────────────
+-- A cliente chega por um link com o apelido do salão. Ela NUNCA precisa de um
+-- catálogo — precisa de um salão, o dela. Então o catálogo deixa de existir
+-- para quem não fez login, e no lugar entra esta função, que só responde
+-- quando alguém já sabe o apelido.
+--
+-- Isso não torna o apelido secreto: quem tem o link tem o salão, e é assim
+-- que deve ser. O que muda é que ninguém mais ENUMERA. Descobrir um salão
+-- passa a exigir já conhecê-lo.
+--
+-- Vem tudo de uma vez — salão, serviços e profissionais — em vez de três
+-- idas ao servidor. No 3G da cliente, isso é a diferença entre a tela abrir
+-- e a tela demorar.
+-- ===========================================================================
+
+create or replace function public.vitrine(p_slug text)
+returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'salao', jsonb_build_object(
+      'id', s.id, 'slug', s.slug, 'nome', s.nome, 'tipo', s.tipo,
+      'logo', s.logo, 'capa', s.capa,
+      'telefone', s.telefone, 'whatsapp', s.whatsapp,
+      'endereco', s.endereco, 'fuso', s.fuso,
+      -- A tela precisa saber até quando desenhar o calendário. Sai daqui
+      -- pronto, já com o limite aplicado, para a tela não ter que repetir a
+      -- regra — e não ter como discordar dela.
+      'diasLiberados', public.dias_liberados(s.id)
+    ),
+
+    'servicos', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', v.id, 'nome', v.nome, 'categoria', v.categoria,
+               'descricao', v.descricao, 'duracaoMin', v.duracao_min,
+               'preco', v.preco, 'foto', v.foto)
+             order by v.categoria nulls last, v.nome)
+        from public.servicos v
+       where v.salao_id = s.id and v.ativo and v.aceita_online), '[]'::jsonb),
+
+    'profissionais', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', p.id, 'nome', coalesce(p.apelido, p.nome),
+               'foto', p.foto,
+               -- Lista vazia = faz tudo. É como um salão pequeno começa, e a
+               -- tela já trata assim.
+               'servicos', (select coalesce(jsonb_agg(sp.servico_id), '[]'::jsonb)
+                              from public.servicos_profissionais sp
+                             where sp.profissional_id = p.id))
+             order by p.criado_em, p.id)
+        from public.profissionais p
+       where p.salao_id = s.id and p.ativo and p.aceita_online
+         -- A cota do plano vale aqui também: profissional fora da cota não
+         -- pode aparecer como opção, senão a cliente escolhe e leva um erro
+         -- do gatilho na cara ao confirmar.
+         and public.profissional_na_cota(p.id)), '[]'::jsonb)
+  )
+  from public.saloes s
+  where s.slug = p_slug and s.status = 'ativo'
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Fechar o catálogo
+--
+-- As vistas continuam existindo — o painel do dono e relatórios futuros usam
+-- —, mas param de ser alcançáveis por quem não fez login. E também por quem
+-- fez: criar conta leva dois minutos, então deixar aberto para
+-- `authenticated` seria a mesma porta com um degrau na frente.
+-- ---------------------------------------------------------------------------
+revoke all on public.saloes_publicos        from anon, authenticated;
+revoke all on public.servicos_publicos      from anon, authenticated;
+revoke all on public.profissionais_publicos from anon, authenticated;
+
+revoke all on function public.vitrine(text) from public;
+grant execute on function public.vitrine(text) to anon, authenticated;

@@ -215,10 +215,31 @@ async function conferir(){
       'os planos estão semeados (esperado 6 ou mais)',
       'vieram ' + (Array.isArray(planos.corpo) ? planos.corpo.length : 0));
 
+    // ── O CATÁLOGO NÃO PODE SER FOLHEADO ────────────────────────────────
+    // Esta verificação já foi o contrário: exigia que as três vistas
+    // abrissem para quem não fez login. Abriam, e vazavam do lado que
+    // ninguém olha — sem filtro, devolviam TODOS os salões da plataforma com
+    // nome, endereço e WhatsApp. Não é dado de cliente: é a lista de
+    // clientes DO NEGÓCIO, entregue a qualquer concorrente com a chave
+    // publicável, que fica à vista no código da página de propósito.
     for(const v of ['saloes_publicos','servicos_publicos','profissionais_publicos']){
       const r = await bater(base, chave, v + '?select=id&limit=1');
-      linha(r.ok, 'a vitrine ' + v + ' abre sem login', 'status ' + r.status);
+      const quantos = Array.isArray(r.corpo) ? r.corpo.length : 0;
+      linha(!r.ok,
+        v + ' não pode ser listada por quem não fez login',
+        'status ' + r.status + ' — respondeu com ' + quantos + ' linha(s). '
+        + 'Sem o 06_vitrine.sql, dá para baixar a plataforma inteira daqui.');
     }
+
+    // Mas quem TEM o link entra. O apelido não é segredo — quem recebeu o
+    // link tem o salão, e é assim que deve ser. O que mudou é que ninguém
+    // enumera: descobrir um salão passa a exigir já conhecê-lo.
+    const vit = await rpc(base, chave, 'vitrine', { p_slug: 'nao-existe-' + Date.now() });
+    linha(vit.status !== 404,
+      'vitrine() está instalada e responde a quem não fez login',
+      vit.status === 404
+        ? 'status 404 — o 06_vitrine.sql não rodou neste projeto'
+        : 'status ' + vit.status + ' — ' + JSON.stringify(vit.corpo).slice(0, 140));
 
     grupo('O que precisa continuar fechado');
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Junta 01 + 02 + 03 + 04 + 05 no 00_tudo.sql, que é o arquivo para colar de uma vez
+# Junta 01 a 06 no 00_tudo.sql, que é o arquivo para colar de uma vez
 # no SQL Editor do Supabase. Rode isto sempre que mexer em algum deles.
 set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,7 +24,7 @@ cat > "$SAIDA" <<'CAB'
 
 CAB
 
-for f in 01_schema.sql 02_rls.sql 03_onboarding.sql 04_imagens.sql 05_agenda.sql; do
+for f in 01_schema.sql 02_rls.sql 03_onboarding.sql 04_imagens.sql 05_agenda.sql 06_vitrine.sql; do
   {
     echo ''
     echo '-- ###########################################################################'
