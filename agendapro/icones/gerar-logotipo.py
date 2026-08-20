@@ -125,7 +125,8 @@ def principal():
     saidas = [
         ('logotipo.svg',        '#141021', True),
         ('logotipo-branco.svg', '#FFFFFF', True),
-        ('marca-linha.svg',     '#FFFFFF', False),
+        ('marca-linha.svg',            '#FFFFFF', False),
+        ('logotipo-escuro-linha.svg',  '#141021', False),
     ]
     for nome, tinta, pilula in saidas:
         svg = montar(d1, d2, w1, w2, tinta=tinta, com_pilula=pilula)

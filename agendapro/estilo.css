@@ -217,7 +217,7 @@
 .lat-logo{ width:100%; max-width:186px; height:auto; display:block }
 .marca-logo{ width:34px; height:34px; flex:none; display:block }
 /* No cadastro o fundo é claro e há espaço, então entra o bloco inteiro. */
-.logo-topo{ height:46px; width:auto; display:block }
+.logo-topo{ height:34px; width:auto; display:block }
 .logo i{ display:none }
 .marca-nome{
   font-size:1.32rem; font-weight:700; letter-spacing:-.03em; color:var(--lat-txt);
@@ -967,6 +967,9 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
   /* Botão de um caractere só (as setas ‹ › do dia) fica estreito porque o
      glifo é estreito. A altura já vinha certa; faltava a largura. */
   .btn-x, .btn-icone{ min-width:44px }
+  /* O olho de revelar senha mora dentro do campo: precisa dos 44px nos dois
+     eixos, senão o dedo acerta o campo e não o botão. */
+  .olho{ min-width:44px; display:grid; place-items:center }
   /* Link de texto no topo vira alvo de toque com o próprio respiro. */
   .entrar{ display:inline-flex; align-items:center; min-height:44px; padding:0 4px }
 

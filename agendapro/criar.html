@@ -232,167 +232,148 @@ input.bom{border-color:rgba(21,128,61,.5)!important}
 
 <header class="topo">
   <div class="topo-in">
-    <img class="logo-topo" src="icones/logotipo.svg" alt="AgendaPro Gestão">
+    <img class="logo-topo" src="icones/logotipo-escuro-linha.svg" alt="AgendaPro">
     <a class="entrar" href="entrar.html">Já tem conta? Entrar</a>
   </div>
 </header>
 
 <div class="trilho">
   <div class="bolas"><i id="b1" class="on"></i><i id="b2"></i><i id="b3"></i></div>
-  <p id="rotuloPasso">Passo 1 de 3: Escolha o tamanho</p>
+  <p id="rotuloPasso">Passo 1 de 3: Sua conta</p>
 </div>
 
 <main class="wrap">
 
-  <!-- ══════════ PASSO 1 · PLANOS ══════════ -->
-  <section class="passo on" id="p-planos">
-    <h1>Seu link de agendamento, <span>pronto hoje</span></h1>
-    <p class="sub">O cliente marca sozinho pelo link. Teste 7 dias sem cartão.</p>
+  <!-- ══════════════════════════════════════════════════════════════════
+       PASSO 1 · A CONTA
 
-    <div class="ciclo">
-      <span class="desc10">−10%</span>
-      <button id="c-mensal" class="on" onclick="trocarCiclo('mensal')">Mensal</button>
-      <button id="c-anual" onclick="trocarCiclo('anual')">Anual</button>
-    </div>
+       Três campos, e nada além disso. A versão anterior pedia oito de uma
+       vez — incluindo CPF/CNPJ — antes de a pessoa ter visto uma tela do
+       produto. Nenhum SaaS do setor faz isso: Fresha, Booksy, Trinks e
+       Square abrem com o mínimo para existir uma conta e perguntam o resto
+       depois, lá dentro.
 
-    <div class="caixa">
-      <div class="pergunta">Quantos profissionais atendem?</div>
-      <div class="quantos" id="quantos">1 profissional</div>
-      <div class="regua" id="regua"></div>
-      <div class="linha-fina"></div>
-      <div class="recomendado">
-        <small>Plano recomendado</small>
-        <b id="recomendado">—</b>
-      </div>
-    </div>
+       Documento fiscal é assunto de cobrança e fica para a hora de assinar.
+       Plano também: escolher preço antes de usar é o pedido mais fácil de
+       recusar que existe.
+       ══════════════════════════════════════════════════════════════════ -->
+  <section class="passo on" id="p-conta">
+    <h1>Sua agenda online, <span>pronta hoje</span></h1>
+    <p class="sub">O cliente marca sozinho pelo link, a qualquer hora.
+      Comece grátis, sem cartão.</p>
 
-    <div class="dica-desliza">&lsaquo; &nbsp;Deslize para ver todos os planos&nbsp; &rsaquo;</div>
-    <div class="carrossel" id="carrossel"></div>
-
-    <div class="garantia">
-      <span class="ic" data-ico="escudo"></span>
-      <div><b>Garantia de 30 dias</b>
-      <p>Se não servir para o seu negócio, devolvemos tudo. Sem perguntas.</p></div>
-    </div>
-  </section>
-
-  <!-- ══════════ PASSO 2 · SEUS DADOS ══════════ -->
-  <section class="passo" id="p-dados">
-    <button class="voltar" onclick="irPasso(1)">← Voltar para planos</button>
-    <h1>Criar conta grátis</h1>
-    <p class="sub">Preencha seus dados para começar o teste de 7 dias.</p>
-
-    <div class="aviso">
-      <span class="ic" data-ico="info"></span>
-      <div><b>Teste: até 1 profissional</b>
-      O teste grátis permite cadastrar apenas 1 profissional — você. Para
-      colocar a equipe inteira, assine um plano durante ou depois do teste.</div>
-    </div>
-
-    <div class="aviso neutro">
-      <span class="ic" data-ico="mao"></span>
-      <div><b>Como você nos conheceu? <span style="font-weight:500;color:var(--txt3)">
-        (opcional)</span></b>
-      <div class="entrada sem-ic" style="margin-top:9px">
-        <select id="fOrigem">
-          <option value="">Prefiro não dizer</option>
-          <option>Indicação de outro profissional</option>
-          <option>Instagram</option>
-          <option>Google</option>
-          <option>WhatsApp de um cliente</option>
-          <option>Feira ou evento</option>
-          <option>Outro</option>
-        </select>
-      </div></div>
-    </div>
+    <div id="avisoGeral"></div>
 
     <div class="caixa">
       <div class="campo">
-        <label>Nome completo <em>*</em></label>
+        <label for="fNome">Seu nome <em>*</em></label>
         <div class="entrada"><span class="ic" data-ico="usuario"></span>
-          <input id="fNome" placeholder="Seu nome" autocomplete="name"
-                 oninput="validarCampo('fNome')"></div>
+          <input id="fNome" placeholder="Como você quer ser chamado"
+                 autocomplete="name" oninput="validarCampo('fNome')"></div>
         <div class="erro-campo" id="e-fNome" style="display:none"></div>
       </div>
 
       <div class="campo">
-        <label>Email <em>*</em></label>
+        <label for="fEmail">E-mail <em>*</em></label>
         <div class="entrada"><span class="ic" data-ico="email"></span>
-          <input id="fEmail" type="email" placeholder="seu@email.com"
+          <input id="fEmail" type="email" placeholder="voce@exemplo.com"
                  autocomplete="email" oninput="validarCampo('fEmail')"></div>
+        <div class="ajuda">É por aqui que você entra no sistema.</div>
         <div class="erro-campo" id="e-fEmail" style="display:none"></div>
       </div>
 
       <div class="campo">
-        <label>Senha <em>*</em></label>
+        <label for="fSenha">Senha <em>*</em></label>
         <div class="entrada"><span class="ic" data-ico="cadeado"></span>
-          <input id="fSenha" type="password" placeholder="Mínimo 8 caracteres"
-                 autocomplete="new-password" oninput="validarCampo('fSenha')">
-          <button class="olho" onclick="verSenha('fSenha')" type="button" data-ico="olho"></button></div>
+          <input id="fSenha" type="password" placeholder="Pelo menos 8 caracteres"
+                 autocomplete="new-password"
+                 oninput="forcaSenha(this.value);validarCampo('fSenha')">
+          <button class="olho" onclick="verSenha('fSenha')" type="button"
+                  aria-label="Mostrar senha" data-ico="olho"></button></div>
         <div class="forca"><i id="s1"></i><i id="s2"></i><i id="s3"></i></div>
-        <div class="ajuda">Mínimo 8 caracteres, com letras e números.</div>
         <div class="erro-campo" id="e-fSenha" style="display:none"></div>
       </div>
 
+      <button class="grande" onclick="irNegocio()">Continuar</button>
+      <p class="sob-botao">Grátis para começar · Sem cartão de crédito</p>
+    </div>
+
+    <div class="aviso neutro">
+      <span class="ic" data-ico="escudo"></span>
+      <div><b>Seus dados ficam com você</b>
+      A agenda e a clientela são suas. Dá para exportar tudo e sair quando
+      quiser, sem multa e sem fidelidade.</div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       PASSO 2 · O ESTABELECIMENTO
+       ══════════════════════════════════════════════════════════════════ -->
+  <section class="passo" id="p-negocio">
+    <button class="voltar" onclick="irPasso(1)">&larr; Voltar</button>
+    <h1>Sobre o seu <span>negócio</span></h1>
+    <p class="sub">É o que o cliente vê ao abrir o link. Dá para mudar
+      depois, em Meu salão.</p>
+
+    <div id="avisoNegocio"></div>
+
+    <div class="caixa">
       <div class="campo">
-        <label>Confirmar senha <em>*</em></label>
-        <div class="entrada"><span class="ic" data-ico="cadeado"></span>
-          <input id="fSenha2" type="password" placeholder="Digite a senha novamente"
-                 autocomplete="new-password" oninput="validarCampo('fSenha2')">
-          <button class="olho" onclick="verSenha('fSenha2')" type="button" data-ico="olho"></button></div>
-        <div class="erro-campo" id="e-fSenha2" style="display:none"></div>
+        <label for="fSalao">Nome do estabelecimento <em>*</em></label>
+        <div class="entrada"><span class="ic" data-ico="casa"></span>
+          <input id="fSalao" placeholder="Studio Bella"
+                 oninput="mudouNomeSalao();validarCampo('fSalao')"></div>
+        <div class="previa-link" id="previaLink" style="display:none"></div>
+        <div class="erro-campo" id="e-fSalao" style="display:none"></div>
       </div>
 
       <div class="campo">
-        <label>WhatsApp <em>*</em></label>
-        <div class="entrada"><span class="ic" data-ico="telefone"></span>
-          <input id="fZap" type="tel" inputmode="numeric" placeholder="(00) 00000-0000"
-                 autocomplete="tel" oninput="mascaraTel(this);validarCampo('fZap')"></div>
-        <div class="erro-campo" id="e-fZap" style="display:none"></div>
-      </div>
-
-      <div class="campo">
-        <label>CPF ou CNPJ <em>*</em></label>
-        <div class="entrada"><span class="ic" data-ico="cartao"></span>
-          <input id="fDoc" inputmode="numeric" placeholder="000.000.000-00"
-                 oninput="mascaraDoc(this);validarCampo('fDoc')"></div>
-        <div class="ajuda">Necessário para emitir a cobrança quando você assinar.</div>
-        <div class="erro-campo" id="e-fDoc" style="display:none"></div>
-      </div>
-
-      <div class="campo">
-        <label>Tipo de negócio <em>*</em></label>
+        <label for="fTipo">Tipo de negócio <em>*</em></label>
         <div class="entrada sem-ic">
-          <select id="fTipo" onchange="mudouTipo()">
-            <option value="">Selecione o tipo de negócio</option>
-            <option value="barbearia">Barbearia</option>
+          <select id="fTipo" onchange="mudouTipo();validarCampo('fTipo')">
+            <option value="">Selecione</option>
             <option value="salao">Salão de beleza</option>
-            <option value="manicure">Esmalteria / manicure</option>
-            <option value="estetica">Clínica de estética</option>
+            <option value="barbearia">Barbearia</option>
+            <option value="manicure">Manicure e pedicure</option>
+            <option value="estetica">Estética</option>
             <option value="clinica">Clínica</option>
             <option value="tatuagem">Estúdio de tatuagem</option>
             <option value="pet">Pet shop</option>
             <option value="outro">Outro</option>
-          </select>
-        </div>
-        <div class="ajuda" id="ajudaTipo">Define o vocabulário do sistema. Dá para
-          mudar depois em Configurações.</div>
+          </select></div>
+        <div class="ajuda" id="ajudaTipo">Define o vocabulário do sistema:
+          barbearia diz "barbeiro", esmalteria diz "manicure".</div>
         <div class="erro-campo" id="e-fTipo" style="display:none"></div>
       </div>
 
-      <div class="campo" style="margin-bottom:0">
-        <label>Nome do estabelecimento <em>*</em></label>
-        <div class="entrada"><span class="ic" data-ico="casa"></span>
-          <input id="fSalao" placeholder="Ex.: Barbearia do Zé"
-                 oninput="mudouNomeSalao()"></div>
-        <div class="previa-link" id="previaLink" style="display:none"></div>
-        <div class="erro-campo" id="e-fSalao" style="display:none"></div>
+      <div class="campo">
+        <label for="fZap">WhatsApp <em>*</em></label>
+        <div class="entrada"><span class="ic" data-ico="telefone"></span>
+          <input id="fZap" type="tel" inputmode="numeric" placeholder="(00) 00000-0000"
+                 autocomplete="tel" oninput="mascaraTel(this);validarCampo('fZap')"></div>
+        <div class="ajuda">Por onde o cliente fala com você — e por onde
+          recuperamos seu acesso se precisar.</div>
+        <div class="erro-campo" id="e-fZap" style="display:none"></div>
       </div>
-    </div>
 
-    <div id="avisoGeral"></div>
-    <button class="grande" onclick="criarConta()">Criar conta grátis</button>
-    <p class="sob-botao">Pronto em 2 minutos &nbsp;·&nbsp; Sem cartão de crédito</p>
+      <div class="campo">
+        <label for="fOrigem">Como você nos conheceu?
+          <span>(opcional)</span></label>
+        <div class="entrada sem-ic">
+          <select id="fOrigem">
+            <option value="">Prefiro não dizer</option>
+            <option>Indicação de outro profissional</option>
+            <option>Instagram</option>
+            <option>Google</option>
+            <option>WhatsApp de um cliente</option>
+            <option>Outro</option>
+          </select></div>
+      </div>
+
+      <button class="grande" onclick="criarConta()">Criar minha agenda</button>
+      <p class="sob-botao">Pronto em 2 minutos · Você escolhe o plano depois,
+        dentro do sistema</p>
+    </div>
   </section>
 
   <!-- ══════════ PASSO 3 · PRONTO ══════════ -->
@@ -511,13 +492,13 @@ function somarDias(iso, n){
 }
 
 /* ── Passos ──────────────────────────────────────────────────────────── */
-const ROTULOS = ['Passo 1 de 3: Escolha o tamanho',
-                 'Passo 2 de 3: Seus dados',
+const ROTULOS = ['Passo 1 de 3: Sua conta',
+                 'Passo 2 de 3: Seu estabelecimento',
                  'Passo 3 de 3: Tudo pronto'];
 
 function irPasso(n){
   document.querySelectorAll('.passo').forEach(p => p.classList.remove('on'));
-  document.getElementById(['p-planos','p-dados','p-pronto'][n-1]).classList.add('on');
+  document.getElementById(['p-conta','p-negocio','p-pronto'][n-1]).classList.add('on');
   for(let i = 1; i <= 3; i++)
     document.getElementById('b'+i).classList.toggle('on', i <= n);
   document.getElementById('rotuloPasso').textContent = ROTULOS[n-1];
@@ -527,62 +508,10 @@ function irPasso(n){
 }
 
 /* ── Passo 1: preço ──────────────────────────────────────────────────── */
-function trocarCiclo(c){
-  ciclo = c;
-  document.getElementById('c-mensal').classList.toggle('on', c === 'mensal');
-  document.getElementById('c-anual').classList.toggle('on', c === 'anual');
-  pintarPlanos();
-}
+/* A escolha de plano saiu do cadastro e vive na aba Plano, dentro do app.
+   Pedir preço antes de a pessoa ter visto uma tela é o pedido mais fácil de
+   recusar que existe — e o teste grátis já cobre o primeiro profissional. */
 
-function escolherQuantos(n){ quantos = n; pintarPlanos(); }
-
-function pintarPlanos(){
-  document.getElementById('regua').innerHTML = [1,2,3,4,5,6].map(n =>
-    `<button class="${n===quantos?'on':''}" onclick="escolherQuantos(${n})">
-       ${n === 6 ? '6+' : n}</button>`).join('');
-
-  document.getElementById('quantos').textContent =
-    quantos === 6 ? '6 ou mais profissionais'
-                  : quantos + (quantos === 1 ? ' profissional' : ' profissionais');
-
-  const pagos = PLANOS.filter(p => p.codigo !== 'trial' && p.codigo !== 'gratuito');
-  const rec = pagos.find(p => p.max >= quantos) || pagos[pagos.length-1];
-  document.getElementById('recomendado').textContent =
-    rec.nome + ' — ' + real(preco(rec)) + '/mês';
-
-  document.getElementById('carrossel').innerHTML = PLANOS.map(p => {
-    const destaque = p.codigo === rec.codigo || p.pop;
-    const cheio = preco(p);
-    return `<div class="plano ${p.codigo === rec.codigo ? 'pop' : ''}">
-      ${p.codigo === rec.codigo ? '<div class="fita">RECOMENDADO PARA VOCÊ</div>' : ''}
-      <div class="ic">${p.ic}</div>
-      <h3>${p.nome}</h3>
-      <div class="quem">${p.quem}</div>
-      <div class="valor">${p.preco
-        ? (ciclo === 'anual' ? `<s>${real(p.preco)}</s>` : '') + real(cheio)
-          + '<small> /mês</small>'
-        : 'Grátis<small> 7 dias</small>'}</div>
-      <ul>${p.recursos.map(r => `<li>${ico('ok')}<span>${r}</span></li>`).join('')}</ul>
-      <button class="btn-plano" onclick="escolherPlano('${p.codigo}')">
-        ${p.preco ? 'Assinar ' + p.nome : 'Testar grátis'}</button>
-    </div>`;
-  }).join('');
-}
-
-function escolherPlano(codigo){
-  planoEscolhido = codigo;
-  // Mesmo quem escolhe um plano pago começa no teste: cobrar antes de a
-  // pessoa ver a própria agenda funcionando derruba a conversão, e ela
-  // ainda tem 7 dias para desistir sem pagar nada.
-  irPasso(2);
-  setTimeout(() => document.getElementById('fNome').focus(), 250);
-}
-
-/* ── Validações ──────────────────────────────────────────────────────────
-   Validação de verdade, não só máscara. Máscara aceita 111.111.111-11, que
-   é um CPF impossível — e o problema só aparece na hora de emitir a
-   cobrança, quando a pessoa já é cliente e está esperando.
-   ──────────────────────────────────────────────────────────────────────── */
 function soDigitos(t){ return String(t||'').replace(/\D/g,''); }
 
 // E.164 é o formato que o Supabase Auth guarda o telefone.
@@ -639,6 +568,13 @@ function cnpjValido(cnpj){
   return calc(12) === Number(cnpj[12]) && calc(13) === Number(cnpj[13]);
 }
 
+/* Não existe "confirme a senha". O campo duplicado é ritual antigo: com o
+   botão de revelar, ele só dobra o trabalho e a chance de errar. Quem digita
+   errado usa "esqueci minha senha", que precisa existir de qualquer jeito.
+
+   `cpfValido` e `cnpjValido` continuam aqui de propósito, sem uso no
+   cadastro: o documento passa a ser pedido na hora de assinar, e é lá que
+   eles voltam. */
 function forcaSenha(s){
   let n = 0;
   if(s.length >= 8) n++;
@@ -655,15 +591,7 @@ const REGRAS = {
   fSenha:  v => v.length < 8 ? 'A senha precisa de pelo menos 8 caracteres.'
             : (!/[a-zA-Z]/.test(v) || !/\d/.test(v))
               ? 'Misture letras e números.' : '',
-  fSenha2: v => v === document.getElementById('fSenha').value && v
-            ? '' : 'As senhas não são iguais.',
   fZap:    v => soDigitos(v).length >= 10 ? '' : 'Faltam dígitos — inclua o DDD.',
-  fDoc:    v => {
-    const d = soDigitos(v);
-    if(d.length === 11) return cpfValido(d) ? '' : 'Esse CPF não confere.';
-    if(d.length === 14) return cnpjValido(d) ? '' : 'Esse CNPJ não confere.';
-    return 'Digite um CPF (11 dígitos) ou CNPJ (14).';
-  },
   fTipo:   v => v ? '' : 'Escolha o tipo de negócio.',
   fSalao:  v => v.trim().length >= 2 ? '' : 'Dê um nome ao estabelecimento.',
 };
@@ -749,14 +677,35 @@ function mudouNomeSalao(){
 }
 
 /* ── Criar a conta ───────────────────────────────────────────────────── */
+/* O passo 1 só passa com os três campos da conta em ordem. Validar tudo no
+   fim faria a pessoa descobrir um e-mail errado depois de preencher o
+   estabelecimento inteiro. */
+function irNegocio(){
+  const campos = ['fNome','fEmail','fSenha'];
+  let ok = true, primeiro = null;
+  for(const c of campos)
+    if(!validarCampo(c, true)){ ok = false; if(!primeiro) primeiro = c; }
+
+  const geral = document.getElementById('avisoGeral');
+  if(!ok){
+    geral.innerHTML = '<div class="aviso ruim"><span class="ic">' + ico('alerta') + '</span>'
+      + '<div><b>Faltou conferir alguns campos</b>'
+      + 'Os que estão em vermelho precisam de ajuste.</div></div>';
+    document.getElementById(primeiro).focus();
+    return;
+  }
+  geral.innerHTML = '';
+  irPasso(2);
+}
+
 async function criarConta(){
-  const campos = ['fNome','fEmail','fSenha','fSenha2','fZap','fDoc','fTipo','fSalao'];
+  const campos = ['fSalao','fTipo','fZap'];
   let ok = true, primeiro = null;
   for(const c of campos){
     if(!validarCampo(c, true)){ ok = false; if(!primeiro) primeiro = c; }
   }
 
-  const geral = document.getElementById('avisoGeral');
+  const geral = document.getElementById('avisoNegocio');
   if(!ok){
     geral.innerHTML = '<div class="aviso ruim"><span class="ic">' + ico('alerta') + '</span>'
       + '<div><b>Faltou conferir alguns campos</b>'
@@ -790,7 +739,9 @@ async function criarConta(){
       const r = await Dados.chamar('criar_salao', {
         p_nome_salao: nomeSalao, p_tipo: tipo, p_slug: slug,
         p_telefone: tel,
-        p_documento: document.getElementById('fDoc').value,
+        // O CPF/CNPJ entra na hora de assinar, não no cadastro. A função do
+        // banco já aceita nulo e não cria linha em `documentos_cobranca`.
+        p_documento: null,
         p_origem: document.getElementById('fOrigem').value || null });
 
       const criado = Array.isArray(r) ? r[0] : r;
@@ -913,7 +864,6 @@ function registrarServiceWorker(){
 
 (function(){
   bd = carregar();
-  pintarPlanos();
   registrarServiceWorker();
   if(location.protocol === 'file:'){
     document.getElementById('rodape').innerHTML =
