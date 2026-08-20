@@ -59,13 +59,51 @@ do $$
 declare
   v_email text := 'TROQUE-PELO-SEU@EMAIL.COM';   -- ← só isto muda
   v_id    uuid;
+  v_temQuantas int;
+  v_lista text;
 begin
   select id into v_id from auth.users where lower(email) = lower(v_email);
 
+  -- ── QUANDO NÃO ACHA, MOSTRAR O QUE EXISTE ────────────────────────────────
+  -- A primeira versão só dizia "não achei, crie a conta primeiro" — e mandava
+  -- de volta para a tela de cadastro, que era exatamente onde o problema
+  -- estava: aberta em modo demonstração, ela grava no navegador e o Supabase
+  -- nunca vê nada. A pessoa cria a conta de novo, roda de novo, e lê a mesma
+  -- frase. Duas vezes seguidas, no meu caso.
+  --
+  -- Erro que manda de volta para o lugar que causou o erro é pior que erro
+  -- nenhum. Agora ele mostra o que HÁ em auth.users, e a lista responde
+  -- sozinha qual é o caso:
+  --
+  --   · vazia          → nenhuma conta chegou aqui: a tela está em
+  --                      demonstração, ou aponta para outro projeto;
+  --   · com o e-mail   → é diferença de digitação (ponto, domínio, acento);
+  --   · com outros     → a conta foi criada, mas com outro endereço.
   if v_id is null then
-    raise exception E'Não achei conta com o e-mail %.\n'
-      '  Crie a conta primeiro pela tela de cadastro do sistema,\n'
-      '  depois rode isto de novo.', v_email;
+    select count(*) into v_temQuantas from auth.users;
+
+    select string_agg('     ' || coalesce(u.email, '(sem e-mail)')
+                      || '  ·  criada em ' || to_char(u.created_at, 'DD/MM HH24:MI'),
+                      E'\n' order by u.created_at desc)
+      into v_lista
+      from (select email, created_at from auth.users
+             order by created_at desc limit 10) u;
+
+    raise exception E'Não achei conta com o e-mail %.\n\n'
+      'Este projeto tem % conta(s) em auth.users:\n%\n\n'
+      '%',
+      v_email, v_temQuantas,
+      coalesce(v_lista, '     (nenhuma)'),
+      case when v_temQuantas = 0 then
+        E'Nenhuma conta chegou até aqui. Quase sempre isso quer dizer que a\n'
+        'tela de cadastro está em modo demonstração — com config.js vazio ela\n'
+        'grava no navegador, e o Supabase nunca vê nada.\n\n'
+        'Caminho curto: Authentication → Users → Add user, com e-mail e senha,\n'
+        'marcando "Auto Confirm User". Depois rode isto de novo.'
+      else
+        E'A conta existe com outro endereço, ou o e-mail acima tem alguma\n'
+        'diferença de digitação. Copie um da lista e rode de novo.'
+      end;
   end if;
 
   -- O perfil nasce junto com a conta, pelo gatilho do 08_conta.sql. Este
