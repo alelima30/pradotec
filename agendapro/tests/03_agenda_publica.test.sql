@@ -544,4 +544,38 @@ select t_falso('nem a de jornadas',
 select t_falso('nem a de bloqueios',
   has_table_privilege('anon', 'public.bloqueios', 'select'));
 
+-- ---------------------------------------------------------------------------
+-- 13) AS TRÊS VISTAS PÚBLICAS CONTINUAM FECHADAS
+--
+-- Este bloco existe porque o mesmo defeito apareceu duas vezes, em arquivos
+-- diferentes: o 02_rls.sql concedia as três vistas e o 06 revogava; depois
+-- descobri que o 05, no fim, concedia `profissionais_publicos` de novo. Nos
+-- dois casos a instalação completa saía certa — 06 roda por último — e nos
+-- dois casos reaplicar o arquivo sozinho reabria a enumeração da carteira de
+-- clientes da plataforma.
+--
+-- Um teste por arquivo não pegaria o terceiro. Este pergunta pelo ESTADO, que
+-- é o que importa: depois de tudo instalado, ninguém enxerga as três. Quem
+-- adicionar um grant novo em qualquer arquivo reprova aqui.
+-- ---------------------------------------------------------------------------
+select t_falso('anon não folheia o catálogo de salões',
+  has_table_privilege('anon', 'public.saloes_publicos', 'select'));
+select t_falso('nem o de serviços',
+  has_table_privilege('anon', 'public.servicos_publicos', 'select'));
+select t_falso('nem o de profissionais',
+  has_table_privilege('anon', 'public.profissionais_publicos', 'select'));
+
+-- E quem fez login também não: criar conta leva dois minutos, então deixar
+-- aberto para `authenticated` seria a mesma porta com um degrau na frente.
+select t_falso('quem tem conta também não folheia',
+  has_table_privilege('authenticated', 'public.saloes_publicos', 'select'));
+select t_falso('nem o de profissionais, com conta',
+  has_table_privilege('authenticated', 'public.profissionais_publicos', 'select'));
+
+-- O caminho que SUBSTITUIU o catálogo continua aberto: quem tem o apelido
+-- entra. Sem isto, o teste acima ficaria satisfeito com tudo trancado — e o
+-- link da cliente parado.
+select t_verdade('mas quem sabe o apelido entra pela vitrine',
+  has_function_privilege('anon', 'public.vitrine(text)', 'execute'));
+
 select t_ok('agenda pública: tudo conferido');

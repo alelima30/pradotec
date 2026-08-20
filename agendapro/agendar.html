@@ -885,7 +885,18 @@ async function pedirVagas(){
     console.error('[AgendaPro] horarios_livres_periodo:', e);
     if(vagasChave !== chave) return;
     vagasEstado = 'erro';
-    vagasErro = e.message || 'sem detalhe';
+    /* ── UM ERRO QUE TEM NOME PRÓPRIO ──────────────────────────────────
+       `horarios_livres_periodo()` é mais nova que o resto. Um banco que
+       recebeu o schema antes dela responde 404 com "Could not find the
+       function" — e isso NÃO é falha de conexão, é instalação atrasada.
+
+       A diferença importa porque as duas têm curas opostas: "tente de novo"
+       resolve queda de rede e não resolve função que não existe. Sem separar,
+       o dono do salão fica clicando em "tentar de novo" a tarde inteira
+       enquanto o conserto é colar um arquivo no SQL Editor. */
+    vagasErro = /Could not find the function|PGRST202|does not exist/i
+      .test(String(e.message || ''))
+      ? 'FALTA_INSTALAR' : (e.message || 'sem detalhe');
   }
   desenhar();
 }
@@ -1344,10 +1355,16 @@ function desenharQuando(){
     if(vagasEstado === 'erro'){
       document.getElementById('listaDias').innerHTML = '';
       document.getElementById('cardProximo').innerHTML = '';
-      document.getElementById('listaHoras').innerHTML =
-        '<div class="nada"><b>Não consegui ver a agenda agora.</b>'
-        + 'Pode ser a conexão. '
-        + '<button class="link" onclick="pedirVagas()">Tentar de novo</button></div>';
+      document.getElementById('listaHoras').innerHTML = vagasErro === 'FALTA_INSTALAR'
+        ? '<div class="nada"><b>A agenda online deste salão ainda não foi ligada.</b>'
+          + 'Fale com ' + salao.nome + ' — em geral é coisa de minutos.'
+          + '<small style="display:block;margin-top:10px;opacity:.7">Para o dono: '
+          + 'falta rodar <code>supabase/00_tudo.sql</code> no SQL Editor do '
+          + 'Supabase. A função <code>horarios_livres_periodo()</code> não está '
+          + 'instalada.</small></div>'
+        : '<div class="nada"><b>Não consegui ver a agenda agora.</b>'
+          + 'Pode ser a conexão. '
+          + '<button class="link" onclick="pedirVagas()">Tentar de novo</button></div>';
       return;
     }
   }

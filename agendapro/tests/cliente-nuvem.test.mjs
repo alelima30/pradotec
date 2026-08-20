@@ -231,6 +231,35 @@ const naMao = await fetch(BASE + '/rest/v1/rpc/agendar', {
 verdade('e quem tentar marcar em cima dele na mão é recusado pelo banco',
   !naMao.ok);
 
+secao('Um banco que ainda não recebeu a função nova');
+
+/* `horarios_livres_periodo()` é mais nova que o resto do schema. Um projeto
+   que recebeu o SQL antes dela responde 404 — e "tente de novo" é conselho
+   inútil para função que não existe. A tela precisa saber a diferença, senão
+   o dono fica clicando a tarde inteira enquanto o conserto é colar um arquivo
+   no SQL Editor.
+
+   Aqui a falta é simulada interceptando a chamada, em vez de desinstalar a
+   função da bancada — desinstalar quebraria os outros casos deste arquivo. */
+const semFuncao = await ctx.newPage();
+await semFuncao.route('**/rpc/horarios_livres_periodo', r => r.fulfill({
+  status: 404, contentType: 'application/json',
+  body: JSON.stringify({ code:'PGRST202',
+    message:'Could not find the function public.horarios_livres_periodo' }) }));
+await semFuncao.goto(BASE + '/agendar.html?salao=' + SLUG);
+await semFuncao.waitForTimeout(1500);
+await semFuncao.click('#btPrincipal'); await semFuncao.waitForTimeout(300);
+await semFuncao.click('#listaServicos button.opcao'); await semFuncao.waitForTimeout(200);
+await semFuncao.click('#btPrincipal'); await semFuncao.waitForTimeout(300);
+await semFuncao.click('#listaProfs button.opcao'); await semFuncao.waitForTimeout(200);
+await semFuncao.click('#btPrincipal'); await semFuncao.waitForTimeout(2000);
+
+const semTexto = await semFuncao.textContent('#listaHoras');
+verdade('a tela diz que a agenda online não foi ligada, e não culpa a conexão',
+  semTexto.includes('ainda não foi ligada') && !semTexto.includes('Pode ser a conexão'));
+verdade('e diz ao dono exatamente o que rodar',
+  semTexto.includes('00_tudo.sql'));
+
 secao('O salão recém-criado, antes de cadastrar qualquer serviço');
 
 /* É o estado em que TODO salão passa a primeira hora: o cadastro entrega o

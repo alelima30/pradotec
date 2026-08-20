@@ -2421,7 +2421,24 @@ create or replace view public.profissionais_publicos as
    where p.ativo and p.aceita_online and sa.status = 'ativo'
      and public.profissional_na_cota(p.id);
 
-grant select on public.profissionais_publicos to anon, authenticated;
+-- ---------------------------------------------------------------------------
+-- E ESTA VISTA NÃO RECEBE PERMISSÃO AQUI
+--
+-- Havia, nesta linha, um `grant select on public.profissionais_publicos to
+-- anon, authenticated`. O 06_vitrine.sql revoga a mesma coisa, então na
+-- instalação completa o resultado saía certo — 06 roda depois de 05 — e a
+-- contradição passava despercebida.
+--
+-- Só que "certo porque roda na ordem" não sobrevive a reaplicar só este
+-- arquivo, que é o que se faz ao mexer numa função da agenda. Medido: `anon`
+-- volta a ler a vista, e uma requisição sem filtro devolve TODOS os
+-- profissionais de TODOS os salões, com o salao_id de cada um. É a mesma
+-- enumeração da carteira de clientes que o 06 existe para fechar, entrando
+-- por outra porta.
+--
+-- É o gêmeo do defeito que o 02_rls.sql tinha. Quem manda nas três vistas
+-- públicas é o 06, sozinho — inclusive nesta.
+-- ---------------------------------------------------------------------------
 
 -- ###########################################################################
 -- ## 06_vitrine.sql
