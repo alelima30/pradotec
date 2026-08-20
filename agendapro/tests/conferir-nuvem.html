@@ -52,6 +52,9 @@ button:disabled{opacity:.5;cursor:default}
 .bom  .m{color:#4ADE80}
 .ruim .m{color:#FB7185}
 .ruim{background:rgba(251,113,133,.09)}
+.nota-linha{background:rgba(147,102,238,.07)}
+.nota-linha .m{color:#B79BF6;font-style:italic}
+.nota-linha div{color:rgba(242,239,248,.62);font-size:13px}
 .linha .porque{
   display:block;color:rgba(242,239,248,.5);font-size:12.5px;margin-top:3px;
   word-break:break-word;
@@ -121,6 +124,17 @@ function linha(bom, msg, porque){
   saida.appendChild(d);
 }
 
+/* Observação que NÃO conta como acerto nem erro. Existe porque algumas coisas
+   são propriedade da plataforma, não defeito do projeto — e reprovar por causa
+   delas seria acusar problema onde não há. Alarme falso ensina a ignorar
+   alarme, e aí o alarme verdadeiro passa batido. */
+function nota(msg){
+  const d = document.createElement('div');
+  d.className = 'linha nota-linha';
+  d.innerHTML = '<span class="m">i</span><div>' + escapar(msg) + '</div>';
+  saida.appendChild(d);
+}
+
 function grupo(titulo){
   const d = document.createElement('div');
   d.className = 'grupo';
@@ -142,6 +156,21 @@ async function bater(base, chave, caminho, cabs){
   }catch(e){
     // Rede caída, URL errada, CORS. Vale distinguir de uma recusa do banco:
     // "não cheguei lá" e "cheguei e me barraram" pedem consertos diferentes.
+    return { status: 0, ok: false, corpo: null, rede: e.message };
+  }
+}
+
+async function rpc(base, chave, fn, args){
+  try{
+    const r = await fetch(base + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { apikey: chave, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+    });
+    let corpo = null;
+    try { corpo = await r.json(); } catch(e){}
+    return { status: r.status, ok: r.ok, corpo };
+  }catch(e){
     return { status: 0, ok: false, corpo: null, rede: e.message };
   }
 }
@@ -223,13 +252,26 @@ async function conferir(){
 
     grupo('Os cabeçalhos');
 
-    const errado = await bater(base, chave, 'planos?select=codigo',
+    // O que o sistema DEPENDE: a chave sozinha no apikey, sem Authorization
+    // nenhum. É assim que a cliente sem conta abre o link do salão.
+    const soApikey = await bater(base, chave, 'planos?select=codigo');
+    linha(soApikey.ok,
+      'só com apikey, sem Authorization, a vitrine responde',
+      'status ' + soApikey.status);
+
+    // E o que é apenas CURIOSIDADE sobre a plataforma. A documentação diz que
+    // a chave publicável no Authorization é recusada, com uma exceção: vale
+    // quando o valor é idêntico ao do apikey. Se este projeto aceitar, não há
+    // nada a consertar — o dados.js não usa esse caminho de qualquer jeito.
+    // Por isso é nota, e não verificação: reprovar por causa disto seria
+    // acusar defeito onde não há, e alarme falso ensina a ignorar alarme.
+    const nosDois = await bater(base, chave, 'planos?select=codigo',
       { apikey: chave, 'Authorization': 'Bearer ' + chave });
-    linha(!errado.ok,
-      'a chave no Authorization é recusada',
-      'status ' + errado.status + ' — veio 200, então a exceção "valores '
-      + 'iguais" está valendo neste projeto. Não é problema: o dados.js não '
-      + 'manda mais a chave ali.');
+    nota(nosDois.ok
+      ? 'Este projeto também aceita a chave no Authorization (a exceção de '
+        + '"valores iguais"). Tudo bem: o sistema manda a chave só no apikey.'
+      : 'Este projeto recusa a chave no Authorization, como manda a '
+        + 'documentação. O sistema já manda ela só no apikey.');
 
     grupo('As funções que a cliente usa sem ter conta');
 
@@ -257,20 +299,44 @@ async function conferir(){
       }catch(e){ linha(false, fn + '() responde para quem não fez login', e.message); }
     }
 
-    // horarios_livres() e agendar() existem e são chamáveis por anon, mas
-    // precisam de um salão cadastrado para dizer algo útil. Aqui só se prova
-    // que a porta existe: a função responde em vez de dar "not found".
-    for(const fn of ['horarios_livres','agendar']){
-      const r = await fetch(base + '/rest/v1/rpc/' + fn, {
-        method: 'POST',
-        headers: { apikey: chave, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      // 404 = a função não foi instalada. Qualquer outro erro significa que
-      // ela existe e reclamou dos argumentos, que é o que se quer aqui.
-      linha(r.status !== 404, fn + '() está instalada e alcançável',
-        'status ' + r.status + ' — 404 quer dizer que o 05_agenda.sql não rodou');
-    }
+    /* ── CHAMAR COM OS ARGUMENTOS CERTOS, E NÃO COM {} ──────────────────────
+       A primeira versão daqui mandava corpo vazio e tratava 404 como "a
+       função não foi instalada". Errado, e alarmante à toa: o PostgREST
+       resolve a função pelos NOMES dos parâmetros. Com {} ele procura uma
+       versão sem argumento nenhum, não acha, e responde 404 — mesmo com a
+       função instalada e perfeita.
+
+       Então aqui vão os nomes de verdade, com valores inofensivos. O que se
+       espera de cada uma:
+
+       horarios_livres — um profissional que não existe e nenhum serviço.
+         A função recusa lá dentro e devolve conjunto vazio: 200 com [].
+
+       agendar — mesma coisa, mas ela ERRA de propósito, e o valor está no
+         erro: se voltar a nossa frase em português, é prova de que a função
+         rodou, que anon pode executá-la, e que a mensagem chega legível na
+         tela da cliente em vez de um "400 Bad Request" seco.
+       ──────────────────────────────────────────────────────────────────── */
+    const ninguem = '00000000-0000-0000-0000-000000000000';
+    const amanha  = new Date(Date.now() + 864e5).toISOString();
+
+    const hl = await rpc(base, chave, 'horarios_livres',
+      { p_profissional: ninguem, p_data: amanha.slice(0, 10), p_servicos: [] });
+    linha(hl.status !== 404 && Array.isArray(hl.corpo),
+      'horarios_livres() está instalada e responde a quem não fez login',
+      hl.status === 404
+        ? 'status 404 — o 05_agenda.sql não rodou neste projeto'
+        : 'status ' + hl.status + ' — ' + JSON.stringify(hl.corpo).slice(0, 160));
+
+    const ag = await rpc(base, chave, 'agendar',
+      { p_profissional: ninguem, p_inicio: amanha, p_servicos: [],
+        p_nome: 'Teste do conferidor', p_telefone: '51999999999' });
+    const frase = ag.corpo && ag.corpo.message || '';
+    linha(ag.status !== 404 && /profissional|serviço|horário|telefone/i.test(frase),
+      'agendar() está instalada e recusa em português, não em código',
+      ag.status === 404
+        ? 'status 404 — o 05_agenda.sql não rodou neste projeto'
+        : 'status ' + ag.status + ' — ' + JSON.stringify(ag.corpo).slice(0, 200));
 
     const total = ok + mau;
     const p = document.createElement('div');
