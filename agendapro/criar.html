@@ -439,7 +439,9 @@ input.bom{border-color:rgba(21,128,61,.5)!important}
 const CHAVE = 'agendapro.demo.v1';
 let ciclo = 'mensal';
 let quantos = 1;
-let planoEscolhido = null;
+// O plano não é mais escolhido aqui. Todo cadastro entra em `trial`, e
+// quando os 7 dias vencem o plano_efetivo() do banco devolve `gratuito`
+// sozinho — sem precisar de rotina de vencimento nem de UPDATE nenhum.
 let bd = null;
 
 const PLANOS = [
@@ -749,7 +751,9 @@ async function criarConta(){
       const url = location.href.replace(/\/[^\/]*$/, '/')
                 + 'agendar.html?salao=' + apelido;
       document.getElementById('textoPronto').innerHTML =
-        `<b>${nomeSalao}</b> está no ar. Você tem 7 dias de teste grátis.`;
+        `<b>${nomeSalao}</b> está no ar, com tudo liberado por 7 dias. `
+      + `Depois ele continua funcionando no plano grátis — você só `
+      + `assina se quiser mais.`;
       document.getElementById('linkFinal').textContent = url;
       irPasso(3);
     }catch(e){
@@ -774,8 +778,7 @@ async function criarConta(){
   bd.assinaturas = bd.assinaturas || [];
   bd.assinaturas.push({ salaoId, plano: 'trial', status: 'trial',
                         trialAte: somarDias(hoje(), 7),
-                        origem: document.getElementById('fOrigem').value || null,
-                        planoPretendido: planoEscolhido });
+                        origem: document.getElementById('fOrigem').value || null });
 
   // O dono é o primeiro profissional — e é justamente o 1 que o teste
   // permite. Jornada comercial de segunda a sábado, que ele ajusta depois.
@@ -790,7 +793,9 @@ async function criarConta(){
 
   const url = location.href.replace(/\/[^\/]*$/, '/') + 'agendar.html?salao=' + slug;
   document.getElementById('textoPronto').innerHTML =
-    `<b>${nomeSalao}</b> está no ar. Você tem 7 dias de teste grátis.`;
+    `<b>${nomeSalao}</b> está no ar, com tudo liberado por 7 dias. `
+      + `Depois ele continua funcionando no plano grátis — você só `
+      + `assina se quiser mais.`;
   document.getElementById('linkFinal').textContent = url;
   document.getElementById('irAgenda').href = 'app.html';
   irPasso(3);
