@@ -38,7 +38,7 @@ async function abrir() {
   p.erros = [];
   p.on('pageerror', e => p.erros.push(e.message));
   p.on('console', m => { if (m.type() === 'error') p.erros.push(m.text()); });
-  await p.goto(BASE + 'criar.html');
+  await p.goto(BASE + 'criar.html?demo=1');
   await p.waitForTimeout(300);
   return p;
 }

@@ -105,7 +105,10 @@ console.log('\nSem banco configurado');
   const ctx = await nav.newContext({ viewport:{ width:1280, height:900 } });
   const p = await ctx.newPage();
   const erros = []; p.on('pageerror', e => erros.push(e.message));
-  await p.goto(ESTATICO + '/admin.html');
+  // `?demo=1` desliga o banco nesta aba. Antes bastava o config.js estar
+  // vazio; agora que ele aponta para produção, é assim que se chega ao modo
+  // demonstração — e é o mesmo caminho que uma pessoa usaria.
+  await p.goto(ESTATICO + '/admin.html?demo=1');
   await p.waitForTimeout(600);
   const txt = await p.textContent('#corpo');
   diz(/banco de verdade/i.test(txt),

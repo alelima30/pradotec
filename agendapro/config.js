@@ -28,9 +28,51 @@
    =========================================================================== */
 
 window.AGENDAPRO = {
-  url:   '',   // https://xxxxxxxx.supabase.co
-  chave: '',   // sb_publishable_...
+  url:   'https://ialjrnighxntuirzmppt.supabase.co',
+  chave: 'sb_publishable_7E1IGSXJdA-U40VKDmlC7g_fBmSeZh1',
 
   // Aparece no rodapé para você não se confundir entre ensaio e produção.
-  ambiente: 'demonstração',
+  ambiente: 'produção',
 };
+
+/* ── POR QUE ISTO SAIU DE VAZIO ────────────────────────────────────────────
+   Ficou vazio por um tempo de propósito: com o site em demonstração, quem
+   entrasse não sujaria o banco de verdade.
+
+   Custou três idas e vindas. A conta criada pela tela ia para o localStorage
+   do navegador, o Supabase nunca via nada, e o script de promoção dizia "não
+   achei conta com esse e-mail" — verdade que apontava para o lugar errado.
+
+   Agora o sistema fala com o banco de verdade. Isso quer dizer que quem
+   abrir o endereço público cria conta e salão AQUI DENTRO. Para um produto
+   que ainda não lançou, é o que se quer: dá para usar de verdade, e o RLS
+   segura cada um no seu canto — 14 verificações por dentro do banco e 16 por
+   fora provam isso.
+
+   Para voltar à demonstração, esvazie as duas linhas acima. Nada mais muda.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* ── A DEMONSTRAÇÃO SOB DEMANDA ────────────────────────────────────────────
+   `?demo=1` em qualquer endereço do sistema desliga o banco naquela aba: os
+   dados passam a morar no navegador e nada sai dali.
+
+   Serve para duas coisas de uma vez:
+
+   · mostrar o sistema para alguém sem criar salão de verdade no banco — é o
+     "ver como funciona" que todo SaaS tem, e agora ele existe sem depender
+     de manter um segundo site publicado;
+   · deixar os testes de tela exercitarem o modo demonstração mesmo com o
+     config apontando para produção. Sem isso, ligar o banco derrubaria a
+     suíte de navegador inteira — e a resposta preguiçosa seria apagar os
+     testes em vez de consertar a causa.
+
+   Não abre nada: modo demonstração é ACESSO A MENOS, não a mais. Sem URL e
+   sem chave, o dados.js nem tenta falar com o Supabase.
+   ──────────────────────────────────────────────────────────────────────── */
+try{
+  if(new URLSearchParams(location.search).get('demo') === '1'){
+    window.AGENDAPRO.url = '';
+    window.AGENDAPRO.chave = '';
+    window.AGENDAPRO.ambiente = 'demonstração';
+  }
+}catch(e){ /* file:// sem search, ou navegador antigo: segue no modo normal */ }

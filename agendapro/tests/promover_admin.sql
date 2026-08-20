@@ -51,9 +51,20 @@
 -- Nos dois casos o perfil é criado sozinho pelo gatilho do 08_conta.sql.
 
 -- ── PASSO 2 ────────────────────────────────────────────────────────────────
--- Troque o e-mail abaixo pelo seu e rode. O `where` casa pelo e-mail em
--- auth.users, então não há chance de promover a pessoa errada por engano de
--- uuid copiado pela metade.
+-- TROQUE O E-MAIL na linha do `v_email` logo abaixo. É a única edição que
+-- este arquivo pede, e é a que mais se esquece — rodar sem trocar faz o
+-- script procurar uma conta chamada TROQUE-PELO-SEU@EMAIL.COM.
+--
+-- Se preferir não editar nada, este comando sozinho faz o mesmo serviço:
+--
+--   insert into public.perfis (id, nome, email, super_admin)
+--   select u.id, split_part(u.email, '@', 1), u.email, true
+--     from auth.users u
+--    where lower(u.email) = lower('SEU@EMAIL.COM')
+--   on conflict (id) do update set super_admin = true;
+--
+-- O `where` casa pelo e-mail em auth.users, então não há chance de promover a
+-- pessoa errada por engano de uuid copiado pela metade.
 
 do $$
 declare
@@ -79,6 +90,27 @@ begin
   --                      demonstração, ou aponta para outro projeto;
   --   · com o e-mail   → é diferença de digitação (ponto, domínio, acento);
   --   · com outros     → a conta foi criada, mas com outro endereço.
+  -- ── A ARMADILHA MAIS PROVÁVEL, CONFERIDA PRIMEIRO ───────────────────────
+  -- O espaço reservado continuar aí não é "conta não encontrada": é o script
+  -- rodado sem a única edição que ele pede. A versão anterior tratava os dois
+  -- casos igual, e a mensagem dizia "a conta existe com outro endereço" —
+  -- mandando procurar erro de digitação num e-mail que nunca foi digitado.
+  --
+  -- Diagnóstico que descreve o sintoma errado custa mais caro que diagnóstico
+  -- nenhum: ele ocupa a pessoa procurando no lugar errado.
+  if v_email = 'TROQUE-PELO-SEU@EMAIL.COM' then
+    select string_agg('     ' || coalesce(u.email, '(sem e-mail)'), E'\n'
+                      order by u.created_at desc)
+      into v_lista
+      from (select email, created_at from auth.users
+             order by created_at desc limit 10) u;
+
+    raise exception E'O e-mail não foi trocado: o script ainda está com\n'
+      'TROQUE-PELO-SEU@EMAIL.COM na linha do `v_email`.\n\n'
+      'Contas deste projeto — copie a sua para lá:\n%',
+      coalesce(v_lista, '     (nenhuma conta ainda; crie em Authentication → Users)');
+  end if;
+
   if v_id is null then
     select count(*) into v_temQuantas from auth.users;
 

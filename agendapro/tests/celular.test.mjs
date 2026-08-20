@@ -48,7 +48,7 @@ const medir = () => p.evaluate(() => ({
 }));
 
 console.log('\nO app do salão, em 375px');
-await p.goto(BASE + 'app.html');
+await p.goto(BASE + 'app.html?demo=1');
 await p.waitForTimeout(900);
 
 const abas = ['Agenda','Caixa','Clientes','Serviços','Equipe','Meu salão','Plano'];
@@ -105,8 +105,11 @@ diz(grade.overflow === 'auto' || grade.overflow === 'scroll',
 diz(grade.pagina === 0, 'sem arrastar a página junto');
 
 console.log('\nO app do cliente e o cadastro');
-for(const [url, nome] of [['agendar.html?salao=studio-bella','vitrine do cliente'],
-                          ['criar.html','cadastro do dono']]){
+// `demo=1` em todas: estas medidas são de LAYOUT, e layout não deve depender
+// de o banco estar no ar. Sem isso, a suíte de celular passaria a exigir
+// internet e rede boa para dizer se um botão tem 44px.
+for(const [url, nome] of [['agendar.html?salao=studio-bella&demo=1','vitrine do cliente'],
+                          ['criar.html?demo=1','cadastro do dono']]){
   await p.goto(BASE + url); await p.waitForTimeout(900);
   const r = await medir();
   diz(r.vaza === 0, `${nome}: não rola para o lado`, `sobram ${r.vaza}px`);

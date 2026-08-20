@@ -26,7 +26,7 @@ const nav = await chromium.launch({ executablePath: CHROMIUM });
 const p = await (await nav.newContext()).newPage();
 const erros = [];
 p.on('pageerror', e => erros.push(e.message));
-await p.goto(BASE + 'app.html');
+await p.goto(BASE + 'app.html?demo=1');
 await p.waitForTimeout(700);
 
 console.log('\nO custo de uma imagem no localStorage');
