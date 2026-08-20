@@ -313,18 +313,34 @@ separada por verbo: `for insert`, `for update`, `for delete`.
 
 ## O que falta
 
-1. **Entrega do código pelo WhatsApp.** O login por telefone depende do
+1. **Cobrança.** Não há como um salão pagar. A troca de plano acontece à mão,
+   pelo `admin.html`. É o que separa isto de um negócio.
+2. **Entrega do código pelo WhatsApp.** O login por telefone depende do
    *Send SMS Hook* do Supabase apontando para uma Edge Function com a Cloud
    API da Meta. O login por email e senha (o do dono) já funciona.
-2. **`agendar.html` no modo nuvem.** O app do cliente ainda grava no
-   navegador; o do salão e o cadastro do dono já falam com o banco.
-3. `03_funcoes_agenda.sql` — `horarios_livres()` e `agendar()` no banco. A
-   versão que está no `app.html` é de tela: serve para desenhar, não para
-   garantir. Cliente marcando precisa passar por função `security definer`,
-   senão escolhe o próprio preço e o horário das 3 da manhã.
-4. CI com Postgres de serviço, rodando `tests/rodar.sh` a cada envio.
-5. Sinal por Pix, pacotes e fidelidade — os campos de sinal já existem na
+3. **"Meus horários" da cliente, no modo nuvem.** Ver, cancelar e remarcar
+   mexem em dado de alguém, então precisam de prova de identidade — e a
+   verificação por código ainda é simulada. Falta a função pública que
+   devolva os horários de um telefone JÁ verificado. Enquanto não existe, a
+   tela diz isso em vez de mostrar lista vazia: cliente que lê "nenhum
+   horário" depois de marcar, marca de novo.
+4. **Lista de espera, no modo nuvem.** Mesma história: `lista_espera` não tem
+   função pública de escrita, então o botão não é oferecido — em vez de
+   gravar num vetor da memória e prometer um aviso que nunca sai.
+5. **Lembretes automáticos.** `lembrete_whatsapp: true` nos cinco planos
+   pagos, e nada envia. Depende de `pg_cron` e Edge Function.
+6. CI com Postgres de serviço, rodando `tests/tudo.sh` a cada envio.
+7. Sinal por Pix, pacotes e fidelidade — os campos de sinal já existem na
    tabela `agendamentos`, vazios.
+
+### O que deixou de faltar
+
+- **`agendar.html` no modo nuvem.** O link que o cadastro entrega abre a
+  vitrine do banco, mostra os horários que `horarios_livres_periodo()`
+  calcula e marca por `agendar()`. Duração e preço saem do banco, nunca do
+  navegador. Coberto por `tests/cliente-nuvem.test.mjs`, que vai do cadastro
+  da dona até o horário existir na tabela.
+- **`horarios_livres()` e `agendar()` no banco**, em `05_agenda.sql`.
 
 ## Onde este código vai morar
 

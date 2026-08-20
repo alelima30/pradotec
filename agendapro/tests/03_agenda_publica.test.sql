@@ -445,6 +445,80 @@ select t_texto('a segunda passa a recusar marcação, em vez de aceitar e falhar
   'Este profissional não está atendendo pela agenda online.');
 
 -- ---------------------------------------------------------------------------
+-- 11b) horarios_livres_periodo(): a tela inteira numa pergunta só
+--
+-- Ela existe para a tela da cliente não precisar de 84 requisições para pintar
+-- a faixa de dias. O que estes testes cobram é a única coisa que importa:
+-- responder EXATAMENTE o mesmo que a função de um dia. Se as duas puderem
+-- discordar, um dia vão — e a discordância aparece como cliente marcando em
+-- cima de cliente.
+-- ---------------------------------------------------------------------------
+-- Nada de número mágico aqui. A primeira versão cobrava "28 vagas", copiado
+-- da seção 3 — mas lá em cima o dia estava limpo, e a esta altura do arquivo
+-- os testes de agendar() já ocuparam cadeiras. O teste falhou por 11 ≠ 28 e o
+-- defeito era do teste. A comparação certa nunca foi com um número: é com a
+-- outra função, no mesmo instante, com o mesmo banco.
+select t_igual('o período de um dia devolve tantas vagas quanto o dia solto',
+  (select count(*) from public.horarios_livres_periodo(
+     array['bbbbbbbb-0000-0000-0000-000000000001'::uuid],
+     dia_teste(), dia_teste(),
+     array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])),
+  (select count(*) from public.horarios_livres(
+     'bbbbbbbb-0000-0000-0000-000000000001'::uuid, dia_teste(),
+     array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])));
+
+select t_verdade('e são os mesmos instantes, não só a mesma quantidade',
+  (select array_agg(inicio order by inicio)
+     from public.horarios_livres_periodo(
+       array['bbbbbbbb-0000-0000-0000-000000000001'::uuid],
+       dia_teste(), dia_teste(),
+       array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[]))
+  = (select array_agg(h order by h) from public.horarios_livres(
+       'bbbbbbbb-0000-0000-0000-000000000001'::uuid, dia_teste(),
+       array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[]) h));
+
+select t_verdade('cada linha diz de quem é o horário',
+  (select bool_and(profissional_id = 'bbbbbbbb-0000-0000-0000-000000000001'::uuid)
+     from public.horarios_livres_periodo(
+       array['bbbbbbbb-0000-0000-0000-000000000001'::uuid],
+       dia_teste(), dia_teste(),
+       array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])));
+
+-- Sem isso, a tela mostraria "12 vagas" embaixo de uma terça em que ninguém
+-- trabalha, e a pessoa clicaria num dia vazio.
+select t_igual('dia sem jornada não entra no período',
+  (select count(*) from public.horarios_livres_periodo(
+     array['bbbbbbbb-0000-0000-0000-000000000001'::uuid],
+     dia_teste() + 1, dia_teste() + 1,
+     array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])), 0);
+
+-- A janela de 62 dias não é enfeite: sem ela, uma chamada pedindo dois anos
+-- faria o banco varrer 730 dias × cada profissional para responder a uma tela
+-- que mostra 28.
+select t_igual('o período é limitado a 62 dias, mesmo pedindo um ano',
+  (select count(distinct (inicio at time zone 'America/Sao_Paulo')::date)
+     from public.horarios_livres_periodo(
+       array['bbbbbbbb-0000-0000-0000-000000000001'::uuid],
+       dia_teste(), dia_teste() + 365,
+       array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])
+    where (inicio at time zone 'America/Sao_Paulo')::date > dia_teste() + 62), 0);
+
+select t_igual('período invertido devolve vazio em vez de erro',
+  (select count(*) from public.horarios_livres_periodo(
+     array['bbbbbbbb-0000-0000-0000-000000000001'::uuid],
+     dia_teste() + 5, dia_teste(),
+     array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])), 0);
+
+select t_igual('lista de profissionais vazia devolve vazio, não erro',
+  (select count(*) from public.horarios_livres_periodo(
+     '{}'::uuid[], dia_teste(), dia_teste(),
+     array['cccccccc-0000-0000-0000-000000000001'::uuid]::uuid[])), 0);
+
+select t_verdade('anon pode executar horarios_livres_periodo',
+  has_function_privilege('anon',
+    'public.horarios_livres_periodo(uuid[], date, date, uuid[])', 'execute'));
+
+-- ---------------------------------------------------------------------------
 -- 12) Quem pode chamar
 --
 -- `anon` chama as duas funções e continua SEM enxergar as tabelas. É o ponto

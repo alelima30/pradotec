@@ -143,6 +143,10 @@ node tests/nuvem.test.mjs        # noutro
 
 # O funil inteiro na nuvem: cadastrar, sair, voltar e entrar — 13 verificações
 node tests/funil-nuvem.test.mjs
+
+# O link da cliente: da dona montando o salão até o horário existir no
+# banco, com o preço que o BANCO calculou — 33 verificações
+node tests/cliente-nuvem.test.mjs
 ```
 
 A **bancada** (`tests/bancada/`) é um PostgREST caseiro apontando para um

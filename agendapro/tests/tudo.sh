@@ -82,6 +82,7 @@ rodar "colunas"            node "$AQUI/colunas.test.js"
 rodar "nuvem"              node "$AQUI/nuvem.test.mjs"
 rodar "cota"               node "$AQUI/cota.test.mjs"
 rodar "funil na nuvem"     node "$AQUI/funil-nuvem.test.mjs"
+rodar "link da cliente"    node "$AQUI/cliente-nuvem.test.mjs"
 rodar "cadastro"           node "$AQUI/cadastro.test.mjs"
 rodar "abertura"           node "$AQUI/abertura.test.mjs"
 rodar "celular"            node "$AQUI/celular.test.mjs"
@@ -90,7 +91,7 @@ rodar "plataforma"         node "$AQUI/plataforma.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 10 suítes."
+  echo "✓ Tudo passou — as 11 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

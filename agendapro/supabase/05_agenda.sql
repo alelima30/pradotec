@@ -439,6 +439,56 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- 5b) horarios_livres_periodo() — a mesma resposta, para a tela inteira
+--
+-- ── POR QUE UMA SEGUNDA FUNÇÃO EM VEZ DE CHAMAR A PRIMEIRA VÁRIAS VEZES ────
+-- A tela da cliente não mostra um dia: mostra a faixa de dias com "12 vagas",
+-- "3 vagas", "cheio" embaixo de cada um, e ainda o cartão "próximo horário
+-- disponível". Para desenhar isso ela precisa saber de TODOS os dias da
+-- janela, para TODOS os profissionais que fazem os serviços escolhidos.
+--
+-- Rodando na memória do navegador, como era antes, isso é um laço bobo. Vindo
+-- do banco, cada volta desse laço é uma viagem até o servidor: 28 dias × 3
+-- profissionais = 84 requisições para pintar uma tela. No 3G da cliente, com
+-- 300 ms cada, são 25 segundos olhando para uma tela cinza — e ela fecha
+-- antes, que é o único desfecho que interessa medir.
+--
+-- Então o banco responde a pergunta inteira de uma vez. Por dentro é a mesma
+-- `horarios_livres()`, chamada em laço aqui, onde o laço custa microssegundos:
+-- uma única fonte da verdade sobre o que é um horário livre. Se um dia a regra
+-- mudar — passo de 20 minutos, antecedência de uma hora — muda num lugar só, e
+-- as duas mudam juntas. Duplicar a lógica aqui seria pedir para as duas
+-- discordarem justamente no dia em que alguém marcasse em cima de outro.
+--
+-- A duração continua saindo dos SERVIÇOS, nunca do navegador: quem chama
+-- manda a lista de ids, e a soma acontece lá dentro.
+-- ---------------------------------------------------------------------------
+create or replace function public.horarios_livres_periodo(
+  p_profissionais uuid[], p_de date, p_ate date, p_servicos uuid[])
+returns table (profissional_id uuid, inicio timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+declare
+  v_dia   date;
+  v_prof  uuid;
+  -- Teto de segurança. A janela que a tela pede é de 28 dias; 62 dá folga
+  -- para relatório e para o dia em que alguém aumentar a janela do salão,
+  -- sem deixar uma chamada de fora pedir dois anos de agenda de uma vez.
+  v_ate   date := least(p_ate, p_de + 62);
+begin
+  if p_de is null or p_ate is null or v_ate < p_de then return; end if;
+
+  foreach v_prof in array coalesce(p_profissionais, '{}'::uuid[]) loop
+    v_dia := p_de;
+    while v_dia <= v_ate loop
+      return query
+        select v_prof, h
+          from public.horarios_livres(v_prof, v_dia, p_servicos) h;
+      v_dia := v_dia + 1;
+    end loop;
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- 6) Quem pode chamar
 --
 -- `anon` precisa das duas: a cliente que abre o link não fez login, e obrigar
@@ -454,7 +504,12 @@ revoke all on function public.agendar(uuid, timestamptz, uuid[], text, text, tex
   from public;
 revoke all on function public.porque_nao_agenda(uuid, date, uuid[]) from public;
 
+revoke all on function public.horarios_livres_periodo(uuid[], date, date, uuid[])
+  from public;
+
 grant execute on function public.horarios_livres(uuid, date, uuid[])
+  to anon, authenticated;
+grant execute on function public.horarios_livres_periodo(uuid[], date, date, uuid[])
   to anon, authenticated;
 grant execute on function public.agendar(uuid, timestamptz, uuid[], text, text, text, text)
   to anon, authenticated;

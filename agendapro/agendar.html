@@ -588,11 +588,36 @@ function voc(chave){
   return v[chave] || VOCABULARIO.salao[chave];
 }
 
+const NA_NUVEM = !!(window.Dados && window.Dados.ligado);
+
 let bd = null;
 let salao = null;            // salão deste link
 let sessao = null;           // { perfilId, nome, telefone }
 let tela = 'saloes';
 let historico = [];
+
+/* ── O que a nuvem responde sobre horários ───────────────────────────────
+   `vagas` guarda a resposta de `horarios_livres_periodo()` já traduzida para
+   o jeito que esta tela pensa: minutos desde a meia-noite, no fuso do SALÃO.
+
+     vagas['<profId>|2026-08-21'] = [540, 555, 570, …]
+
+   `instantes` guarda o caminho de volta — o timestamptz exato que o banco
+   mandou, para cada minuto desenhado:
+
+     instantes['<profId>|2026-08-21|540'] = '2026-08-21T12:00:00+00:00'
+
+   Esse segundo mapa parece redundante e não é. Sem ele, na hora de marcar eu
+   teria que reconstruir o instante a partir de data + minutos + fuso, à mão,
+   em JavaScript, do lado do cliente — e no domingo em que o horário de verão
+   vira, uma dessas contas erra em uma hora. Devolvendo ao banco exatamente a
+   string que ele me deu, não existe conta para errar.
+   ──────────────────────────────────────────────────────────────────────── */
+let vagas = {};
+let instantes = {};
+let vagasChave = null;       // a pergunta que gerou o que está em `vagas`
+let vagasEstado = 'vazio';   // 'vazio' | 'buscando' | 'pronto' | 'erro'
+let vagasErro = '';
 
 // O que a pessoa está escolhendo agora
 let escolha = { servicos: [], profissionalId: null, data: null, inicio: null,
@@ -601,8 +626,32 @@ let agendamentoARemarcar = null;   // preenchido quando a pessoa clica em Remarc
 // Estado do código de verificação
 let otp = { codigo: null, telefone: null, enviadoEm: 0, tentativas: 0 };
 
-/* ── Tempo ───────────────────────────────────────────────────────────── */
-function hoje(){ return iso(new Date()); }
+/* ── Tempo ───────────────────────────────────────────────────────────────
+   Na nuvem, "hoje" e "agora" são no fuso do SALÃO, não no do aparelho. Não é
+   preciosismo de fuso horário: é a cliente que viajou, ou que está com o
+   celular em outro fuso, abrindo o link e vendo a segunda-feira do salão
+   marcada como "ontem" — ou pior, vendo o dia de hoje sumir da faixa às 21h
+   porque no relógio dela já é amanhã.
+   ──────────────────────────────────────────────────────────────────────── */
+function fusoDoSalao(){
+  return (salao && salao.fuso) || 'America/Sao_Paulo';
+}
+
+// Um instante (Date ou string ISO) visto de dentro do salão.
+function noFuso(quando){
+  const d = (quando instanceof Date) ? quando : new Date(quando);
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: fusoDoSalao(), year:'numeric', month:'2-digit', day:'2-digit',
+    // `hourCycle:'h23'` e não `hour12:false`: alguns navegadores devolvem "24"
+    // para a meia-noite com o segundo, e aí 00:10 vira 1450 minutos.
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23',
+  }).formatToParts(d);
+  const g = t => partes.find(x => x.type === t).value;
+  return { data: g('year') + '-' + g('month') + '-' + g('day'),
+           min: Number(g('hour')) * 60 + Number(g('minute')) };
+}
+
+function hoje(){ return NA_NUVEM ? noFuso(new Date()).data : iso(new Date()); }
 function iso(d){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
        + '-' + String(d.getDate()).padStart(2,'0');
@@ -629,6 +678,7 @@ function dataLonga(dataIso){
        + String(m).padStart(2,'0');
 }
 function agora(){
+  if(NA_NUVEM) return noFuso(new Date()).min;
   const d = new Date();
   return d.getHours()*60 + d.getMinutes();
 }
@@ -659,6 +709,37 @@ function jornadaDe(prof, data){
 }
 
 function horariosLivres(profId, data, duracao){
+  /* ── NA NUVEM QUEM DECIDE É O BANCO ────────────────────────────────────
+     A conta abaixo é boa para desenhar, e não serve para decidir: ela só
+     enxerga o que está na memória deste navegador, e a agenda de verdade
+     muda enquanto a cliente escolhe. Além disso, aqui embaixo não há jornada
+     nem bloqueio nenhum — a vitrine não os entrega, de propósito, porque
+     jornada de trabalho e folga médica não são assunto de quem vai marcar.
+
+     Então em modo nuvem esta função vira leitura de cache: quem respondeu foi
+     `horarios_livres_periodo()`, com as mesmas regras que `agendar()` vai
+     cobrar na hora de gravar. Uma fonte só. */
+  if(NA_NUVEM){
+    const lista = vagas[profId + '|' + data] || [];
+    const unit = duracaoEscolhida();
+
+    // "Eu e meu filho" são dois atendimentos seguidos. O banco ofereceu vagas
+    // de UM atendimento, então o par só existe onde o horário seguinte também
+    // está livre e cai no passo da grade.
+    //
+    // Isto oferece MENOS que a conta local, e é de propósito: com serviço de
+    // 40 min a grade anda de 15 em 15, então 09:00+40 = 09:40 não é vaga
+    // ofertável, mesmo o tempo estando vago. Preferir oferecer de menos a
+    // oferecer um horário que `agendar()` vai recusar no último clique —
+    // horário que some depois de escolhido é o pior momento para perder a
+    // cliente.
+    if(duracao > unit){
+      const tem = new Set(lista);
+      return lista.filter(t => tem.has(t + unit));
+    }
+    return lista;
+  }
+
   const prof = bd.profissionais.find(p => p.id === profId);
   if(!prof || !prof.ativo) return [];
   const livres = [];
@@ -674,6 +755,145 @@ function horariosLivres(profId, data, duracao){
     }
   }
   return livres;
+}
+
+/* ===========================================================================
+   A NUVEM — as três perguntas que esta tela faz ao banco
+   ---------------------------------------------------------------------------
+   São só três, e nenhuma delas passa perto de uma tabela:
+
+     vitrine(apelido)              quem é este salão, o que ele faz e com quem
+     horarios_livres_periodo(...)  quando há vaga, na janela inteira
+     agendar(...)                  marca
+
+   `anon` — a cliente que abre o link do WhatsApp e não tem conta — pode
+   executar as três e continua sem alcançar `agendamentos`, `clientes`,
+   `jornadas` ou `bloqueios`. É o ponto inteiro de elas serem funções
+   `security definer`: dá para ver horário vago sem ver a agenda do salão, e
+   dá para marcar sem ver a lista de clientes dele.
+   =========================================================================== */
+
+const CORES_EQUIPE = ['#3D6B8E','#8E5A3D','#5A8E3D','#8E3D6B','#3D8E8A','#6B3D8E'];
+
+/* A vitrine chega como um objeto só e vira o `bd` que esta tela já sabe
+   desenhar. Nenhuma tela precisou ser reescrita por causa disso — é a mesma
+   ponte que o dados.js faz para o painel do dono. */
+function bdDaVitrine(v){
+  const s = v.salao;
+  const salaoId = s.id;
+  return {
+    saloes: [{
+      id: salaoId, slug: s.slug, nome: s.nome, tipo: s.tipo,
+      logo: s.logo, capa: s.capa, telefone: s.telefone, whatsapp: s.whatsapp,
+      endereco: s.endereco, fuso: s.fuso,
+      cfg: { diasLiberados: s.diasLiberados },
+    }],
+    servicos: (v.servicos || []).map(x => ({
+      id: x.id, salaoId, nome: x.nome, categoria: x.categoria,
+      descricao: x.descricao, duracaoMin: x.duracaoMin, intervaloMin: 0,
+      preco: Number(x.preco), foto: x.foto, ativo: true, aceitaOnline: true,
+    })),
+    profissionais: (v.profissionais || []).map((x, i) => ({
+      id: x.id, salaoId, nome: x.nome, foto: x.foto,
+      // A cor do monograma não vem do banco. Sai do lugar na lista, que é
+      // estável, para a mesma pessoa não trocar de cor a cada visita.
+      cor: CORES_EQUIPE[i % CORES_EQUIPE.length],
+      ativo: true, aceitaOnline: true, comissaoPct: 0,
+    })),
+    // A vitrine já traz, em cada profissional, quais serviços ele faz. Lista
+    // vazia continua querendo dizer "faz tudo", igual ao banco.
+    servicosProfissionais: (v.profissionais || []).flatMap(p =>
+      (p.servicos || []).map(sid => ({ profissionalId: p.id, servicoId: sid }))),
+
+    // O que a cliente NÃO recebe, e não é esquecimento: agenda, fichas de
+    // cliente, folgas e fila de espera do salão. Ficam vazias aqui porque o
+    // navegador dela não tem nada que ver com isso.
+    agendamentos: [], bloqueios: [], clientes: [], perfis: [], listaEspera: [],
+  };
+}
+
+async function abrirSalaoDaNuvem(slug){
+  const aviso = document.getElementById('listaSaloes');
+  aviso.innerHTML = '<div class="recado">Abrindo a agenda…</div>';
+  let v = null;
+  try{
+    v = await Dados.vitrine(slug);
+  }catch(e){
+    console.error('[AgendaPro] vitrine:', e);
+    aviso.innerHTML =
+      `<div class="recado erro"><b>Não consegui abrir a agenda agora.</b><br>
+        Verifique a conexão e tente de novo.
+        <button class="link" onclick="location.reload()">Tentar de novo</button></div>`;
+    return;
+  }
+  if(!v){
+    // Mesma frase do modo local, e pelo mesmo motivo: apelido que não existe,
+    // ou salão desativado. Quem chegou aqui veio de um link — dizer "não
+    // encontrado" é mais honesto do que mostrar uma lista de outros salões.
+    aviso.innerHTML =
+      `<div class="recado erro"><b>Salão não encontrado.</b><br>
+       O endereço <code>?salao=${slug}</code> não corresponde a nenhum salão ativo.</div>`;
+    return;
+  }
+  bd = bdDaVitrine(v);
+  entrarNoSalao(slug);
+}
+
+/* A pergunta sobre horários é feita UMA vez por combinação de
+   serviços + profissional + duração. Enquanto a escolha não muda, rolar o
+   calendário e trocar de dia não fala com o servidor de novo. */
+function chaveDasVagas(){
+  const aptos = escolha.profissionalId === '*'
+    ? profsQueAtendem(escolha.servicos).map(p => p.id)
+    : [escolha.profissionalId];
+  return JSON.stringify([aptos.slice().sort(), escolha.servicos.slice().sort()]);
+}
+
+async function pedirVagas(){
+  const chave = chaveDasVagas();
+  vagasChave = chave;
+  vagasEstado = 'buscando';
+  vagasErro = '';
+  desenhar();
+
+  const aptos = escolha.profissionalId === '*'
+    ? profsQueAtendem(escolha.servicos).map(p => p.id)
+    : [escolha.profissionalId];
+
+  try{
+    const linhas = await Dados.chamar('horarios_livres_periodo', {
+      p_profissionais: aptos,
+      p_de:  hoje(),
+      p_ate: somarDias(hoje(), Math.min(diasLiberados(), 27)),
+      p_servicos: escolha.servicos,
+    });
+
+    // Chegou uma resposta velha, de uma escolha que a pessoa já trocou.
+    // Aplicá-la desenharia horários do serviço errado.
+    if(vagasChave !== chave) return;
+
+    vagas = {}; instantes = {};
+    for(const linha of (linhas || [])){
+      const { data, min } = noFuso(linha.inicio);
+      const k = linha.profissional_id + '|' + data;
+      (vagas[k] = vagas[k] || []).push(min);
+      instantes[linha.profissional_id + '|' + data + '|' + min] = linha.inicio;
+    }
+    for(const k of Object.keys(vagas)) vagas[k].sort((a,b) => a-b);
+    vagasEstado = 'pronto';
+  }catch(e){
+    console.error('[AgendaPro] horarios_livres_periodo:', e);
+    if(vagasChave !== chave) return;
+    vagasEstado = 'erro';
+    vagasErro = e.message || 'sem detalhe';
+  }
+  desenhar();
+}
+
+// Depois de marcar, o que estava em cache mente: aquele horário acabou de
+// sumir. Zerar obriga a próxima tela a perguntar de novo.
+function esquecerVagas(){
+  vagas = {}; instantes = {}; vagasChave = null; vagasEstado = 'vazio';
 }
 
 /* ── Janela de agenda liberada ───────────────────────────────────────────
@@ -833,8 +1053,16 @@ function desenhar(){
   if(tela === 'codigo')      { desenharCodigo();    bp.textContent='Confirmar código'; trilhaAte(0); }
   if(tela === 'nome')        { desenharNome();      bp.textContent='Continuar'; trilhaAte(0); }
   if(tela === 'confirmar')   { desenharConfirmar(); bp.textContent='Confirmar agendamento'; trilhaAte(4); }
-  if(tela === 'pronto')      { bp.textContent='Ver meus horários'; trilhaAte(0);
-                               bs.style.display=''; bs.textContent='Marcar outro'; }
+  if(tela === 'pronto')      {
+    // Na nuvem, "ver meus horários" levaria a um código de verificação e,
+    // no fim dele, ao aviso de que esta tela ainda não consulta a agenda.
+    // Três toques para chegar a uma negativa. O botão que sobra é o que
+    // realmente serve: marcar outro.
+    bp.textContent = NA_NUVEM ? 'Marcar outro horário' : 'Ver meus horários';
+    trilhaAte(0);
+    bs.style.display = NA_NUVEM ? 'none' : '';
+    bs.textContent = 'Marcar outro';
+  }
   if(tela === 'meus')        { desenharMeus();      bp.textContent='Agendar novo horário'; trilhaAte(0); }
 }
 
@@ -918,6 +1146,17 @@ function desenharCapa(){
 }
 
 function resumoJornada(p){
+  /* Na nuvem, a vitrine NÃO entrega jornada — de propósito: escala de
+     trabalho e folga médica são assunto do salão, não de quem vai marcar.
+     Sem ela, o certo é não dizer nada.
+
+     A primeira versão desta linha quebrava a capa inteira aqui, porque lia
+     `p.jornada[d]` de um objeto que não tem jornada. E o conserto óbvio era
+     pior que o defeito: cair no `return 'sem horário cadastrado'` teria posto
+     essa frase embaixo do nome de quem atende a semana inteira — a cliente lê,
+     acredita e fecha a página. Ausência de informação não é informação de
+     ausência. */
+  if(!p.jornada) return '';
   const dias = [1,2,3,4,5,6,0].filter(d => (p.jornada[d]||[]).length);
   if(!dias.length) return 'sem horário cadastrado';
   return dias.map(d => DIAS_CURTOS[d]).join(', ');
@@ -957,6 +1196,27 @@ function desenharServicos(){
   if(cx) cx.style.display = todos.length >= 6 ? '' : 'none';
 
   const alvo = document.getElementById('listaServicos');
+
+  /* ── SALÃO SEM SERVIÇO NENHUM NÃO É BUSCA SEM RESULTADO ────────────────
+     Este é o estado em que TODO salão passa a primeira hora: acabou de se
+     cadastrar, ainda não lançou os serviços, e já mandou o link para as
+     clientes — porque o cadastro entrega o link no fim, e a pessoa manda.
+
+     Antes daqui saía "Nada com esse nome · Tente outra palavra, ou limpe a
+     busca", que é a mensagem da busca vazia. A cliente lia aquilo sem ter
+     digitado busca nenhuma, e a primeira impressão do salão era a de um
+     sistema quebrado. */
+  if(!todos.length){
+    const zap = (salao.whatsapp || salao.telefone || '').replace(/\D/g,'');
+    alvo.innerHTML = '<div class="nada"><b>Este salão ainda não publicou os '
+      + 'serviços</b>A agenda online abre assim que ' + salao.nome + ' terminar '
+      + 'de cadastrar o que faz.'
+      + (zap ? ` <a href="https://wa.me/${zap.length > 11 ? zap : '55' + zap}"
+                   target="_blank" rel="noopener">Falar no WhatsApp</a>` : '')
+      + '</div>';
+    return;
+  }
+
   if(!svs.length){
     alvo.innerHTML = '<div class="nada"><b>Nada com esse nome</b>'
                    + 'Tente outra palavra, ou limpe a busca.</div>';
@@ -1060,6 +1320,37 @@ function desenharQuando(){
   const aptos = escolha.profissionalId === '*'
     ? profsQueAtendem(escolha.servicos)
     : [acharProf(escolha.profissionalId)];
+
+  /* ── ANTES DE DESENHAR, TER O QUE DESENHAR ─────────────────────────────
+     Esta tela pergunta pelos horários de até 28 dias × cada profissional. Na
+     memória, isso é um laço; na nuvem, seria uma requisição por volta do laço.
+     Por isso a resposta vem inteira, uma vez, e o desenho continua síncrono —
+     lendo do cache, sem `await` espalhado por dentro do HTML.
+
+     Enquanto ela não chega, a tela DIZ que está procurando. A alternativa é
+     mostrar "cheio" embaixo de todos os dias por meio segundo, que é uma
+     mentira curta e convincente. */
+  if(NA_NUVEM){
+    if(vagasChave !== chaveDasVagas()){ pedirVagas(); return; }
+    if(vagasEstado === 'buscando'){
+      document.getElementById('avisoJanela').innerHTML = '';
+      document.getElementById('listaDias').innerHTML = '';
+      document.getElementById('cardProximo').innerHTML = '';
+      document.getElementById('listaHoras').innerHTML =
+        '<div class="nada"><b>Procurando horários…</b>'
+        + 'Estamos vendo a agenda do salão agora.</div>';
+      return;
+    }
+    if(vagasEstado === 'erro'){
+      document.getElementById('listaDias').innerHTML = '';
+      document.getElementById('cardProximo').innerHTML = '';
+      document.getElementById('listaHoras').innerHTML =
+        '<div class="nada"><b>Não consegui ver a agenda agora.</b>'
+        + 'Pode ser a conexão. '
+        + '<button class="link" onclick="pedirVagas()">Tentar de novo</button></div>';
+      return;
+    }
+  }
 
   document.getElementById('subQuando').textContent =
     nomesEscolhidos() + ' · ' + (escolha.profissionalId === '*'
@@ -1176,6 +1467,32 @@ function desenharEspera(diaCheio){
       <div style="margin-top:9px">
         <button class="bp" onclick="sairDaFila('${fila.id}')">Sair da lista</button>
       </div></div>`;
+    return;
+  }
+
+  /* ── O BOTÃO QUE NÃO PODE EXISTIR AINDA ────────────────────────────────
+     A lista de espera grava em `bd.listaEspera`, que na nuvem é um vetor
+     vazio na memória desta aba: a cliente clicaria, leria "você está na lista
+     de espera", fecharia a página — e não haveria lista nenhuma. Ninguém
+     avisaria, e ela ficaria esperando um WhatsApp que não vem, achando que o
+     salão a esqueceu.
+
+     Promessa que o sistema não cumpre é pior que funcionalidade ausente.
+     Enquanto `lista_espera` não tiver a função pública para gravar de fora,
+     na nuvem esta tela oferece o caminho que funciona de verdade: falar com o
+     salão. */
+  if(NA_NUVEM){
+    const zap = (salao.whatsapp || salao.telefone || '').replace(/\D/g,'');
+    alvo.innerHTML = diaCheio ? `
+      <div class="na-fila">
+        <b><span data-ico="sino"></span> Dia sem vaga</b>
+        Escolha outra data acima${zap ? ', ou chame ' + salao.nome
+          + ' no WhatsApp para entrar na lista de espera' : ''}.
+        ${zap ? `<div style="margin-top:9px">
+          <a class="bp" target="_blank" rel="noopener"
+             href="https://wa.me/${zap.length > 11 ? zap : '55' + zap}">Falar no WhatsApp</a>
+        </div>` : ''}
+      </div>` : '';
     return;
   }
 
@@ -1413,6 +1730,26 @@ function desenharMeus(){
   const lista = meusAgendamentos();
   const alvo = document.getElementById('listaMeus');
 
+  /* ── NA NUVEM, ESTA TELA AINDA NÃO SABE ────────────────────────────────
+     Ver, cancelar e remarcar mexem em dado de alguém, então precisam de
+     prova de identidade — senão basta saber o telefone da vizinha para
+     cancelar o horário dela. A verificação por código aqui é simulada, e
+     ainda não existe no banco uma função que devolva "os horários deste
+     telefone" com essa prova.
+
+     Enquanto não existe, o certo é DIZER isso. A alternativa seria cair no
+     "Nenhum horário por aqui" logo abaixo — que é falso, e é o pior tipo de
+     falso: a cliente marcou há dois minutos, abre esta tela, lê que não tem
+     nada, e marca de novo. Aí o salão tem duas cadeiras vendidas para a
+     mesma pessoa e uma reclamação para resolver no balcão. */
+  if(NA_NUVEM){
+    alvo.innerHTML = '<div class="nada"><b>Seus horários chegam pelo WhatsApp</b>'
+      + 'A confirmação e o lembrete vêm por lá. Para desmarcar ou trocar de '
+      + 'horário, fale com ' + salao.nome + ' — esta tela ainda não consulta a '
+      + 'agenda de quem já marcou.</div>';
+    return;
+  }
+
   if(!lista.length){
     alvo.innerHTML = '<div class="nada"><b>Nenhum horário por aqui</b>'
                    + 'Quando você marcar, aparece nesta tela.</div>';
@@ -1480,7 +1817,15 @@ function acaoPrincipal(){
   if(tela === 'codigo')    return conferirCodigo();
   if(tela === 'nome')      return salvarNome();
   if(tela === 'confirmar') return confirmarAgendamento();
-  if(tela === 'pronto')    return abrirMeus();
+  if(tela === 'pronto'){
+    if(NA_NUVEM){
+      escolha = {servicos:[], profissionalId:null, data:null, inicio:null,
+                 para:'mim', filhoNome:''};
+      esquecerVagas();
+      return irPara('servico');
+    }
+    return abrirMeus();
+  }
   if(tela === 'meus')      { escolha = {servicos:[], profissionalId:null, data:null,
                                         inicio:null, para:'mim', filhoNome:''};
                              return irPara('servico'); }
@@ -1638,6 +1983,8 @@ function confirmarAgendamento(){
     ? donoDoHorario[escolha.inicio] : escolha.profissionalId;
   const prof = acharProf(profId);
 
+  if(NA_NUVEM) return confirmarNaNuvem(profId, prof);
+
   // Última conferência antes de gravar. No banco quem recusa é a constraint —
   // aqui é para a pessoa entender o que houve em vez de ver um erro cru.
   if(ocupado(profId, escolha.data, escolha.inicio, escolha.inicio + dur)){
@@ -1690,7 +2037,13 @@ function confirmarAgendamento(){
   }
 
   salvar();
+  mostrarPronto(prof, unit, filho);
+}
 
+/* A tela de "pronto" é a mesma nos dois modos. Ela ficava embutida no fim do
+   caminho local; separada, o caminho da nuvem termina exatamente igual — e a
+   cliente não tem como notar por qual dos dois ela passou, que é o objetivo. */
+function mostrarPronto(prof, unit, filho){
   document.getElementById('prontoTexto').innerHTML =
     `${dataLonga(escolha.data)} às <b>${hm(escolha.inicio)}</b>, com ${prof.nome}.`
     + (escolha.para === 'ambos'
@@ -1716,6 +2069,94 @@ function confirmarAgendamento(){
 
   historico = [];
   irPara('pronto', true);
+}
+
+/* ── Marcar de verdade ───────────────────────────────────────────────────
+   Aqui vale a regra que não se negocia do 05_agenda.sql: sobem os IDS DOS
+   SERVIÇOS, nunca a duração nem o preço. Quem soma é o banco. Se esta tela
+   mandasse `duracao_min`, qualquer pessoa com o console aberto marcaria uma
+   escova de três horas ocupando quinze minutos da agenda — e a cadeira estaria
+   vendida em dobro no dia seguinte.
+
+   O instante também não é calculado aqui: é devolvido exatamente como o banco
+   mandou (veja `instantes`, lá em cima).
+   ──────────────────────────────────────────────────────────────────────── */
+async function confirmarNaNuvem(profId, prof){
+  const aviso = document.getElementById('avisoConfirmar');
+  const bp = document.getElementById('btPrincipal');
+  const rotulo = bp.textContent;
+  const unit = duracaoEscolhida();
+  const filho = (escolha.filhoNome || '').trim();
+  const recado = (document.getElementById('fRecado').value || '').trim();
+
+  const inicioIso = instantes[profId + '|' + escolha.data + '|' + escolha.inicio];
+  if(!inicioIso){
+    // Só acontece se o cache tiver sido esvaziado embaixo da tela. Mandar de
+    // volta para os horários é melhor que inventar um instante.
+    aviso.innerHTML =
+      '<div class="recado erro"><b>Este horário saiu da lista.</b><br>'
+      + 'Escolha outro. <button class="link" onclick="irPara(\'quando\')">Ver horários</button></div>';
+    return;
+  }
+
+  bp.disabled = true; bp.textContent = 'Marcando…';
+  aviso.innerHTML = '';
+
+  const marcar = (quandoIso, atendido) => Dados.chamar('agendar', {
+    p_profissional: profId,
+    p_inicio: quandoIso,
+    p_servicos: escolha.servicos,
+    p_nome: sessao.nome,
+    p_telefone: sessao.telefone,
+    p_atendido_nome: atendido || null,
+    p_obs: recado || null,
+  });
+
+  try{
+    if(escolha.para === 'ambos'){
+      const segundoIso = instantes[profId + '|' + escolha.data + '|' + (escolha.inicio + unit)];
+      await marcar(inicioIso, null);
+      /* O segundo pode falhar sozinho — alguém pegou aquele horário nesses
+         dois segundos. Não dá para "desmarcar o primeiro e fingir que nada
+         houve": cancelar exige verificação, e a cliente ficaria sem nenhum
+         dos dois. Então o primeiro FICA, e ela é informada do que exatamente
+         aconteceu. Meia verdade aqui vira cliente esperando na porta com um
+         horário que não existe. */
+      try{
+        if(!segundoIso) throw new Error('o horário seguinte não está mais livre');
+        await marcar(segundoIso, filho || null);
+      }catch(e2){
+        console.error('[AgendaPro] segundo horário:', e2);
+        esquecerVagas();
+        aviso.innerHTML =
+          '<div class="recado erro"><b>Marquei só o seu horário.</b><br>'
+          + 'O horário seguinte, de ' + (filho || 'seu acompanhante') + ', não '
+          + 'estava mais livre. O seu está confirmado às ' + hm(escolha.inicio)
+          + ' — fale com o salão pelo WhatsApp para encaixar o segundo.</div>';
+        bp.disabled = false; bp.textContent = rotulo;
+        return;
+      }
+    } else {
+      await marcar(inicioIso, escolha.para === 'filho' ? filho : null);
+    }
+  }catch(e){
+    console.error('[AgendaPro] agendar:', e);
+    esquecerVagas();
+    /* O banco recusa por motivos com nome — horário ocupado, profissional que
+       não faz aquele serviço, salão com a agenda fechada. As mensagens de
+       `porque_nao_agenda()` já são escritas para serem lidas por gente, então
+       elas passam inteiras em vez de virar "erro ao agendar". */
+    aviso.innerHTML =
+      '<div class="recado erro"><b>Não consegui marcar.</b><br>'
+      + (e.message || 'Tente de novo em instantes.')
+      + ' <button class="link" onclick="irPara(\'quando\')">Ver horários</button></div>';
+    bp.disabled = false; bp.textContent = rotulo;
+    return;
+  }
+
+  bp.disabled = false; bp.textContent = rotulo;
+  esquecerVagas();
+  mostrarPronto(prof, unit, filho);
 }
 
 /* ── Cancelar e remarcar ─────────────────────────────────────────────── */
@@ -1845,13 +2286,25 @@ function registrarServiceWorker(){
     if(t) document.documentElement.setAttribute('data-tema', t);
   }catch(e){}
 
-  // O link do cliente costuma ser a primeira porta que a pessoa abre — chega
-  // pelo WhatsApp, não pelo app do salão. Então a demonstração semeia aqui
-  // também, em vez de mandar o visitante abrir outra tela antes.
-  bd = carregar();
-  if(!bd){
-    bd = semearDemo();
-    try{ localStorage.setItem(CHAVE, JSON.stringify(bd)); }catch(e){}
+  /* ── DE ONDE VEM O SALÃO ───────────────────────────────────────────────
+     Na nuvem, do banco, pelo apelido do link — e só o salão daquele link.
+     Fora dela, da demonstração no navegador.
+
+     A ordem importa: em modo nuvem o `bd` NÃO pode ser semeado com a
+     demonstração antes, senão a cliente vê por um instante os serviços e os
+     preços de um salão fictício com o nome do salão de verdade no topo. */
+  if(NA_NUVEM){
+    bd = { saloes: [], servicos: [], profissionais: [], servicosProfissionais: [],
+           agendamentos: [], bloqueios: [], clientes: [], perfis: [], listaEspera: [] };
+  } else {
+    // O link do cliente costuma ser a primeira porta que a pessoa abre — chega
+    // pelo WhatsApp, não pelo app do salão. Então a demonstração semeia aqui
+    // também, em vez de mandar o visitante abrir outra tela antes.
+    bd = carregar();
+    if(!bd){
+      bd = semearDemo();
+      try{ localStorage.setItem(CHAVE, JSON.stringify(bd)); }catch(e){}
+    }
   }
 
   try{
@@ -1861,8 +2314,24 @@ function registrarServiceWorker(){
 
   // É aqui que o link vira salão.
   const slug = new URLSearchParams(location.search).get('salao');
-  if(slug) entrarNoSalao(slug);
-  else { irPara('saloes', true); }
+  if(slug){
+    if(NA_NUVEM){ irPara('saloes', true); abrirSalaoDaNuvem(slug); }
+    else entrarNoSalao(slug);
+  } else if(NA_NUVEM){
+    /* Sem apelido no endereço não há o que abrir, e agora não há mesmo: a
+       lista de salões da plataforma deixou de existir para quem não fez login
+       — era por ela que qualquer um baixava a carteira de clientes inteira do
+       negócio, com nome, endereço e WhatsApp de cada salão.
+
+       Quem chega aqui sem link chegou por engano; a saída é pedir o link a
+       quem devia tê-lo mandado. */
+    irPara('saloes', true);
+    document.getElementById('listaSaloes').innerHTML =
+      `<div class="recado"><b>Falta o link do salão.</b><br>
+        Cada salão tem o endereço dele, algo como
+        <code>?salao=nome-do-salao</code>. Peça o link a quem te indicou —
+        costuma vir no WhatsApp, na bio do Instagram ou num QR no balcão.</div>`;
+  } else { irPara('saloes', true); }
 
   registrarServiceWorker();
 })();
