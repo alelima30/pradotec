@@ -17,7 +17,14 @@ insert into auth.users (id) values
 insert into public.perfis (id, nome, telefone, super_admin) values
   ('aa000000-0000-0000-0000-00000000000a', 'Ana',        '+5511900000101', false),
   ('ee000000-0000-0000-0000-00000000000e', 'Plataforma', '+5511900000102', true),
-  ('cc000000-0000-0000-0000-00000000000c', 'Maria',      '+5511900000103', false);
+  ('cc000000-0000-0000-0000-00000000000c', 'Maria',      '+5511900000103', false)
+-- `super_admin` precisa entrar aqui. O gatilho do 08_conta.sql já criou o
+-- perfil quando a conta nasceu, então este comando é um UPDATE disfarçado —
+-- e um update que esquecesse o super_admin deixaria o cenário sem
+-- administrador nenhum, com os testes falhando por preparação, não por
+-- defeito.
+on conflict (id) do update set nome = excluded.nome,
+  telefone = excluded.telefone, super_admin = excluded.super_admin;
 
 insert into public.saloes (id, slug, nome, fuso) values
   ('50000000-0000-0000-0000-00000000000a', 'salao-a', 'Salão A', 'America/Sao_Paulo'),

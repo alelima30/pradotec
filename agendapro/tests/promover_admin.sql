@@ -37,9 +37,18 @@
 -- ===========================================================================
 
 -- ── PASSO 1 ────────────────────────────────────────────────────────────────
--- Crie a conta normalmente pela tela de cadastro do sistema, com o e-mail que
--- vai ser o seu de administrador. Ela nasce como qualquer outra: sem poder
--- nenhum além do próprio salão.
+-- Crie a conta com o e-mail que vai ser o seu de administrador. Ela nasce
+-- como qualquer outra: sem poder nenhum além do próprio salão.
+--
+-- Dois caminhos, e o segundo é o mais rápido:
+--
+--   a) pela tela de cadastro do sistema — mas SÓ funciona se o config.js
+--      estiver apontando para este projeto. Aberto no site em modo
+--      demonstração, a conta vai para o navegador e o Supabase nunca a vê;
+--   b) Supabase → Authentication → Users → Add user, com e-mail e senha.
+--      Marque "Auto Confirm User" para não precisar do e-mail de confirmação.
+--
+-- Nos dois casos o perfil é criado sozinho pelo gatilho do 08_conta.sql.
 
 -- ── PASSO 2 ────────────────────────────────────────────────────────────────
 -- Troque o e-mail abaixo pelo seu e rode. O `where` casa pelo e-mail em
@@ -59,18 +68,15 @@ begin
       '  depois rode isto de novo.', v_email;
   end if;
 
-  -- O perfil nasce junto com a conta. Se por algum motivo não existir, criar
-  -- aqui é melhor que falhar — o objetivo é ter um administrador, não ser
-  -- exigente com a ordem dos acontecimentos.
+  -- O perfil nasce junto com a conta, pelo gatilho do 08_conta.sql. Este
+  -- insert é a rede para o caso de a conta ser mais antiga que o gatilho —
+  -- e aí ele vira um update, que é o caminho normal.
   --
-  -- `telefone` é obrigatório e único em `perfis`, e no caminho normal ele vem
-  -- do cadastro. Aqui, no caminho de exceção, entra um marcador reconhecível
-  -- em vez de um número inventado que um dia colidiria com o de uma cliente
-  -- de verdade.
-  insert into public.perfis (id, nome, telefone, super_admin)
-       values (v_id, split_part(v_email, '@', 1),
-               '+' || (900000000000 + (abs(hashtext(v_id::text)) % 999999))::text,
-               true)
+  -- O telefone fica em branco de propósito: não é obrigatório, e inventar um
+  -- número aqui criaria uma linha que um dia colidiria com a de uma cliente
+  -- de verdade. Você completa depois, pela tela, se quiser.
+  insert into public.perfis (id, nome, email, super_admin)
+       values (v_id, split_part(v_email, '@', 1), v_email, true)
   on conflict (id) do update set super_admin = true;
 
   raise notice '✓ % agora é dono da plataforma (id %)', v_email, v_id;

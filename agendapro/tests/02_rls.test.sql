@@ -36,7 +36,9 @@ insert into public.perfis (id, nome, telefone) values
   ('b0000000-0000-0000-0000-00000000000b', 'Bia',   '+5511900000002'),
   ('c0000000-0000-0000-0000-00000000000c', 'Maria', '+5511900000003'),
   ('d0000000-0000-0000-0000-00000000000d', 'Joana', '+5511900000004'),
-  ('e0000000-0000-0000-0000-00000000000e', 'Zé',    '+5511900000005');
+  ('e0000000-0000-0000-0000-00000000000e', 'Zé',    '+5511900000005')
+on conflict (id) do update set nome = excluded.nome,
+  telefone = excluded.telefone;
 
 insert into public.vinculos (perfil_id, salao_id, papel) values
   ('a0000000-0000-0000-0000-00000000000a', '5a100000-0000-0000-0000-00000000000a', 'dono'),
@@ -456,7 +458,9 @@ rollback;
 
 insert into auth.users (id) values ('f0000000-0000-0000-0000-00000000000f');
 insert into public.perfis (id, nome, telefone)
-values ('f0000000-0000-0000-0000-00000000000f', 'Rogério Alves', '+5511900000009');
+values ('f0000000-0000-0000-0000-00000000000f', 'Rogério Alves', '+5511900000009')
+on conflict (id) do update set nome = excluded.nome,
+  telefone = excluded.telefone;
 
 begin;
   set local role authenticated;

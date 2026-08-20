@@ -92,13 +92,20 @@ const http_ = http.createServer(async (req, res) => {
       const b = await corpoDe(req) || {};
 
       if(acao === 'signup'){
+        /* ── SÓ auth.users, COMO O SUPABASE DE VERDADE ──────────────────────
+           Esta parte já inseria em `public.perfis` também, imitando um
+           gatilho que não existia no schema. O resultado: a suíte inteira
+           verde e o cadastro quebrado em produção — quem se cadastrasse no
+           Supabase levaria "Complete seu cadastro antes de criar o salão"
+           com a conta metade criada e o e-mail preso.
+
+           Agora a bancada faz o que o Supabase faz: cria a conta com os
+           metadados e para. Quem cria o perfil é o gatilho do 08_conta.sql.
+           Se ele sumir, os testes caem — que é o ponto. */
         const id = await pool.query(
-          "insert into auth.users (id, email) values (gen_random_uuid(), $1) returning id",
-          [b.email]).then(r => r.rows[0].id);
-        const dados = b.data || {};
-        await pool.query(
-          "insert into public.perfis (id, nome, telefone, email) values ($1,$2,$3,$4)",
-          [id, dados.nome || 'Sem nome', dados.telefone, b.email]);
+          `insert into auth.users (id, email, raw_user_meta_data)
+                values (gen_random_uuid(), $1, $2::jsonb) returning id`,
+          [b.email, JSON.stringify(b.data || {})]).then(r => r.rows[0].id);
         const tok = 't' + (++seq); sessoes.set(tok, id);
         return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
       }
@@ -114,12 +121,15 @@ const http_ = http.createServer(async (req, res) => {
           "select id from public.perfis where telefone = $1", [b.phone])
           .then(r => r.rows[0] && r.rows[0].id);
         if(!id){
+          // Como no signup: aqui só nasce a conta, com o telefone nos
+          // metadados. Quem cria o perfil é o gatilho do 08_conta.sql — no
+          // Supabase de verdade é ele, e a bancada não pode ser mais
+          // prestativa que a produção.
           id = await pool.query(
-            "insert into auth.users (id) values (gen_random_uuid()) returning id")
+            `insert into auth.users (id, phone, raw_user_meta_data)
+                  values (gen_random_uuid(), $1, $2::jsonb) returning id`,
+            [b.phone, JSON.stringify({ nome: 'Cliente', telefone: b.phone })])
             .then(r => r.rows[0].id);
-          await pool.query(
-            "insert into public.perfis (id, nome, telefone) values ($1,$2,$3)",
-            [id, 'Cliente', b.phone]);
         }
         const tok = 't' + (++seq); sessoes.set(tok, id);
         return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });

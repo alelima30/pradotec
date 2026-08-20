@@ -9,9 +9,15 @@
 
 create schema if not exists auth;
 
+-- `raw_user_meta_data` e `phone` existem no Supabase de verdade e o gatilho
+-- do 08_conta.sql lê os dois: é de lá que saem o nome e o telefone que a tela
+-- de cadastro mandou. Sem eles aqui, o gatilho seria testado sem os dados que
+-- ele existe para ler — e passaria dizendo nada.
 create table if not exists auth.users (
-  id    uuid primary key default gen_random_uuid(),
-  email text
+  id                 uuid primary key default gen_random_uuid(),
+  email              text,
+  phone              text,
+  raw_user_meta_data jsonb
 );
 
 create or replace function auth.uid() returns uuid

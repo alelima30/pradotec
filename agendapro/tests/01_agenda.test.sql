@@ -29,7 +29,9 @@ insert into public.assinaturas (salao_id, plano, status) values
 
 insert into public.perfis (id, nome, telefone) values
   ('11111111-1111-1111-1111-111111111111', 'Ana Souza',   '+5511988887777'),
-  ('22222222-2222-2222-2222-222222222222', 'Maria Silva', '+5511977776666');
+  ('22222222-2222-2222-2222-222222222222', 'Maria Silva', '+5511977776666')
+on conflict (id) do update set nome = excluded.nome,
+  telefone = excluded.telefone;
 
 insert into public.profissionais (id, salao_id, perfil_id, nome, comissao_pct) values
   ('bbbbbbbb-0000-0000-0000-000000000001',
