@@ -8,21 +8,28 @@
    verdade — sem mudar mais nada em lugar nenhum.
 
    Onde achar os valores:
-     Supabase → seu projeto → Settings → API
-       url   = Project URL          (https://xxxxxxxx.supabase.co)
-       chave = Project API keys → anon / public
+     Supabase → seu projeto → Settings → API Keys
+       url   = Project URL             (https://xxxxxxxx.supabase.co)
+       chave = Publishable key         (sb_publishable_...)
 
-   A chave anônima PODE ficar aqui, à vista. Ela não é segredo: é ela que o
-   navegador usa para se apresentar, e quem protege os dados é o RLS dentro
-   do banco, não o sigilo da chave. É o mesmo modelo do AdminPro.
+   Projeto antigo mostra "anon / public" no lugar de Publishable, e um JWT
+   comprido (`eyJhbGciOi...`) no lugar do `sb_publishable_`. As duas servem: o
+   dados.js manda a chave só no cabeçalho `apikey`, que é o único lugar onde
+   os dois formatos funcionam.
 
-   A chave `service_role` é outra história — essa NUNCA entra em arquivo que
-   vai para o navegador. Ela passa por cima de todo o RLS.
+   Esta chave PODE ficar aqui, à vista. Ela não é segredo: é ela que o
+   navegador usa para dizer qual projeto é, e quem protege os dados é o RLS
+   dentro do banco, não o sigilo da chave. É o mesmo modelo do AdminPro.
+
+   A OUTRA chave — "Secret key" (`sb_secret_...`), ou `service_role` no
+   projeto antigo — NUNCA entra em arquivo que vai para o navegador. Ela passa
+   por cima de todo o RLS: com ela no código-fonte da página, qualquer pessoa
+   lê a agenda e a clientela de todos os salões.
    =========================================================================== */
 
 window.AGENDAPRO = {
   url:   '',   // https://xxxxxxxx.supabase.co
-  chave: '',   // eyJhbGciOi...
+  chave: '',   // sb_publishable_...
 
   // Aparece no rodapé para você não se confundir entre ensaio e produção.
   ambiente: 'demonstração',

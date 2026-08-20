@@ -127,15 +127,32 @@ function lerSessao(){
   return sessao;
 }
 
+/* ── OS DOIS CABEÇALHOS, E POR QUE ELES NÃO SÃO A MESMA COISA ─────────────
+   `apikey` diz QUAL PROJETO é. Vai em toda requisição, sempre.
+   `Authorization` diz QUEM É A PESSOA. Só existe depois do login.
+
+   A primeira versão mandava a chave do projeto nos dois quando não havia
+   sessão — `Authorization: Bearer <chave>`. Funcionava porque a chave antiga
+   (`anon`) era um JWT, e o PostgREST lia dela o papel `anon`.
+
+   O Supabase trocou o formato: a chave nova é `sb_publishable_...`, que não é
+   JWT. Mandada no `Authorization`, a plataforma tenta interpretar como token
+   e RECUSA. Existe uma exceção — vale se o valor for idêntico ao do `apikey`
+   — mas depender de exceção é escolher o caminho que quebra primeiro.
+
+   Sem `Authorization`, o PostgREST resolve o papel pelo `apikey` e roda como
+   `anon`, que é justamente o que a vitrine pública precisa: a cliente abre o
+   link do salão sem ter conta nenhuma. Com token, vira `authenticated` e o
+   RLS aplica as regras daquela pessoa.
+
+   Assim funciona com os dois formatos de chave, o velho e o novo.
+   ──────────────────────────────────────────────────────────────────────── */
 function cabecalhos(extra){
   const h = {
     'apikey': cfg.chave,
     'Content-Type': 'application/json',
-    // Sem token, o PostgREST trata como `anon` — que é o certo para a
-    // vitrine pública. Com token, vira `authenticated` e o RLS aplica as
-    // regras da pessoa.
-    'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
   };
+  if(sessao && sessao.token) h['Authorization'] = 'Bearer ' + sessao.token;
   return Object.assign(h, extra || {});
 }
 
@@ -178,10 +195,15 @@ async function rest(caminho, opcoes){
 }
 
 async function auth(caminho, corpo, metodo){
+  // Mesma regra do `cabecalhos()` logo acima: a chave do projeto só no
+  // `apikey`, e o `Authorization` só quando há uma pessoa logada. Entrar e
+  // criar conta acontecem JUSTAMENTE quando não há — mandar a chave ali
+  // faria o login falhar antes de tentar.
+  const h = { 'apikey': cfg.chave, 'Content-Type': 'application/json' };
+  if(sessao && sessao.token) h['Authorization'] = 'Bearer ' + sessao.token;
   const resp = await fetch(cfg.url + '/auth/v1/' + caminho, {
     method: metodo || 'POST',
-    headers: { 'apikey': cfg.chave, 'Content-Type': 'application/json',
-               'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave) },
+    headers: h,
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
   await conferir(resp);

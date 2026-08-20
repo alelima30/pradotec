@@ -30,7 +30,32 @@ function usuarioDo(req){
   return sessoes.get(a) || null;
 }
 
+/* ── A bancada precisa ser tão ESTRITA quanto o Supabase ───────────────────
+   O Supabase trocou o formato da chave pública: `sb_publishable_...`, que não
+   é JWT. Mandada no `Authorization`, a plataforma tenta lê-la como token e
+   recusa a requisição.
+
+   Uma bancada mais permissiva que o real é pior que bancada nenhuma: ela
+   aprova código que quebra em produção. Foi assim que as 20 tabelas passaram
+   abertas por toda a suíte. Então aqui a mesma coisa é recusada: chave do
+   projeto vai no `apikey`, e o `Authorization` só carrega token de gente.
+
+   Devolve o erro em `message` porque é de lá que o `conferir()` do dados.js
+   tira a frase — assim a falha chega legível na tela em vez de "401". */
+function chaveNoLugarErrado(req){
+  const auth = (req.headers.authorization || '').replace('Bearer ', '');
+  if(!auth) return null;
+  if(auth === (req.headers.apikey || '')) {
+    return 'A chave do projeto foi enviada no cabecalho Authorization. '
+         + 'Ela vai apenas no apikey; o Authorization carrega o token de '
+         + 'quem fez login.';
+  }
+  return null;
+}
+
 async function comPapel(req, fn){
+  const erro = chaveNoLugarErrado(req);
+  if(erro){ const e = new Error(erro); e.status = 401; throw e; }
   const cli = await pool.connect();
   try{
     await cli.query('begin');

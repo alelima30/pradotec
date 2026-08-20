@@ -261,6 +261,32 @@ secao('A ponte entre o `bd` da tela e o banco');
     'erro do banco sobe até a tela, não fica engolido');
 }
 
+/* ── Os cabeçalhos ────────────────────────────────────────────────────────
+   `apikey` diz qual projeto é; `Authorization` diz quem é a pessoa. O Supabase
+   trocou o formato da chave pública para `sb_publishable_...`, que não é JWT —
+   mandada no Authorization, a plataforma tenta lê-la como token e recusa.
+
+   O dados.js mandava a chave nos dois quando não havia sessão. Funcionava com
+   a chave antiga, que era JWT, e passaria a quebrar em todo projeto novo. A
+   bancada agora recusa igual ao Supabase, então qualquer volta atrás derruba
+   as 33 verificações acima — mas fica também nomeado aqui, para o erro dizer
+   o que era em vez de só "falhou tudo".
+   ──────────────────────────────────────────────────────────────────────── */
+console.log('\nOs cabeçalhos da chave');
+{
+  const so_apikey = await fetch(BASE + '/rest/v1/planos?select=codigo',
+    { headers: { apikey: 'chave-de-teste' } });
+  dizer(so_apikey.ok,
+    'só com apikey, quem não fez login lê a vitrine', 'status ' + so_apikey.status);
+
+  const nos_dois = await fetch(BASE + '/rest/v1/planos?select=codigo',
+    { headers: { apikey: 'chave-de-teste',
+                 Authorization: 'Bearer chave-de-teste' } });
+  dizer(!nos_dois.ok,
+    'a chave do projeto no Authorization é recusada, como no Supabase',
+    'status ' + nos_dois.status);
+}
+
 console.log('\n' + (falhas
   ? `✗ ${falhas} de ${ok+falhas} falharam.`
   : `✓ ${ok} verificações contra um Postgres de verdade.`));
