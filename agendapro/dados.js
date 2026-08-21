@@ -229,20 +229,56 @@ function cabecalhos(extra){
   return Object.assign(h, extra || {});
 }
 
-// Erro do PostgREST vem em JSON com `message`, `details` e `hint`. Mostrar
-// só "400 Bad Request" faz perder justamente a frase que explica o que
-// aconteceu — inclusive as mensagens que os gatilhos do banco escrevem.
+/* Erro do PostgREST vem em JSON com `message`, `details` e `hint`. Mostrar
+   só "400 Bad Request" faz perder justamente a frase que explica o que
+   aconteceu — inclusive as mensagens que os gatilhos do banco escrevem.
+
+   ⚠ E A PARTE DE CONTAS NÃO USA `message`.
+
+   O GoTrue — o serviço de login do Supabase — responde assim:
+
+       { "code": 400, "error_code": "invalid_credentials",
+         "msg": "Invalid login credentials" }
+
+   O campo é `msg`. Nós líamos `message`, `error_description` e `error`; os
+   três ausentes, sobrava o `status + ' ' + statusText`. E em HTTP/2 não
+   existe frase de status: `statusText` vem VAZIO. Então a tela de login
+   mostrava, para uma senha errada, literalmente:
+
+       Não consegui entrar: 400
+
+   Um número no lugar de "e-mail ou senha não conferem" é a pessoa sem saber
+   se errou a senha, se a conta sumiu ou se o sistema caiu — e sem nada para
+   fazer a seguir. A bancada devolvia a forma ANTIGA (`error_description`),
+   que nós líamos, então a suíte inteira ficava verde por cima do defeito.
+
+   `codigo` sobe junto com a mensagem porque `error_code` é estável e é a
+   mesma palavra em toda versão; traduzir por ele é mais firme do que casar
+   o texto em inglês, que muda. Em `code` o PostgREST manda o SQLSTATE
+   (texto) e o GoTrue manda o status HTTP (número) — daí o teste de tipo. */
 async function conferir(resp){
   if(resp.ok) return resp;
-  let msg = resp.status + ' ' + resp.statusText;
-  try{
-    const corpo = await resp.json();
-    msg = corpo.message || corpo.error_description || corpo.error || msg;
-    if(corpo.hint) msg += ' — ' + corpo.hint;
-    if(corpo.details && !corpo.message) msg += ' (' + corpo.details + ')';
-  }catch(e){ /* resposta sem JSON; fica o status mesmo */ }
+
+  const cru = await resp.text().catch(() => '');
+  let corpo = null;
+  try{ corpo = cru ? JSON.parse(cru) : null; }catch(e){ /* não era JSON */ }
+
+  let msg = '';
+  if(corpo){
+    msg = corpo.msg || corpo.message || corpo.error_description || corpo.error || '';
+    if(corpo.hint)               msg += (msg ? ' — ' : '') + corpo.hint;
+    if(corpo.details && !msg)    msg  = '(' + corpo.details + ')';
+  }else if(cru && cru.length <= 300){
+    // Página de erro de proxy, texto solto: feio, mas informa mais que o número.
+    msg = cru.trim();
+  }
+  // Sem frase nenhuma, o mínimo é dizer que o erro é de HTTP, e qual.
+  if(!msg) msg = ('HTTP ' + resp.status + ' ' + (resp.statusText || '')).trim();
+
   const erro = new Error(msg);
   erro.status = resp.status;
+  erro.codigo = (corpo && (corpo.error_code ||
+    (typeof corpo.code === 'string' ? corpo.code : ''))) || '';
   throw erro;
 }
 
@@ -305,6 +341,20 @@ const Nuvem = {
     guardarSessao({ token: r.access_token, refresh: r.refresh_token,
                     usuarioId: r.user && r.user.id });
     return r;
+  },
+
+  /* ── O E-MAIL DE CONFIRMAÇÃO, DE NOVO ───────────────────────────────────
+     Quando o projeto exige confirmação, a conta nasce e não entra: o login
+     devolve `email_not_confirmed`. Sem um jeito de reenviar, a única saída
+     é achar uma mensagem de dias atrás — ou criar outra conta, que esbarra
+     em "e-mail já cadastrado". É um beco, e a porta custa quatro linhas.
+
+     `redirect_to` precisa estar nas Redirect URLs do projeto, igual ao de
+     recuperar senha. E aqui também não dizemos se o e-mail existe. */
+  async reenviarConfirmacao(email){
+    const volta = new URL('entrar.html', location.href).href;
+    await auth('resend', { type: 'signup', email, gotrue_meta_security: {} });
+    return { redirect: volta };
   },
 
   // Código no WhatsApp: quem gera, valida e expira é o Supabase Auth. A
@@ -546,6 +596,7 @@ const Demo = {
   async entrar(){ throw new Error('Login por senha só existe no modo nuvem.'); },
   async pedirNovaSenha(){ throw new Error('Recuperação de senha só existe no modo nuvem.'); },
   async trocarSenha(){ throw new Error('Recuperação de senha só existe no modo nuvem.'); },
+  async reenviarConfirmacao(){ throw new Error('Confirmação de e-mail só existe no modo nuvem.'); },
   async pedirCodigo(){ return { demo: true }; },
   async conferirCodigo(telefone){
     const d = lerDemo();

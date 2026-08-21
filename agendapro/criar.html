@@ -739,6 +739,13 @@ function irNegocio(){
    Nenhum aviso vale a pena se ele aparece fora da vista. `scrollIntoView`
    custa uma linha e transforma silêncio aparente em explicação.
    ──────────────────────────────────────────────────────────────────────── */
+// Texto de servidor indo para dentro de innerHTML. Não é hostil aqui, mas
+// uma frase com `<` já basta para desmontar a caixa de aviso.
+function textoSeguro(t){
+  return String(t).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function avisar(tipo, titulo, texto){
   const alvo = document.getElementById('avisoNegocio');
   alvo.innerHTML = '<div class="aviso ' + tipo + '"><span class="ic">'
@@ -839,8 +846,37 @@ async function criarConta(){
       irPasso(3);
     }catch(e){
       console.error('[AgendaPro] falha ao criar a conta:', e);
+      /* ── O MOTIVO EM PORTUGUÊS, E O QUE FAZER ─────────────────────────
+         Aqui saía o `e.message` cru, em inglês de servidor — e, quando o
+         Supabase mandava a frase no campo `msg` (que o `conferir()` não
+         lia), saía "400" pelado. A escolha é pelo `codigo` (`error_code`),
+         que não muda de versão para versão; o texto fica de reserva para
+         servidor antigo. Cada caso termina no passo seguinte de quem está
+         parado no formulário, não num diagnóstico. */
+      const cod = String(e.codigo || ''), cru = String(e.message || '');
+      const eh = (c, re) => cod === c || (!cod && re.test(cru));
+      const recado =
+        eh('user_already_exists', /already registered|already been registered|user_exists/i)
+          ? '<b>Este e-mail já tem conta.</b> Vá em <a href="entrar.html">Entrar</a> '
+            + '— e se não lembrar a senha, use "Esqueci minha senha" por lá.'
+        : eh('email_exists', /email.*exists/i)
+          ? '<b>Este e-mail já tem conta.</b> Vá em <a href="entrar.html">Entrar</a>.'
+        : eh('weak_password', /password.*(short|weak|least)/i)
+          ? '<b>A senha é curta demais.</b> Use pelo menos 6 caracteres.'
+        : eh('email_address_invalid', /invalid.*email|email.*invalid/i)
+          ? '<b>Esse e-mail não parece válido.</b> Confira se não faltou uma letra.'
+        : eh('signup_disabled', /signups? (not allowed|disabled)/i)
+          ? '<b>O cadastro está fechado no momento.</b> Fale com a gente pelo WhatsApp.'
+        : (cod.indexOf('rate_limit') >= 0 || e.status === 429)
+          ? '<b>Muitas tentativas seguidas.</b> Espere um minuto e tente de novo.'
+        : !navigator.onLine
+          ? '<b>Você está sem internet.</b> Reconecte e clique de novo — nada '
+            + 'do que você preencheu se perdeu.'
+          : '<b>Não consegui criar a conta agora.</b> Tente de novo em instantes. '
+            + 'Se continuar, mande esta linha para o suporte:<br>'
+            + '<span class="mono">' + textoSeguro(cru || ('HTTP ' + e.status)) + '</span>';
       geral.innerHTML = '<div class="aviso ruim"><span class="ic">' + ico('alerta') + '</span>'
-        + '<div><b>Não consegui criar a conta</b>' + e.message + '</div></div>';
+        + '<div>' + recado + '</div></div>';
       bt.disabled = false; bt.textContent = rotulo;
     }
     return;

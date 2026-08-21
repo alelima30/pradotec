@@ -229,6 +229,15 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
   background:var(--ac-soft); border:1px solid var(--ac-line);
   border-left:3px solid var(--ac-600);
 }
+/* O botão dentro do aviso: 40px de altura de toque, porque quem chega nele
+   está no celular tentando entrar e já errou uma vez. */
+.aviso .relink{
+  display:inline-flex; align-items:center; min-height:40px; margin-top:8px;
+  padding:0 14px; border-radius:var(--r-sm); font-size:14px; font-weight:560;
+  border:1px solid var(--borda-forte); background:var(--painel); color:var(--txt);
+}
+.aviso .relink:hover{ background:var(--painel2) }
+.aviso .relink:disabled{ opacity:.5; pointer-events:none }
 .rodape{ margin-top:26px; font-size:12px; color:var(--txt3); text-align:center; line-height:1.7 }
 
 /* ── Celular: a marca vira tarja, o formulário ganha a tela ───────────── */
@@ -374,9 +383,20 @@ function abrirCortina(){
   addEventListener('keydown',     pular, { once:true });
 }
 
+/* O `<div>` de dentro não é enfeite: `.aviso` é `display:flex`, e sem ele
+   cada pedaço da mensagem — o `<b>`, o texto, o botão — vira uma COLUNA
+   separada lado a lado. Com uma frase só passava despercebido; com "negrito
+   + explicação + botão" a caixa se desmonta. Envolvido, é um bloco só. */
 function mostrar(tipo, texto){
   document.getElementById('recado').innerHTML =
-    `<div class="aviso ${tipo}">${texto}</div>`;
+    `<div class="aviso ${tipo}"><div>${texto}</div></div>`;
+}
+
+// O e-mail volta para dentro do aviso, e o aviso é innerHTML. Digitado pela
+// própria pessoa, sim — mas endereço com `<` existe e quebraria a caixa.
+function seguro(t){
+  return String(t).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function verSenha(){
@@ -400,19 +420,84 @@ async function entrar(){
     await Dados.entrar({ email, senha });
     location.href = 'app.html';
   }catch(e){
-    // A mensagem do Supabase para senha errada é "Invalid login credentials",
-    // em inglês e sem dizer o que fazer. Esta troca não é enfeite: é a
-    // diferença entre a pessoa tentar de novo e a pessoa desistir.
+    /* ── O ERRO TEM QUE VIRAR FRASE, NUNCA NÚMERO ─────────────────────────
+       Esta tela já mostrou, para uma senha errada, "Não consegui entrar:
+       400". O motivo vinha escrito no corpo da resposta do Supabase, no
+       campo `msg` — que o `conferir()` do dados.js não lia. Lê agora, e o
+       código de erro (`error_code`) sobe junto.
+
+       A escolha é pelo CÓDIGO, não pelo texto: `invalid_credentials` é a
+       mesma palavra em toda versão do Supabase, enquanto a frase em inglês
+       muda. O casamento por texto fica embaixo, para servidor antigo.
+
+       E o `else` no fim nunca mais mostra só o número: se nem código nem
+       frase vierem, ele diz o que a pessoa pode fazer. */
+    console.error('[AgendaPro] falha ao entrar:', e);
+    ultimoEmail = email;
+    const cod = String(e.codigo || '');
     const cru = String(e.message || '');
-    mostrar('ruim', /invalid login|credentials/i.test(cru)
-      ? '<b>E-mail ou senha não conferem.</b> Confira e tente de novo, ou use '
-        + '"Esqueci minha senha".'
-      : /email not confirmed/i.test(cru)
-      ? '<b>Falta confirmar o e-mail.</b> Procure a mensagem que mandamos — '
-        + 'às vezes ela cai no lixo eletrônico.'
-      : 'Não consegui entrar: ' + cru);
+    const eh = (codigo, texto) => cod === codigo || (!cod && texto.test(cru));
+
+    if(eh('invalid_credentials', /invalid login|invalid_grant|credentials/i)){
+      mostrar('ruim', '<b>E-mail ou senha não conferem.</b> Confira e tente de '
+        + 'novo, ou use "Esqueci minha senha".');
+
+    }else if(eh('email_not_confirmed', /email not confirmed/i)){
+      /* Sem o botão de reenviar isto é um beco: a mensagem original pode ser
+         de dias atrás, e criar outra conta esbarra em "e-mail já cadastrado". */
+      mostrar('ruim', '<b>Falta confirmar o e-mail.</b> Procure a mensagem que '
+        + 'mandamos para <b>' + seguro(email) + '</b> — às vezes ela cai no lixo '
+        + 'eletrônico.<br><button class="relink" onclick="reenviar()" '
+        + 'id="btReenviar">Reenviar o e-mail de confirmação</button>');
+
+    }else if(eh('user_banned', /banned/i)){
+      mostrar('ruim', '<b>Esta conta está bloqueada.</b> Fale com a gente para '
+        + 'liberar.');
+
+    }else if(cod.indexOf('rate_limit') >= 0 || e.status === 429){
+      mostrar('ruim', '<b>Muitas tentativas seguidas.</b> Espere um minuto e '
+        + 'tente de novo — o bloqueio é temporário.');
+
+    }else if(eh('validation_failed', /missing|required/i)){
+      mostrar('ruim', '<b>Faltou preencher o e-mail ou a senha.</b>');
+
+    }else if(!navigator.onLine){
+      mostrar('ruim', '<b>Você está sem internet.</b> Reconecte e tente de novo — '
+        + 'nada do que você digitou se perdeu.');
+
+    }else{
+      /* Aqui entram queda de rede e erro do servidor. O texto cru vai junto,
+         em letra miúda, porque é ele que resolve o chamado — mas depois da
+         frase que diz o que fazer, não no lugar dela. */
+      mostrar('ruim', '<b>Não consegui entrar agora.</b> Confira a conexão e '
+        + 'tente de novo em instantes. Se continuar, mande esta linha para o '
+        + 'suporte:<br><span class="mono">' + seguro(cru || ('HTTP ' + e.status))
+        + '</span>');
+    }
     bt.disabled = false;
     bt.textContent = 'Entrar no painel';
+  }
+}
+
+/* ── Reenviar a confirmação ──────────────────────────────────────────────
+   Só aparece depois de o login dizer `email_not_confirmed`, então já sabemos
+   que a conta existe e que ela está esperando isso. O botão some no lugar da
+   resposta: deixá-lo aceso convida ao segundo clique, e o Supabase limita o
+   envio por hora — o segundo pedido vira "espere" e parece que falhou. */
+let ultimoEmail = '';
+
+async function reenviar(){
+  const bt = document.getElementById('btReenviar');
+  if(bt){ bt.disabled = true; bt.textContent = 'Enviando…'; }
+  try{
+    await Dados.reenviarConfirmacao(ultimoEmail);
+    mostrar('ok', '<b>Mandamos de novo.</b><br>Abra o link que chegar em '
+      + '<span class="mono">' + seguro(ultimoEmail) + '</span> e volte aqui. '
+      + 'Se não chegar em alguns minutos, procure no lixo eletrônico.');
+  }catch(e){
+    console.error('[AgendaPro] reenvio da confirmação:', e);
+    mostrar('ruim', '<b>Não consegui reenviar agora.</b> O Supabase limita '
+      + 'quantos e-mails saem por hora. Espere alguns minutos e tente de novo.');
   }
 }
 

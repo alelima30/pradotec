@@ -26,11 +26,17 @@ create table if not exists auth.users (
   -- errada, provando nada. Trocar de senha só é uma funcionalidade se a
   -- senha velha parar de funcionar.
   encrypted_password text,
+  -- Nulo = conta criada e e-mail ainda não confirmado. É o estado normal de
+  -- quem se cadastra num projeto com confirmação ligada, e é o SEGUNDO
+  -- motivo de 400 no login (o primeiro é senha errada). Sem poder produzir
+  -- esse estado aqui, a tela que o trata ficaria sem teste nenhum.
+  email_confirmed_at timestamptz default now(),
   created_at         timestamptz not null default now()
 );
 
 -- Bancos criados antes desta coluna existirem continuam servindo.
 alter table auth.users add column if not exists encrypted_password text;
+alter table auth.users add column if not exists email_confirmed_at timestamptz default now();
 
 create or replace function auth.uid() returns uuid
 language sql stable as $$

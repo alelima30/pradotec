@@ -71,6 +71,23 @@ const json = (res, code, corpo) => {
   res.end(JSON.stringify(corpo));
 };
 
+/* ── O ERRO DE LOGIN TEM UM FORMATO, E É ESTE ─────────────────────────────
+   A bancada respondia `{ error_description: '...' }`, que é a forma ANTIGA
+   do GoTrue. O `conferir()` do dados.js lia esse campo, então a suíte inteira
+   ficava verde — enquanto o Supabase de verdade respondia
+
+       { "code": 400, "error_code": "invalid_credentials",
+         "msg": "Invalid login credentials" }
+
+   com a frase em `msg`, que ninguém lia. Em produção, senha errada virava
+   "Não consegui entrar: 400" na cara da pessoa (o `statusText` vem vazio em
+   HTTP/2, então nem "Bad Request" sobrava).
+
+   A bancada ser mais fácil que a produção é o erro que mais custou nesta
+   base. Aqui ela passa a responder exatamente como o serviço real. */
+const erroAuth = (res, codigo, frase, status) =>
+  json(res, status || 400, { code: status || 400, error_code: codigo, msg: frase });
+
 function usuarioDo(req){
   const a = (req.headers.authorization || '').replace('Bearer ', '');
   return sessoes.get(a) || null;
@@ -145,6 +162,17 @@ const http_ = http.createServer(async (req, res) => {
            Agora a bancada faz o que o Supabase faz: cria a conta com os
            metadados e para. Quem cria o perfil é o gatilho do 08_conta.sql.
            Se ele sumir, os testes caem — que é o ponto. */
+        /* E-mail repetido tem nome próprio no Supabase — `user_already_exists`
+           — e é a recusa mais comum do cadastro: quem já tentou uma vez volta
+           e tenta de novo. Sem isto a bancada criava DUAS contas com o mesmo
+           endereço, um estado que a produção não permite, e a tela que traduz
+           essa recusa não teria como ser testada. */
+        const jaTem = await pool.query(
+          'select 1 from auth.users where lower(email) = lower($1)', [b.email || '']);
+        if(jaTem.rowCount){
+          return erroAuth(res, 'user_already_exists',
+            'User already registered', 422);
+        }
         const id = await pool.query(
           `insert into auth.users (id, email, raw_user_meta_data, encrypted_password)
                 values (gen_random_uuid(), $1, $2::jsonb, $3) returning id`,
@@ -160,7 +188,8 @@ const http_ = http.createServer(async (req, res) => {
       }
 
       if(acao === 'verify'){
-        if(b.token !== '123456') return json(res, 400, { message: 'Token has expired or is invalid' });
+        if(b.token !== '123456')
+          return erroAuth(res, 'otp_expired', 'Token has expired or is invalid');
         let id = await pool.query(
           "select id from public.perfis where telefone = $1", [b.phone])
           .then(r => r.rows[0] && r.rows[0].id);
@@ -185,15 +214,26 @@ const http_ = http.createServer(async (req, res) => {
            — a asserção parecia forte e não valia nada. Trocar de senha só é
            uma funcionalidade se a velha parar de funcionar. */
         const { rows } = await pool.query(
-          "select id, encrypted_password from auth.users where lower(email)=lower($1)",
-          [b.email || '']);
+          `select id, encrypted_password, email_confirmed_at
+             from auth.users where lower(email)=lower($1)`, [b.email || '']);
         const u = rows[0];
         if(!u || (u.encrypted_password != null && u.encrypted_password !== b.password)){
-          return json(res, 400, { error_description: 'Invalid login credentials' });
+          return erroAuth(res, 'invalid_credentials', 'Invalid login credentials');
+        }
+        if(u.email_confirmed_at == null){
+          return erroAuth(res, 'email_not_confirmed', 'Email not confirmed');
         }
         const id = u.id;
         const tok = 't' + (++seq); sessoes.set(tok, id);
         return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
+      }
+
+      /* Reenviar a confirmação. Como o `recover`, responde 200 sempre — dizer
+         "esse e-mail não existe" transformaria a tela num verificador de
+         contas. Aqui não há caixa postal; o que importa testar é que a tela
+         pede, recebe 200 e conta isso para quem está esperando. */
+      if(acao === 'resend'){
+        return json(res, 200, {});
       }
 
       if(acao === 'logout'){
@@ -224,7 +264,7 @@ const http_ = http.createServer(async (req, res) => {
 
       if(acao === 'user' && (req.method === 'PUT' || req.method === 'PATCH')){
         const id = usuarioDo(req);
-        if(!id) return json(res, 401, { message: 'não autenticado' });
+        if(!id) return erroAuth(res, 'no_authorization', 'não autenticado', 401);
         if(b.password){
           await pool.query(
             'update auth.users set encrypted_password = $2 where id = $1',
@@ -235,7 +275,20 @@ const http_ = http.createServer(async (req, res) => {
         return json(res, 200, rows[0] || { id });
       }
 
-      return json(res, 404, { message: 'auth: ' + acao });
+      return erroAuth(res, 'not_found', 'auth: ' + acao, 404);
+    }
+
+    /* Outra porta só da bancada: apaga o carimbo de confirmação de uma conta,
+       deixando-a no estado em que o Supabase deixa quem acabou de se
+       cadastrar num projeto com "Confirm email" ligado. É o segundo motivo
+       de 400 no login, e sem poder produzi-lo aqui a tela que o trata — com
+       o botão de reenviar — não teria teste nenhum. */
+    if(u.pathname === '/_naoconfirmado'){
+      const b = await corpoDe(req) || {};
+      await pool.query(
+        'update auth.users set email_confirmed_at = null where lower(email) = lower($1)',
+        [b.email || '']);
+      return json(res, 200, {});
     }
 
     /* Só a bancada tem esta porta: devolve o token que o Supabase mandaria

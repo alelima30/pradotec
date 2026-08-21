@@ -121,6 +121,42 @@ igual('sem nenhum erro de JavaScript', p.erros.length, 0);
 igual('e sem nenhuma resposta de erro do servidor', p.ruins.join(' | '), '');
 await ctx1.close();
 
+/* ── TENTAR DE NOVO COM O MESMO E-MAIL ────────────────────────────────────
+   É o segundo caminho mais percorrido deste formulário: a pessoa não sabe se
+   terminou, volta e preenche tudo outra vez. O Supabase recusa, e o que
+   estava escrito na tela era o `e.message` cru — em inglês, e às vezes só
+   "400", porque a frase vinha no campo `msg` que o `conferir()` não lia.
+
+   "User already registered" não diz a coisa que resolve: é ir em Entrar. */
+console.log('\nO mesmo e-mail, de novo');
+
+const ctxR = await nav.newContext({ viewport: { width: 430, height: 780 } });
+const r = await abrir(ctxR);
+await r.goto(BASE + '/criar.html');
+await r.waitForTimeout(500);
+await digitar(r, '#fNome', NOME);
+await digitar(r, '#fEmail', EMAIL);
+await digitar(r, '#fSenha', SENHA);
+await r.click('button.grande:has-text("Continuar")');
+await r.waitForTimeout(400);
+await digitar(r, '#fSalao', NOMESALAO + ' II');
+await r.selectOption('#fTipo', { index: 1 });
+await digitar(r, '#fZap', '51998876600');
+await r.click('#btCriar');
+await r.waitForTimeout(2500);
+
+const recusa = (await r.textContent('#avisoNegocio')).replace(/\s+/g, ' ').trim();
+igual('não avança de passo', await passoAtual(r), 2);
+verdade('e diz, em português, que o e-mail já tem conta — ' + JSON.stringify(recusa.slice(0, 70)),
+  recusa.includes('já tem conta'));
+verdade('apontando para a tela de Entrar, que é o que resolve',
+  await r.isVisible('#avisoNegocio a[href="entrar.html"]'));
+verdade('e nunca mostra só o número da resposta',
+  !/\b400\b|\b422\b/.test(recusa));
+verdade('o botão volta a funcionar, para a pessoa corrigir e tentar',
+  await r.evaluate(() => !document.getElementById('btCriar').disabled));
+await ctxR.close();
+
 console.log('\nVoltar no dia seguinte e entrar');
 
 /* Contexto NOVO: sem localStorage, sem cookie, sem sessão. É a diferença

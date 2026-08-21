@@ -203,11 +203,21 @@ async function salvar(){
                               senha: s1 });
   }catch(e){
     console.error('[AgendaPro] trocar senha:', e);
-    const cru = String(e.message || '');
-    mostrar('ruim', /expired|invalid|JWT/i.test(cru)
+    /* Pelo `codigo` primeiro, como nas outras telas: `error_code` é a mesma
+       palavra em toda versão do Supabase, o texto em inglês não é. E o
+       último caso não mostra mais o `e.message` cru sozinho — que, quando a
+       frase vinha em `msg`, era o número da resposta e nada mais. */
+    const cod = String(e.codigo || ''), cru = String(e.message || '');
+    const vencido = ['bad_jwt','session_expired','session_not_found',
+                     'otp_expired','validation_failed'].indexOf(cod) >= 0
+                 || (!cod && /expired|invalid|JWT/i.test(cru));
+    mostrar('ruim', vencido
       ? '<b>Este link já venceu.</b>Peça um novo em '
         + '<a href="entrar.html">Entrar</a> → "Esqueci minha senha".'
-      : '<b>Não consegui trocar a senha.</b>' + cru);
+      : '<b>Não consegui trocar a senha.</b>Tente de novo em instantes. Se '
+        + 'continuar, peça um link novo em <a href="entrar.html">Entrar</a> → '
+        + '"Esqueci minha senha".<br><span class="mono">'
+        + String(cru || ('HTTP ' + e.status)).replace(/[<>&]/g, '') + '</span>');
     bt.disabled = false; bt.textContent = 'Salvar e entrar';
     return;
   }

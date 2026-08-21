@@ -178,6 +178,93 @@ igual('e a senha VELHA não entra mais', new URL(r5.url()).pathname, '/entrar.ht
 verdade('dizendo que não confere, em português',
   (await r5.textContent('#recado')).includes('não conferem'));
 
+/* ══════════════════════════════════════════════════════════════════════════
+   O NÚMERO NA CARA DA PESSOA
+
+   Esta seção existe por causa de um print: entrar.html, no ar, respondendo
+
+       Não consegui entrar: 400
+
+   a quem tinha acabado de digitar e-mail e senha. O 400 estava certo — o que
+   faltava era LER o motivo. O GoTrue manda a frase no campo `msg`; o
+   `conferir()` lia `message`, `error_description` e `error`, os três
+   ausentes. Sobrava `status + ' ' + statusText`, e em HTTP/2 não existe
+   frase de status: `statusText` vem vazio. Daí o número sozinho.
+
+   E a bancada respondia na forma ANTIGA (`error_description`), que nós
+   líamos — então a suíte inteira ficava verde por cima do defeito. É a
+   mesma armadilha de sempre nesta base: a bancada mais fácil que a produção.
+   Ela agora responde como o serviço real, e o que vem abaixo guarda a porta.
+   ══════════════════════════════════════════════════════════════════════════ */
+secao('Quando o login falha, a tela diz o quê — nunca só o número');
+
+const semNavegador = novaAba();
+let pegou = null;
+try{ await semNavegador.entrar({ email: EMAIL, senha: 'senhaerradademais' }); }
+catch(e){ pegou = e; }
+verdade('senha errada chega como erro', !!pegou);
+igual('com o código estável do Supabase, e não com o texto em inglês',
+  pegou && pegou.codigo, 'invalid_credentials');
+igual('e com a frase do servidor, não com o status',
+  pegou && pegou.message, 'Invalid login credentials');
+verdade('a mensagem nunca é só um número de três dígitos',
+  !/^\s*\d{3}\s*$/.test(String(pegou && pegou.message)));
+
+secao('Conta criada e e-mail ainda não confirmado');
+
+/* O segundo motivo de 400, e o mais cruel: a conta EXISTE, a senha está
+   certa, e mesmo assim não entra. Sem uma frase que explique isso, a pessoa
+   conclui que perdeu a conta e tenta criar outra — que esbarra em "e-mail já
+   cadastrado". Beco fechado dos dois lados. */
+const SEMCONF = `naoconf-${marca}@teste.com`;
+const recem = novaAba();
+await recem.criarConta({ email: SEMCONF, senha: VELHA, nome: 'Rita Alves',
+  telefone: '+5551' + (200000000 + (Date.now() % 99999999)) });
+await fetch(BASE + '/_naoconfirmado', { method:'POST',
+  headers:{ 'Content-Type':'application/json' },
+  body: JSON.stringify({ email: SEMCONF }) });
+
+const r6 = await ctx.newPage();
+/* Aqui a falha é ESPERADA, então dois barulhos no console também são: o
+   `console.error` que a própria tela escreve de propósito (é o que resolve o
+   chamado depois) e o "Failed to load resource" com que o navegador narra o
+   400. Contar esses dois como defeito faria o teste reprovar justamente
+   quando o caminho funciona. O que não se tolera é o resto. */
+const errosR6 = [];
+const esperado = t => t.startsWith('[AgendaPro] falha ao entrar:')
+                   || /Failed to load resource.*400/.test(t);
+r6.on('pageerror', e => errosR6.push(e.message));
+r6.on('console', m => {
+  if(m.type() === 'error' && !esperado(m.text())) errosR6.push(m.text());
+});
+await r6.goto(BASE + '/entrar.html'); await r6.waitForTimeout(3600);
+await r6.fill('#email', SEMCONF);
+await r6.fill('#senha', VELHA);
+await r6.click('#btEntrar');
+await r6.waitForTimeout(3000);
+
+const aviso6 = (await r6.textContent('#recado')).replace(/\s+/g, ' ').trim();
+igual('conta sem confirmação não entra', new URL(r6.url()).pathname, '/entrar.html');
+verdade('e a tela diz que falta confirmar, em português — ' + JSON.stringify(aviso6.slice(0, 80)),
+  aviso6.includes('confirmar o e-mail'));
+verdade('com o endereço para onde a mensagem foi', aviso6.includes(SEMCONF));
+verdade('e um botão para reenviar, em vez de um beco sem saída',
+  await r6.isVisible('#btReenviar'));
+
+/* A regressão que este arquivo inteiro persegue, dita em uma linha. */
+for(const [texto, quando] of [[await r5.textContent('#recado'), 'senha errada'],
+                              [aviso6, 'e-mail não confirmado']]){
+  verdade('nada de "Não consegui entrar: <número>" com ' + quando,
+    !/Não consegui entrar:\s*\d+\s*$/.test(texto.replace(/\s+/g,' ').trim()));
+}
+
+await r6.click('#btReenviar');
+await r6.waitForTimeout(1500);
+verdade('e o botão reenvia de verdade, e conta que reenviou',
+  (await r6.textContent('#recado')).includes('Mandamos de novo'));
+igual('sem erro de JavaScript no caminho da confirmação',
+  errosR6.length ? errosR6.join(' | ') : 0, 0);
+
 secao('Chegar sem o link');
 
 const r3 = await ctx.newPage();
