@@ -13,7 +13,7 @@
    Só quando a rede falha é que o cache aparece.
    =========================================================================== */
 
-const VERSAO = 'agendapro-v6';
+const VERSAO = 'agendapro-v7';
 
 const ESSENCIAIS = [
   './',
@@ -21,6 +21,8 @@ const ESSENCIAIS = [
   './agendar.html',
   './criar.html',
   './entrar.html',
+  // Chega-se aqui pelo link de um e-mail, às vezes na rua e com pouca rede.
+  './nova-senha.html',
   './index.html',
   './estilo.css',
   './icones.js',
