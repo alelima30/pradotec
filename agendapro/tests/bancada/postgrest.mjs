@@ -257,7 +257,12 @@ const http_ = http.createServer(async (req, res) => {
         if(rows[0]){
           const tok = 'rec' + (++seq);
           sessoes.set(tok, rows[0].id);
-          recuperacoes.set(String(b.email).toLowerCase(), tok);
+          /* O `redirect_to` fica guardado junto: é ele que decide onde o link
+             do e-mail deixa a pessoa, e ele vinha sendo calculado e NÃO
+             enviado — o link caía no "Site URL" do projeto, que num projeto
+             novo é localhost:3000. O teste agora confere que ele sai. */
+          recuperacoes.set(String(b.email).toLowerCase(),
+            { tok, redirect_to: u.searchParams.get('redirect_to') || '' });
         }
         return json(res, 200, {});
       }
@@ -295,8 +300,9 @@ const http_ = http.createServer(async (req, res) => {
        por e-mail. Sem ela, o caminho de recuperar senha ficaria sem teste —
        e é justamente o caminho que a pessoa usa quando já está com pressa. */
     if(u.pathname === '/_recuperacao'){
-      const tok = recuperacoes.get(String(u.searchParams.get('email') || '').toLowerCase());
-      return json(res, tok ? 200 : 404, tok ? { access_token: tok } : {});
+      const r = recuperacoes.get(String(u.searchParams.get('email') || '').toLowerCase());
+      return json(res, r ? 200 : 404,
+        r ? { access_token: r.tok, redirect_to: r.redirect_to } : {});
     }
 
     /* ── STORAGE ────────────────────────────────────────────────────────

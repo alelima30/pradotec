@@ -353,8 +353,16 @@ const Nuvem = {
      recuperar senha. E aqui também não dizemos se o e-mail existe. */
   async reenviarConfirmacao(email){
     const volta = new URL('entrar.html', location.href).href;
-    await auth('resend', { type: 'signup', email, gotrue_meta_security: {} });
+    await auth('resend?redirect_to=' + encodeURIComponent(volta),
+               { type: 'signup', email, gotrue_meta_security: {} });
     return { redirect: volta };
+  },
+
+  /* A sessão que chega pelo #fragmento de um link de e-mail (confirmação de
+     cadastro). Guardar é tudo o que falta: quem criou o token foi o próprio
+     Supabase, ao validar o link — ele JÁ é uma sessão. */
+  entrarComToken({ token, refresh, usuarioId }){
+    guardarSessao({ token, refresh: refresh || null, usuarioId: usuarioId || null });
   },
 
   // Código no WhatsApp: quem gera, valida e expira é o Supabase Auth. A
@@ -371,9 +379,17 @@ const Nuvem = {
      esse e-mail" é um verificador de contas de graça para quem quiser saber
      quem usa o sistema — e este é o mesmo motivo de o Supabase também
      responder 200 para endereço que não existe. */
+  /* ⚠ `redirect_to` vai na QUERY, não no corpo. Estava sendo calculado e
+     NÃO ENVIADO — o comentário acima dizia para onde o link devolvia a
+     pessoa, e o Supabase nunca ficou sabendo. Sem ele o link do e-mail cai
+     no "Site URL" do projeto: a raiz do site, ou `localhost:3000` num
+     projeto recém-criado. Ou seja, a pessoa clica no link, chega numa
+     página que não tem nada a ver, e "esqueci minha senha" simplesmente não
+     funciona — sem erro nenhum, que é o pior jeito de não funcionar. */
   async pedirNovaSenha(email){
     const volta = new URL('nova-senha.html', location.href).href;
-    await auth('recover', { email, gotrue_meta_security: {} });
+    await auth('recover?redirect_to=' + encodeURIComponent(volta),
+               { email, gotrue_meta_security: {} });
     return { redirect: volta };
   },
 
@@ -597,6 +613,7 @@ const Demo = {
   async pedirNovaSenha(){ throw new Error('Recuperação de senha só existe no modo nuvem.'); },
   async trocarSenha(){ throw new Error('Recuperação de senha só existe no modo nuvem.'); },
   async reenviarConfirmacao(){ throw new Error('Confirmação de e-mail só existe no modo nuvem.'); },
+  entrarComToken(){ /* na demonstração não há token nem sessão */ },
   async pedirCodigo(){ return { demo: true }; },
   async conferirCodigo(telefone){
     const d = lerDemo();

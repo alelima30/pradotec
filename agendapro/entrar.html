@@ -541,11 +541,49 @@ async function esqueci(){
     + 'chegar em alguns minutos, procure no lixo eletrônico.');
 }
 
+/* ── QUEM CHEGA PELO LINK DE CONFIRMAÇÃO ─────────────────────────────────
+   O e-mail de "confirme seu cadastro" devolve a pessoa para cá com a sessão
+   pronta no #fragmento — o Supabase já validou o link antes de redirecionar.
+   Sem ler isso, ela cairia numa tela de login pedindo a senha de novo, com
+   um token pendurado na barra de endereço que ninguém usa.
+
+   O fragmento também é por onde vem a recusa (`#error=...`), e um link de
+   confirmação vencido precisa dizer isso — não abrir um formulário calado.
+
+   Roda antes da cortina: não faz sentido esperar 3 segundos de abertura para
+   depois sair da página. */
+function chegouPeloEmail(){
+  const h = location.hash || '';
+  if(h.length < 2) return false;
+  const f = new URLSearchParams(h.slice(1));
+  const limpar = () =>
+    history.replaceState(null, '', location.pathname + location.search);
+
+  if(f.get('error') || f.get('error_code')){
+    limpar();
+    const d = f.get('error_description') || '';
+    mostrar('ruim', /expired|invalid/i.test(d) || f.get('error_code') === 'otp_expired'
+      ? '<b>Este link já venceu.</b> Digite seu e-mail e a senha aqui embaixo — '
+        + 'se ainda faltar confirmar, aparece um botão para mandar outro.'
+      : '<b>O link não funcionou.</b> Entre com e-mail e senha aqui embaixo.');
+    return false;
+  }
+
+  const tok = f.get('access_token');
+  if(!tok || !NA_NUVEM) return false;
+  Dados.entrarComToken({ token: tok, refresh: f.get('refresh_token') });
+  limpar();
+  location.replace('app.html');
+  return true;
+}
+
 (function(){
   try{
     const t = localStorage.getItem('agendapro.demo.v1.tema');
     if(t) document.documentElement.setAttribute('data-tema', t);
   }catch(e){}
+
+  if(chegouPeloEmail()) return;
 
   abrirCortina();
 

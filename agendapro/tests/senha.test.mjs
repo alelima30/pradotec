@@ -108,6 +108,19 @@ const rec = await fetch(BASE + '/_recuperacao?email=' + encodeURIComponent(EMAIL
   .then(r => r.json());
 verdade('o pedido gerou um token de recuperação', !!rec.access_token);
 
+/* ── PARA ONDE O LINK DEVOLVE A PESSOA ─────────────────────────────────────
+   O `redirect_to` era calculado no dados.js e NÃO era enviado: ele vai na
+   query, não no corpo. Sem ele o Supabase usa o "Site URL" do projeto — a
+   raiz do site, ou `localhost:3000` num projeto recém-criado. A pessoa
+   clica no link do e-mail e chega numa página que não tem nada a ver, sem
+   token e sem erro. O recurso inteiro não funcionava, e em silêncio.
+
+   Este teste ia até o `nova-senha.html` com o token na mão, então nunca
+   passava pelo link de verdade — era o pedaço do caminho que ficava de fora. */
+verdade('e o link do e-mail aponta para a tela de trocar a senha — '
+        + JSON.stringify(rec.redirect_to),
+  /\/nova-senha\.html$/.test(String(rec.redirect_to || '')));
+
 const q = await ctx.newPage();
 const errosQ = [];
 q.on('pageerror', e => errosQ.push(e.message));
@@ -264,6 +277,31 @@ verdade('e o botão reenvia de verdade, e conta que reenviou',
   (await r6.textContent('#recado')).includes('Mandamos de novo'));
 igual('sem erro de JavaScript no caminho da confirmação',
   errosR6.length ? errosR6.join(' | ') : 0, 0);
+
+/* ── A VOLTA DO LINK DE CONFIRMAÇÃO ───────────────────────────────────────
+   O Supabase valida o link e devolve a pessoa para cá com a sessão pronta no
+   #fragmento. Sem ler o fragmento, ela chegaria numa tela de login pedindo a
+   senha outra vez — com o token pendurado na barra de endereço, sem uso. */
+const sessao = await fetch(BASE + '/auth/v1/token?grant_type=password', {
+  method:'POST', headers:{ 'Content-Type':'application/json', apikey:'k' },
+  body: JSON.stringify({ email: EMAIL, password: NOVA }) }).then(r => r.json());
+
+const r7 = await ctx.newPage();
+await r7.goto(BASE + '/entrar.html#access_token=' + sessao.access_token
+  + '&refresh_token=' + sessao.refresh_token + '&type=signup');
+await r7.waitForTimeout(3000);
+igual('quem volta do link de confirmação entra direto no painel',
+  new URL(r7.url()).pathname, '/app.html');
+igual('e o token não fica na barra de endereço', new URL(r7.url()).hash, '');
+
+const r8 = await ctx.newPage();
+await r8.goto(BASE + '/entrar.html#error=access_denied&error_code=otp_expired'
+  + '&error_description=Email+link+is+invalid+or+has+expired');
+await r8.waitForTimeout(900);
+const venceuConf = await r8.textContent('#recado');
+verdade('e link de confirmação vencido é dito, em vez de um formulário calado',
+  venceuConf.includes('já venceu'));
+igual('com o fragmento limpo também aí', new URL(r8.url()).hash, '');
 
 secao('Chegar sem o link');
 
