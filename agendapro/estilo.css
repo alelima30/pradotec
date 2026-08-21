@@ -107,6 +107,7 @@
   --acao:var(--rx-fundo); --acao-hover:var(--rx-700); --acao-txt:#FFFFFF;
   /* Ação de peso mas sem brilho: confirmar, salvar, tudo que é rotina. */
   --tinta:var(--n-900); --tinta-hover:var(--n-800); --tinta-txt:var(--n-0);
+  --tinta-marca:var(--n-900);   /* a marca do AgendaPro, que nunca muda */
 
   /* ── Forma ─────────────────────────────────────────────────────────── */
   --r:12px; --r-sm:9px; --r-lg:16px; --r-pill:999px;
@@ -163,6 +164,7 @@
      eles faria o produto parecer dois. */
   --acao:var(--rx-500); --acao-hover:var(--rx-400); --acao-txt:#FFFFFF;
   --tinta:#F2EFF8; --tinta-hover:#FFFFFF; --tinta-txt:#0A0810;
+  --tinta-marca:#F2EFF8;
 
   --sombra-xs:0 1px 1px rgba(0,0,0,.35);
   --sombra:0 1px 2px rgba(0,0,0,.45), 0 2px 6px -1px rgba(0,0,0,.35);
@@ -449,12 +451,28 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
   background:var(--tinta) !important; color:var(--tinta-txt) !important;
   border-radius:var(--r-sm) !important; box-shadow:var(--sombra-xs);
 }
+/* Com logo, o quadrado deixa de ser fundo e vira moldura: a logo do salão
+   tem fundo próprio, e pintar atrás dela cria uma borda de cor que não
+   estava no arquivo que o dono subiu. */
+.avatar-salao.com-logo{
+  background:var(--painel) !important; overflow:hidden; padding:0;
+  border:1px solid var(--borda);
+}
+.avatar-salao.com-logo img{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
 
 /* A marca do sistema: quadrado de tinta com o ícone em dourado. Dois tons,
    nenhum degradê — é assim que marca de software se comporta em tamanho
-   pequeno, onde degradê vira borrão. */
+   pequeno, onde degradê vira borrão.
+
+   ⚠ Usa `--tinta-marca`, e não `--tinta`. Na página da cliente o `--tinta`
+   passou a ser a cor que o SALÃO escolheu — é ela que pinta seleção, borda e
+   avatar. A marca do AgendaPro não acompanha: ela é de outra empresa, e virar
+   dourada porque a barbearia é dourada seria a assinatura do fornecedor se
+   passando pela do cliente. */
 .marca-ic, .logo i{
-  background:var(--tinta) !important; color:var(--rx-400) !important;
+  background:var(--tinta-marca) !important; color:var(--rx-400) !important;
   border-radius:var(--r-sm) !important; font-weight:600 !important;
   box-shadow:var(--sombra-xs);
 }
@@ -652,6 +670,35 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 }
 .fone-escuro .fone-fundo::after{ background:#141416 }
 .fone-topo, .fone-cta, .fone-svs{ position:relative; z-index:1 }
+/* A prévia repete a letra escolhida. Sem isto ela mostraria o nome sempre na
+   mesma fonte, e a escolha de letra seria feita no escuro. */
+.fone-topo[data-letra] b{ display:block; font-size:16px; line-height:1.15 }
+.fone-topo[data-letra="elegante"] b{
+  font-family:"Playfair Display","Georgia","Times New Roman",serif;
+  font-weight:600; font-size:17px;
+}
+.fone-topo[data-letra="marcante"] b{
+  font-family:"Oswald","Roboto Condensed","Avenir Next Condensed",
+              "Arial Narrow",var(--fonte-display),sans-serif;
+  text-transform:uppercase; font-weight:700; letter-spacing:.045em;
+}
+.fone-slide{
+  position:relative; aspect-ratio:4 / 3; border-radius:10px; overflow:hidden;
+  margin-bottom:11px; background:var(--painel);
+}
+.fone-slide img, .fone-slide video{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+.fone-slide.vazio{
+  aspect-ratio:auto; display:grid; place-items:center; padding:14px 10px;
+  font-size:11.5px; color:var(--txt3); text-align:center; line-height:1.4;
+  border:1px dashed var(--borda);
+}
+.fone-slide-n{
+  position:absolute; right:6px; bottom:6px; padding:2px 6px; border-radius:5px;
+  background:rgba(0,0,0,.6); color:#fff; font-size:11px; font-weight:640;
+}
+
 .fone-sv{display:flex;gap:9px;align-items:center;margin-bottom:8px}
 .fone-sv-foto{
   width:44px;height:44px;border-radius:10px;flex:none;
@@ -905,13 +952,28 @@ body.capa-com-foto[data-passo="capa"] .cabeca{ display:none }
    que a recorta da imagem sem precisar de sombra. */
 .marca-salao.com-foto{ padding-top:0 }
 .marca-salao.com-foto .marca-selo{
-  margin-top:-38px; position:relative;
+  margin-top:-52px; position:relative;
   box-shadow:0 0 0 4px var(--bg), var(--sombra-md);
 }
 
+/* A espera, sem palavra nenhuma. Ver o comentário do `#p-abrindo`. */
+.abrindo{ display:grid; place-items:center; min-height:52vh }
+.roda-abrindo{
+  width:26px; height:26px; border-radius:50%;
+  border:2.5px solid var(--borda); border-top-color:var(--acao);
+  animation:gira-abrindo .8s linear infinite;
+}
+@keyframes gira-abrindo{ to{ transform:rotate(360deg) } }
+@media (prefers-reduced-motion: reduce){
+  .roda-abrindo{ animation-duration:2.4s }
+}
+
 .marca-salao{ text-align:center; padding:6px 0 18px }
+/* A logo cresceu de 76 para 104: é a primeira coisa que a cliente vê ao
+   abrir o link no WhatsApp, e reconhecer a casa no primeiro segundo é o que
+   separa "é do meu salão" de "isso é golpe". */
 .marca-selo{
-  width:76px; height:76px; margin:0 auto 12px;
+  width:104px; height:104px; margin:0 auto 14px;
   border-radius:20px; overflow:hidden;
   background:var(--acao); color:var(--acao-txt);
   display:grid; place-items:center;
@@ -919,8 +981,53 @@ body.capa-com-foto[data-passo="capa"] .cabeca{ display:none }
   box-shadow:var(--sombra);
 }
 .marca-selo img{ width:100%; height:100%; object-fit:cover; display:block }
-.marca-salao h2{ font-size:1.4rem; line-height:1.2; margin-bottom:3px }
+/* ── O NOME DA CASA ───────────────────────────────────────────────────────
+   Era 1,4rem na mesma letra do resto da página: correto e sem graça nenhuma.
+   É o nome do negócio, na primeira tela, e é ele que a cliente reconhece
+   antes de ler qualquer outra coisa.
+
+   TRÊS ESTILOS, E NENHUM VEM DE CDN. Fonte de fora seria mais vistosa e
+   traria uma dependência que o projeto inteiro evita: se o servidor de
+   fontes cair ou demorar, o nome do salão pisca ou aparece em Times. Aqui as
+   três famílias já estão no aparelho — as listas cobrem Android, iPhone,
+   Windows e Mac, e a última opção de cada uma é genérica.
+
+   Qual vem por padrão sai do TIPO do negócio, não de sorteio: barbearia
+   nasce marcante, estética e clínica nascem elegantes, o resto fica moderno.
+   E o dono troca em Aparência. */
+.marca-salao h2{
+  font-size:2rem; line-height:1.14; margin-bottom:8px;
+  letter-spacing:-.022em;
+}
+
+/* Moderno — a letra da interface, só que grande. Neutro e limpo. */
+.marca-salao[data-letra="moderno"] h2{ font-weight:680 }
+
+/* Elegante — serifada. É a letra de salão de beleza e de clínica: passa
+   cuidado e preço, que é exatamente o que esses negócios vendem. */
+.marca-salao[data-letra="elegante"] h2{
+  font-family:"Playfair Display","Georgia","Times New Roman",serif;
+  font-weight:600; letter-spacing:-.005em; font-size:2.15rem;
+}
+
+/* Marcante — caixa alta, condensada, bem espaçada. É a placa de barbearia,
+   e funciona porque nome curto em maiúscula ocupa a largura toda sem
+   quebrar. O `word-break` fica normal de propósito: nome comprido diminui a
+   letra em vez de rachar no meio. */
+.marca-salao[data-letra="marcante"] h2{
+  font-family:"Oswald","Roboto Condensed","Avenir Next Condensed",
+              "Arial Narrow",var(--fonte-display),sans-serif;
+  text-transform:uppercase; font-weight:700;
+  letter-spacing:.045em; font-size:1.95rem; line-height:1.08;
+}
+
+/* O endereço, embaixo do nome. Duas linhas, na ordem em que se lê endereço —
+   ver `Endereco.completo()`. A segunda vem menor e mais apagada: bairro e
+   cidade são referência, o que a pessoa procura primeiro é a rua. */
 .marca-salao .sub{ margin:0 auto; max-width:32ch }
+.marca-end{ margin:0 auto; max-width:34ch; line-height:1.5 }
+.marca-end .rua{ font-size:14.5px; color:var(--txt2) }
+.marca-end .lugar{ font-size:13px; color:var(--txt3); margin-top:1px }
 
 .capa-foto{
   border-radius:var(--r); overflow:hidden; margin:2px 0 20px;
@@ -1245,6 +1352,55 @@ body.sem-brilho .boas-cta::after{ animation:none; opacity:0 }
 .foto-txt .fmt{ font-size:12px; color:var(--txt3) }
 .foto-acoes{ display:flex; gap:8px; margin-top:9px; flex-wrap:wrap }
 .foto-acoes .btn{ cursor:pointer }
+/* ── A GALERIA, NO PAINEL ─────────────────────────────────────────────────
+   Miniaturas em pé, na proporção do celular da cliente — é lá que elas vão
+   aparecer, e prévia deitada faria o dono escolher pela metade errada da
+   foto. A primeira é marcada porque é a que quase todo mundo vê: boa parte
+   fecha a página antes do segundo slide. */
+.galeria{
+  display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;
+}
+.gal-item{
+  position:relative; margin:0; width:96px; aspect-ratio:9 / 16;
+  border:1px solid var(--borda); border-radius:var(--r-sm);
+  overflow:hidden; background:var(--painel2);
+}
+.gal-item img, .gal-item video{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+.gal-tag, .gal-primeiro{
+  position:absolute; top:5px; left:5px; padding:2px 6px; border-radius:5px;
+  /* 11px é o piso do sistema, e a suíte de celular cobra: 10px se lê na mesa
+     e não se lê no braço esticado. Etiqueta pequena não é exceção. */
+  font-size:11px; font-weight:650; letter-spacing:.02em;
+  background:rgba(0,0,0,.62); color:#fff;
+}
+.gal-primeiro{ top:auto; bottom:34px; background:var(--acao); color:var(--acao-txt) }
+.gal-acoes{
+  position:absolute; left:0; right:0; bottom:0; display:flex;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(4px);
+}
+.gal-acoes button{
+  flex:1; min-height:30px; border:none; background:transparent; color:#fff;
+  font-size:15px; line-height:1; cursor:pointer;
+}
+.gal-acoes button:hover{ background:rgba(255,255,255,.18) }
+.gal-acoes button:disabled{ opacity:.3; pointer-events:none }
+/* O de remover é o do meio e é o único destrutivo: fica vermelho no toque
+   para o dedo não errar entre "mover" e "apagar". */
+.gal-acoes button:nth-child(2):hover{ background:var(--er-500) }
+
+.gal-mais{
+  width:96px; aspect-ratio:9 / 16; border-radius:var(--r-sm);
+  border:1.5px dashed var(--borda-forte); background:var(--painel);
+  display:grid; place-content:center; justify-items:center; gap:3px;
+  cursor:pointer; color:var(--txt2); text-align:center; padding:6px;
+}
+.gal-mais:hover{ border-color:var(--acao); color:var(--txt) }
+.gal-mais b{ font-size:12.5px }
+.gal-mais small{ font-size:11px; color:var(--txt3); line-height:1.3 }
+.gal-mais .ic-svg{ width:20px; height:20px }
+
 .linha-fina{ height:1px; background:var(--borda); margin:18px 0 }
 
 @media (max-width:360px){

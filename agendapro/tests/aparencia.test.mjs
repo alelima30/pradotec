@@ -338,6 +338,73 @@ verdade('e a página não se diz "com fundo"',
 await sf.close();
 
 /* ══════════════════════════════════════════════════════════════════════════
+   A MARCA DA CASA: LOGO, LETRA E ENDEREÇO
+
+   Três coisas que vieram de um print da tela de escolher serviço: a logo não
+   aparecia (saía o monograma, sempre), o "Para mim" selecionado era preto em
+   vez da cor do salão, e o endereço vinha numa tira só.
+   ══════════════════════════════════════════════════════════════════════════ */
+secao('A logo, a letra do nome e o endereço');
+
+const LOGO = 'data:image/svg+xml;base64,' + Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">'
+  + '<rect width="256" height="256" fill="#C8A33C"/></svg>').toString('base64');
+await d.atualizar('saloes', salaoId, { logo: LOGO,
+  endereco: { logradouro:'Rua Avanhandava', numero:'10', complemento:'',
+              bairro:'Cidade Nova', cidade:'Itu', uf:'SP', cep:'13300-000' },
+  cfg:{ cor:'#C8A33C', tema:'escuro', precoNaCapa:true } });
+
+const mc = await abrir();
+verdade('a logo aparece grande na capa',
+  await mc.evaluate(() => {
+    const im = document.querySelector('.marca-selo img');
+    return !!im && im.getBoundingClientRect().width >= 90;
+  }), 'ela é a primeira coisa que a cliente vê ao abrir o link');
+
+const endereco = await mc.evaluate(() => {
+  const e = document.querySelector('.marca-end');
+  return e ? { rua: e.querySelector('.rua').textContent.trim(),
+               lugar: e.querySelector('.lugar').textContent.trim() } : null;
+});
+igual('o endereço traz rua e número na primeira linha',
+  endereco && endereco.rua, 'Rua Avanhandava, 10');
+igual('e bairro com cidade/UF na segunda',
+  endereco && endereco.lugar, 'Bairro Cidade Nova · Itu/SP');
+
+igual('barbearia nasce com a letra marcante, sem ninguém configurar',
+  await mc.getAttribute('.marca-salao', 'data-letra'), 'marcante');
+verdade('que é caixa alta — a letra de placa de barbearia',
+  await mc.evaluate(() => getComputedStyle(
+    document.querySelector('.marca-salao h2')).textTransform === 'uppercase'));
+
+/* A logo tem que SOBREVIVER à capa. Ela aparecia lá e sumia da tela seguinte
+   em diante, e é justamente na hora de escolher serviço e horário que o topo
+   é a única coisa dizendo de quem é a página. */
+await mc.click('.boas-cta');
+await mc.waitForTimeout(900);
+verdade('e continua no topo depois de sair da capa',
+  await mc.evaluate(() => !!document.querySelector('#avatarSalao img')));
+
+/* A cor escolhida manda na SELEÇÃO, não só no botão principal. Antes o dono
+   escolhia dourado e tudo o que ele via marcado continuava preto. */
+const selecionado = await mc.evaluate(() => {
+  const b = document.getElementById('pq-mim');
+  return b ? getComputedStyle(b).backgroundColor : null;
+});
+igual('o "Para mim" selecionado usa a cor do salão, não o preto do sistema',
+  selecionado, 'rgb(200, 163, 60)');
+
+// E a marca do AgendaPro NÃO acompanha: ela é de outra empresa.
+verdade('mas a marca do AgendaPro não vira dourada junto',
+  await mc.evaluate(() => {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue('--tinta-marca').trim();
+    return v && v.toLowerCase() !== '#c8a33c';
+  }), 'a assinatura do fornecedor se passando pela do cliente');
+igual('sem erro de JavaScript', mc.erros.length ? mc.erros.join(' | ') : 0, 0);
+await mc.close();
+
+/* ══════════════════════════════════════════════════════════════════════════
    SALÃO QUE NUNCA ESCOLHEU NADA
    ══════════════════════════════════════════════════════════════════════════ */
 secao('Salão antigo, que nunca abriu a tela de aparência');

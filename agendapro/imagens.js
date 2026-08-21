@@ -26,9 +26,30 @@ const MEDIDAS = {
   logo:    { lado: 256,  qualidade: 0.88, tetoKB: 120 },
   capa:    { lado: 1200, qualidade: 0.82, tetoKB: 420 },
   servico: { lado: 600,  qualidade: 0.82, tetoKB: 220 },
+  // O fundo da página cobre a tela inteira e fica atrás de um véu, então
+  // aguenta mais compressão do que uma foto que a pessoa olha de perto.
+  fundo:   { lado: 1400, qualidade: 0.76, tetoKB: 380 },
+  // Slide da capa: é o que a cliente olha com atenção, e no celular ocupa a
+  // largura toda. Mesmo porte da capa.
+  galeria: { lado: 1200, qualidade: 0.82, tetoKB: 420 },
 };
 
 const TIPOS_ACEITOS = ['image/jpeg','image/png','image/webp','image/heic','image/heif'];
+
+/* ── VÍDEO NÃO PASSA PELO REDIMENSIONADOR ─────────────────────────────────
+   O `reduzir()` desenha num <canvas>, e canvas não sabe o que fazer com um
+   arquivo de vídeo. Vídeo vai inteiro para o Storage, e por isso ele tem um
+   teto próprio e honesto: 20 MB é uns 20 segundos de celular em boa
+   qualidade, que é o tamanho de slide que alguém assiste.
+
+   Recomprimir vídeo no navegador é possível e é uma tarde inteira de
+   trabalho para um ganho que o dono resolve gravando um clipe mais curto. */
+const VIDEOS_ACEITOS = ['video/mp4','video/webm','video/quicktime'];
+const TETO_VIDEO = 20 * 1024 * 1024;
+
+const ehVideo = arquivo =>
+  !!(arquivo && (VIDEOS_ACEITOS.includes(arquivo.type)
+                 || /^video\//.test(arquivo.type || '')));
 
 // Quanto o localStorage aguenta, com folga para o resto do sistema. O limite
 // real ronda 5 MB; parar em 4 evita o QuotaExceededError acontecer no meio de
@@ -140,8 +161,24 @@ function ocupadoNoNavegador(){
    Na demonstração, devolve o próprio `data:` — mesma coluna, mesma tela. */
 async function guardar(arquivo, tipo, salaoId, chave){
   if(!arquivo) throw new Error('Nenhum arquivo escolhido.');
+
+  if(ehVideo(arquivo)){
+    if(arquivo.size > TETO_VIDEO){
+      throw new Error('Este vídeo tem ' + Math.round(arquivo.size / 1024 / 1024)
+        + ' MB e o limite é ' + Math.round(TETO_VIDEO / 1024 / 1024) + ' MB. '
+        + 'Corte um trecho mais curto — no slide, uns 10 segundos já contam a '
+        + 'história, e vídeo pesado faz a página da cliente demorar a abrir.');
+    }
+    if(!(global.Dados && global.Dados.ligado)){
+      throw new Error('Vídeo só funciona ligado no Supabase. Nesta '
+        + 'demonstração as mídias ficam no navegador, e não cabe.');
+    }
+    const ext = (arquivo.type.split('/')[1] || 'mp4').replace('quicktime', 'mov');
+    return await global.Dados.enviarImagem(salaoId, chave + '.' + ext, arquivo);
+  }
+
   if(arquivo.type && !TIPOS_ACEITOS.includes(arquivo.type)){
-    throw new Error('Formato não aceito. Use JPG, PNG ou WEBP.');
+    throw new Error('Formato não aceito. Use JPG, PNG, WEBP — ou um vídeo MP4.');
   }
   const r = await reduzir(arquivo, tipo);
   return await publicar(r.dataUrl, salaoId, chave);
@@ -170,7 +207,7 @@ async function publicar(dataUrl, salaoId, chave){
 
 global.Imagens = {
   guardar, publicar, reduzir, bytesDe, custoNoNavegador, ocupadoNoNavegador,
-  TETO_NAVEGADOR, MEDIDAS,
+  TETO_NAVEGADOR, MEDIDAS, ehVideo, TETO_VIDEO,
 };
 
 })(window);

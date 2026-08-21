@@ -66,7 +66,15 @@ language sql stable security definer set search_path = public as $$
       'fundo', s.cfg->>'fundo',
       -- O brilho do botão principal. Ausente quer dizer LIGADO: é o padrão, e
       -- assim salão criado antes disto existir já nasce com ele.
-      'brilho', coalesce((s.cfg->>'brilho')::boolean, true)
+      'brilho', coalesce((s.cfg->>'brilho')::boolean, true),
+      -- A letra do nome na capa. Nulo = a tela decide pelo tipo do negócio.
+      'letra', s.cfg->>'letra',
+      /* De onde sai o slide da capa: 'servicos' (as fotos dos serviços) ou
+         'galeria' (as mídias que o dono subiu). E a galeria em si — uma
+         lista de {url, tipo, legenda}. Vem nomeada, como todo o resto: o
+         `cfg` inteiro nunca é devolvido. */
+      'slideDe', s.cfg->>'slideDe',
+      'galeria', coalesce(s.cfg->'galeria', '[]'::jsonb)
     ),
 
     'servicos', coalesce((

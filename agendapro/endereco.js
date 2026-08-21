@@ -43,6 +43,35 @@ function linha(e){
   return [comRua, local].filter(Boolean).join(' — ');
 }
 
+/* ── O ENDEREÇO NA CAPA, EM DUAS LINHAS ───────────────────────────────────
+   A `linha()` acima junta tudo com travessões e serve para lista compacta.
+   Na capa do salão ela vira uma tira comprida que quebra em qualquer lugar
+   no celular — e é o endereço que a cliente vai usar para chegar lá.
+
+   Aqui saem duas linhas, na ordem em que se lê um endereço:
+
+       Rua Avanhandava, 10
+       Bairro Cidade Nova · ITU/SP
+
+   O "Bairro " é acrescentado só quando o campo NÃO começa com uma palavra
+   que já diz que tipo de lugar é. "Cidade Nova" vira "Bairro Cidade Nova";
+   "Vila Mariana" e "Centro" ficam como estão, porque "Bairro Vila Mariana"
+   é o tipo de esperteza automática que estraga o que ia bem. */
+const QUALIFICADORES = /^(bairro|vila|vl\.?|jardim|jd\.?|parque|pq\.?|centro|conjunto|cj\.?|n[úu]cleo|ch[áa]cara|s[íi]tio|distrito|setor|quadra|zona|alto|morro|colina|residencial|loteamento)\b/i;
+
+function completo(e){
+  const a = normalizar(e);
+  const rua = [a.logradouro, a.numero].filter(Boolean).join(', ');
+  const primeira = [rua, a.complemento].filter(Boolean).join(' · ');
+
+  const bairro = a.bairro && !QUALIFICADORES.test(a.bairro.trim())
+    ? 'Bairro ' + a.bairro.trim() : (a.bairro || '').trim();
+  const cidadeUf = [a.cidade, a.uf].filter(Boolean).join('/');
+  const segunda = [bairro, cidadeUf].filter(Boolean).join(' · ');
+
+  return [primeira, segunda].filter(Boolean);
+}
+
 // Máscara de CEP: 12345-678
 function mascaraCep(v){
   const d = String(v || '').replace(/\D/g, '').slice(0, 8);
@@ -65,6 +94,6 @@ function documento(d){
   return d || '';
 }
 
-global.Endereco = { normalizar, linha, mascaraCep, cepValido, documento, UFS, VAZIO };
+global.Endereco = { normalizar, linha, completo, mascaraCep, cepValido, documento, UFS, VAZIO };
 
 })(window);

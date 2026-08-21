@@ -314,7 +314,20 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
   <main class="conteudo">
 
     <!-- ══════ ESCOLHER SALÃO (só quando o link não traz o salão) ══════ -->
-    <section class="passo on" id="p-saloes">
+    <!-- ⚠ NENHUM PASSO COMEÇA COM `on`.
+
+         Este começava, e o resultado era um pisca: quem abria o link do salão
+         via, por uma fração de segundo, a tela "Qual salão?" — com a lista de
+         demonstração e a explicação de como o link funciona — antes de o
+         JavaScript trocar para a capa.
+
+         Do lado de cá parece nada. Do lado da cliente é a página abrindo
+         errado e se corrigindo sozinha, que é exatamente a cara de site
+         improvisado. E ela ainda lia meio segundo de texto que não é para ela.
+
+         Agora a página abre sem passo nenhum aceso; quem decide qual mostrar é
+         o `irPara()`, depois de saber que salão é. -->
+    <section class="passo" id="p-saloes">
       <h2>Qual salão?</h2>
       <p class="sub">Numa instalação de verdade, cada salão tem o próprio
         endereço e você cai direto nele. Esta lista existe para a demonstração.</p>
@@ -324,6 +337,20 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
         <code>agendar.html?salao=<i>apelido-do-salao</i></code> no WhatsApp,
         coloca na bio do Instagram ou imprime como QR no espelho.
       </div>
+    </section>
+
+    <!-- ══════ ABRINDO ══════
+         Enquanto a vitrine não chega, a tela mostrava o passo "Qual salão?" —
+         título, lista de demonstração e a explicação de como o link funciona.
+         Meio segundo disso, e então a capa entrava por cima: a página abrindo
+         errado e se corrigindo sozinha, na frente da cliente.
+
+         Aqui não há texto nem marca, de propósito: qualquer palavra que
+         apareça e suma vira ruído. E o passo só ACENDE depois de 400ms (ver
+         `abrirSalaoDaNuvem`) — em conexão boa a capa chega antes e ele nunca é
+         visto. -->
+    <section class="passo" id="p-abrindo">
+      <div class="abrindo"><div class="roda-abrindo"></div></div>
     </section>
 
     <!-- ══════ CAPA DO SALÃO ══════ -->
@@ -836,6 +863,8 @@ function bdDaVitrine(v){
       // Ausente = ligado, a mesma regra da vitrine(): salão criado antes
       // disto existir já nasce com o brilho, sem migração nenhuma.
       fundo: s.fundo || null, brilho: s.brilho !== false,
+      letra: s.letra || null,
+      slideDe: s.slideDe || 'servicos', galeria: s.galeria || [],
       cfg: { diasLiberados: s.diasLiberados },
     }],
     servicos: (v.servicos || []).map(x => ({
@@ -863,28 +892,39 @@ function bdDaVitrine(v){
 }
 
 async function abrirSalaoDaNuvem(slug){
-  const aviso = document.getElementById('listaSaloes');
-  aviso.innerHTML = '<div class="recado">Abrindo a agenda…</div>';
+  /* A roda só acende depois de 400ms. Em conexão boa a vitrine chega antes
+     disso, e aí a primeira coisa que a cliente vê já é a capa do salão —
+     nenhum estado intermediário aparece e some. Indicador que pisca por
+     200ms cansa mais do que espera nenhuma. */
+  const acender = setTimeout(() => {
+    if(tela !== 'capa') irPara('abrindo', true);
+  }, 400);
+
+  const falhar = html => {
+    clearTimeout(acender);
+    irPara('saloes', true);
+    document.getElementById('listaSaloes').innerHTML = html;
+  };
+
   let v = null;
   try{
     v = await Dados.vitrine(slug);
   }catch(e){
     console.error('[AgendaPro] vitrine:', e);
-    aviso.innerHTML =
+    return falhar(
       `<div class="recado erro"><b>Não consegui abrir a agenda agora.</b><br>
         Verifique a conexão e tente de novo.
-        <button class="link" onclick="location.reload()">Tentar de novo</button></div>`;
-    return;
+        <button class="link" onclick="location.reload()">Tentar de novo</button></div>`);
   }
   if(!v){
     // Mesma frase do modo local, e pelo mesmo motivo: apelido que não existe,
     // ou salão desativado. Quem chegou aqui veio de um link — dizer "não
     // encontrado" é mais honesto do que mostrar uma lista de outros salões.
-    aviso.innerHTML =
+    return falhar(
       `<div class="recado erro"><b>Salão não encontrado.</b><br>
-       O endereço <code>?salao=${slug}</code> não corresponde a nenhum salão ativo.</div>`;
-    return;
+       O endereço <code>?salao=${slug}</code> não corresponde a nenhum salão ativo.</div>`);
   }
+  clearTimeout(acender);
   bd = bdDaVitrine(v);
   entrarNoSalao(slug);
 }
@@ -1153,6 +1193,15 @@ function desenharCapa(){
      Sem foto, fica exatamente a capa de antes: selo, nome e endereço no
      fundo liso. Salão que ainda não subiu nada continua apresentável. */
   const temFoto = !!salao.capa;
+  /* Qual letra o nome usa. Sem escolha, sai do TIPO do negócio: barbearia
+     nasce marcante, estética e clínica nascem elegantes, o resto moderno.
+     Salão que nunca abriu a tela de Aparência já ganha uma capa com cara de
+     ramo, sem ninguém configurar nada. */
+  const cfg = salao.cfg || {};
+  const letra = salao.letra || cfg.letra
+    || ({ barbearia:'marcante', tatuagem:'marcante',
+          estetica:'elegante', clinica:'elegante' })[salao.tipo] || 'moderno';
+  const end = Endereco.completo(salao.endereco);
   /* Com foto, o cabeçalho sai de cena. Na capa ele já está transparente e sem
      texto — sobrava uma faixa morta de uns 90px empurrando a imagem para
      baixo, e a foto que devia ser a primeira coisa da tela começava depois de
@@ -1163,13 +1212,18 @@ function desenharCapa(){
     ${temFoto ? `<div class="hero-foto"
                    style="background-image:url('${salao.capa}')"
                    role="img" aria-label="Foto de ${salao.nome}"></div>` : ''}
-    <div class="marca-salao${temFoto ? ' com-foto' : ''}">
+    <div class="marca-salao${temFoto ? ' com-foto' : ''}" data-letra="${letra}">
       <div class="marca-selo">
         ${salao.logo ? `<img src="${salao.logo}" alt="">`
                      : (salao.nome || '?').trim().charAt(0).toUpperCase()}
       </div>
       <h2>${salao.nome}</h2>
-      <p class="sub">${Endereco.linha(salao.endereco) || 'Agende seu horário'}</p>
+      ${end.length
+        ? `<div class="marca-end">
+             <div class="rua">${end[0]}</div>
+             ${end[1] ? `<div class="lugar">${end[1]}</div>` : ''}
+           </div>`
+        : `<p class="sub">Agende seu horário</p>`}
     </div>`;
 
   // A foto do salão agora é a faixa do topo; repeti-la aqui seria a mesma
@@ -1269,36 +1323,61 @@ function desenharCapa(){
 let slideTimer = null;
 let slideAtual = 0;
 
+/* ── O SLIDE DA CAPA ──────────────────────────────────────────────────────
+   Duas fontes possíveis, e é o dono quem escolhe em Aparência:
+
+     'servicos' — as fotos dos serviços cadastrados. É o padrão, e funciona
+                  sozinho: quem cadastra serviço com foto já ganha o slide.
+     'galeria'  — as fotos e vídeos que ele mesmo subiu, na ordem que quis.
+                  É para quem tem material de divulgação e não quer que a
+                  capa dependa do cadastro de serviço.
+
+   O vídeo entra mudo, em laço e sem controles: é vitrine, não é player. E
+   `playsinline` porque sem isso o iPhone abre em tela cheia sozinho no meio
+   da capa — a cliente perde o lugar onde estava e volta com o botão de
+   voltar, se voltar. */
 function montarSlides(servicos){
   const caixa = document.getElementById('capaSlides');
   if(!caixa) return;
 
   if(slideTimer){ clearInterval(slideTimer); slideTimer = null; }
 
-  const comFoto = (servicos || []).filter(s => s.foto);
-  if(!comFoto.length){ caixa.innerHTML = ''; caixa.style.display = 'none'; return; }
+  const cfg = salao.cfg || {};
+  const daGaleria = ((salao.slideDe || cfg.slideDe) === 'galeria');
+  const itens = daGaleria
+    ? ((salao.galeria || cfg.galeria || []).filter(m => m && m.url))
+    : (servicos || []).filter(s => s.foto)
+        .map(s => ({ url: s.foto, tipo: 'foto', legenda: s.nome }));
+
+  if(!itens.length){ caixa.innerHTML = ''; caixa.style.display = 'none'; return; }
 
   caixa.style.display = '';
   slideAtual = 0;
   caixa.innerHTML = `
     <div class="slides" id="slidesPista">
-      ${comFoto.map((s, i) => `
+      ${itens.map((m, i) => `
         <figure class="slide${i === 0 ? ' on' : ''}">
-          <span class="slide-fundo" style="background-image:url('${s.foto}')"></span>
-          <img src="${s.foto}" alt="${s.nome}" loading="lazy">
-          <figcaption>${s.nome}</figcaption>
+          ${m.tipo === 'video'
+            ? `<video src="${m.url}" muted loop playsinline preload="metadata"
+                      ${i === 0 ? 'autoplay' : ''}></video>`
+            : `<span class="slide-fundo" style="background-image:url('${m.url}')"></span>
+               <img src="${m.url}" alt="${m.legenda || ''}" loading="lazy">`}
+          ${m.legenda ? `<figcaption>${m.legenda}</figcaption>` : ''}
         </figure>`).join('')}
     </div>
-    ${comFoto.length > 1 ? `<div class="slide-pontos" id="slidePontos">
-      ${comFoto.map((_, i) =>
-        `<button class="${i === 0 ? 'on' : ''}" aria-label="Foto ${i+1}"
+    ${itens.length > 1 ? `<div class="slide-pontos" id="slidePontos">
+      ${itens.map((_, i) =>
+        `<button class="${i === 0 ? 'on' : ''}" aria-label="Item ${i+1}"
                  onclick="irSlide(${i})"></button>`).join('')}
     </div>` : ''}`;
 
   const parado = window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(comFoto.length > 1 && !parado){
-    slideTimer = setInterval(() => irSlide(slideAtual + 1), 4000);
+  if(itens.length > 1 && !parado){
+    /* Vídeo ganha mais tempo: 4 segundos numa foto é contemplação, num vídeo
+       é não deixar ver o começo. */
+    slideTimer = setInterval(() => irSlide(slideAtual + 1),
+      itens.some(m => m.tipo === 'video') ? 7000 : 4000);
   }
 }
 
@@ -1308,7 +1387,17 @@ function irSlide(n){
   const fotos = pista.querySelectorAll('.slide');
   if(!fotos.length) return;
   slideAtual = ((n % fotos.length) + fotos.length) % fotos.length;
-  fotos.forEach((f, i) => f.classList.toggle('on', i === slideAtual));
+  fotos.forEach((f, i) => {
+    const aceso = i === slideAtual;
+    f.classList.toggle('on', aceso);
+    /* Só o slide à vista toca. Sem isto, cinco vídeos rodam ao mesmo tempo
+       atrás da tela — bateria, dados móveis e nenhum benefício. */
+    const v = f.querySelector('video');
+    if(v){
+      if(aceso){ v.currentTime = 0; v.play().catch(() => {}); }
+      else v.pause();
+    }
+  });
   const pontos = document.querySelectorAll('#slidePontos button');
   pontos.forEach((b, i) => b.classList.toggle('on', i === slideAtual));
 }
@@ -2560,13 +2649,28 @@ function entrarNoSalao(slug){
 
   document.getElementById('tituloSalao').textContent = s.nome;
   document.getElementById('subSalao').textContent = voc('casa');
-  // Monograma, como fazem os aplicativos que hospedam muitas contas: a inicial
-  // do salão identifica melhor do que um ícone repetido em todos eles.
+  /* ── A LOGO NO TOPO DAS TELAS DE DENTRO ───────────────────────────────
+     Aqui saía SEMPRE o monograma — a inicial do salão num quadrado. Isso foi
+     escrito para o caso de não haver logo, e acabou valendo para todos: o
+     dono subia a logo, via na capa, e ela sumia da tela seguinte em diante.
+
+     Para quem está escolhendo serviço e horário, o topo é a única coisa que
+     diz de quem é a página. A logo vai ali quando existe; o monograma
+     continua sendo a reserva de quem ainda não subiu nenhuma. */
   const av = document.getElementById('avatarSalao');
   av.removeAttribute('data-ico');
-  av.textContent = (s.nome || '?').trim().charAt(0).toUpperCase();
-  document.getElementById('notaRodape').innerHTML =
-    `Link deste salão: <code>?salao=${s.slug}</code> · AgendaPro`;
+  if(s.logo){
+    av.classList.add('com-logo');
+    av.innerHTML = `<img src="${s.logo}" alt="${s.nome || ''}">`;
+  } else {
+    av.classList.remove('com-logo');
+    av.textContent = (s.nome || '?').trim().charAt(0).toUpperCase();
+  }
+  /* Aqui saía "Link deste salão: ?salao=nome · AgendaPro". Para a cliente,
+     que já ESTÁ no link, isso não informa nada — é o parâmetro de URL do
+     sistema exposto no rodapé de um salão de beleza. Some, pelo mesmo motivo
+     que saiu o "02_rls.sql" da tela do dono. */
+  document.getElementById('notaRodape').innerHTML = '';
 
   historico = [];
   irPara('capa', true);
@@ -2708,6 +2812,23 @@ function aplicarAparencia(s){
   p('--ac-line', `rgba(${r},${g},${b},${escuro ? '.34' : '.28'})`);
   p('--marca', cor);
 
+  /* ── A SELEÇÃO TAMBÉM É DO SALÃO ────────────────────────────────────────
+     `--tinta` é a cor de "isto está selecionado": borda do serviço marcado,
+     hora escolhida, dia escolhido, botão do segmento, avatar do topo. No
+     sistema ela é quase preta de propósito — seleção neutra, ação colorida.
+
+     Na página da CLIENTE isso ficava errado: o dono escolhia dourado, e tudo
+     o que ele via de escolhido continuava preto. A cor dele aparecia só no
+     botão principal, e o resto da tela era de qualquer salão.
+
+     Aqui ela passa a ser a cor escolhida, com a letra calculada pela mesma
+     conta de contraste do botão — senão dourado com letra branca voltaria
+     pela porta dos fundos. A marca do AgendaPro fica de fora: usa
+     `--tinta-marca`, que não muda. */
+  p('--tinta', cor);
+  p('--tinta-txt', letraSobre(cor));
+  p('--tinta-hover', mexer(cor, escuro ? 0.12 : -0.12));
+
   // A barra do navegador acompanha, no celular. É o detalhe que faz a página
   // parecer do salão e não uma página genérica com a logo dele.
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -2801,7 +2922,7 @@ function registrarServiceWorker(){
   // É aqui que o link vira salão.
   const slug = new URLSearchParams(location.search).get('salao');
   if(slug){
-    if(NA_NUVEM){ irPara('saloes', true); abrirSalaoDaNuvem(slug); }
+    if(NA_NUVEM){ abrirSalaoDaNuvem(slug); }
     else entrarNoSalao(slug);
   } else if(NA_NUVEM){
     /* Sem apelido no endereço não há o que abrir, e agora não há mesmo: a

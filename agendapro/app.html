@@ -2094,6 +2094,14 @@ function pintarSalao(){
       <div class="regua" id="reguaPreco" style="justify-content:flex-start"></div>
       <p class="secao-sub" id="explicaPreco" style="margin-top:9px"></p>
 
+      <div class="rot" style="margin:18px 0 8px">Letra do nome</div>
+      <div class="regua" id="reguaLetra" style="justify-content:flex-start"></div>
+      <p class="secao-sub" id="explicaLetra" style="margin-top:9px"></p>
+
+      <div class="rot" style="margin:18px 0 8px">Slide da capa</div>
+      <div class="regua" id="reguaSlide" style="justify-content:flex-start"></div>
+      <p class="secao-sub" id="explicaSlide" style="margin-top:9px"></p>
+
       <div class="rot" style="margin:18px 0 8px">Brilho no botão</div>
       <div class="regua" id="reguaBrilho" style="justify-content:flex-start"></div>
       <p class="secao-sub" style="margin-top:9px">O botão principal ganha
@@ -2120,6 +2128,8 @@ function pintarSalao(){
         'A foto grande da vitrine. A da equipe funciona melhor que a da '
       + 'fachada vazia — o cliente quer ver quem vai atender.',
         'Deitada, tipo 3 por 2. JPG, PNG ou WEBP.')}
+      <div class="linha-fina"></div>
+      ${galeriaDoSalao(sl)}
       <div class="linha-fina"></div>
       ${cartao('fundo', 'Fundo da página',
         'Fica atrás de tudo, com um véu por cima para o texto continuar '
@@ -2158,6 +2168,28 @@ const CORES = [
   ['#0C7568', 'Verde'],    ['#1D4ED8', 'Azul'],   ['#C2410C', 'Laranja'],
   ['#3F3F46', 'Grafite'],
 ];
+/* As três letras do nome na capa. Nenhuma vem de CDN: são famílias que já
+   estão no aparelho, com lista de reserva que cobre Android, iPhone, Windows
+   e Mac. Fonte de fora seria mais vistosa e traria o risco de o nome do salão
+   piscar — ou aparecer em Times — quando o servidor de fontes demora. */
+const LETRAS = [
+  ['moderno',  'Moderno',  'Limpa e neutra, a mesma do resto do sistema. '
+                         + 'Combina com quase tudo e nunca briga com a foto.'],
+  ['elegante', 'Elegante', 'Serifada, com ar de convite. É a letra de salão de '
+                         + 'beleza e de clínica: passa cuidado e passa preço.'],
+  ['marcante', 'Marcante', 'Maiúscula e condensada, como placa de barbearia. '
+                         + 'Funciona melhor com nome curto.'],
+];
+
+const SLIDES = [
+  ['servicos', 'Fotos dos serviços',
+   'O slide monta sozinho com as fotos que você cadastrou em cada serviço. '
+ + 'Sem trabalho extra: cadastrou o serviço com foto, ele entra.'],
+  ['galeria',  'Minhas fotos e vídeos',
+   'Você escolhe o que aparece e em que ordem, em Identidade visual. '
+ + 'Para quem tem material de divulgação e não quer depender do cadastro.'],
+];
+
 const BRILHOS = [
   [true,  'Ligado'],
   [false, 'Desligado'],
@@ -2182,6 +2214,11 @@ function lerAparencia(){
     // Ausente quer dizer LIGADO — o mesmo que a `vitrine()` faz. Salão criado
     // antes disto existir já nasce com o brilho, sem migração nenhuma.
     brilho: c.brilho !== false,
+    // Sem escolha, a letra sai do TIPO do negócio — a mesma regra da página
+    // da cliente, para a prévia não discordar dela.
+    letra: c.letra || ({ barbearia:'marcante', tatuagem:'marcante',
+      estetica:'elegante', clinica:'elegante' })[sl.tipo] || 'moderno',
+    slideDe: c.slideDe === 'galeria' ? 'galeria' : 'servicos',
   };
 }
 
@@ -2212,6 +2249,17 @@ function pintarAparencia(){
   const achado = PRECOS.find(p => p[0] === aparencia.precoNaCapa);
   document.getElementById('explicaPreco').textContent = achado ? achado[2] : '';
 
+  const regua = (id, lista, campo, explicaId) => {
+    document.getElementById(id).innerHTML = lista.map(([v, rot]) =>
+      `<button type="button" class="${aparencia[campo] === v ? 'on' : ''}"
+               onclick="escolherAparencia('${campo}','${v}')">${rot}</button>`).join('');
+    const achado = lista.find(x => x[0] === aparencia[campo]);
+    const alvo = document.getElementById(explicaId);
+    if(alvo) alvo.textContent = achado ? achado[2] : '';
+  };
+  regua('reguaLetra', LETRAS, 'letra', 'explicaLetra');
+  regua('reguaSlide', SLIDES, 'slideDe', 'explicaSlide');
+
   document.getElementById('reguaBrilho').innerHTML = BRILHOS.map(([v, rot]) =>
     `<button type="button" class="${aparencia.brilho === v ? 'on' : ''}"
              onclick="escolherBrilho(${v})">${rot}</button>`).join('');
@@ -2239,6 +2287,32 @@ function escolherCor(hex){  aparencia.cor = hex;  pintarAparencia(); }
 function escolherTema(t){   aparencia.tema = t;   pintarAparencia(); }
 function escolherPreco(v){  aparencia.precoNaCapa = v; pintarAparencia(); }
 function escolherBrilho(v){ aparencia.brilho = v;      pintarAparencia(); }
+// Uma função para as escolhas que são só "guarde este valor". As três de
+// cima ficam separadas porque já eram chamadas assim de outros lugares.
+function escolherAparencia(campo, valor){ aparencia[campo] = valor; pintarAparencia(); }
+
+/* O slide, dentro da prévia. Mostra a PRIMEIRA mídia da fonte escolhida —
+   que é a que quase todo mundo vê. Trocar de "fotos dos serviços" para
+   "minhas fotos" sem ver o que muda é escolher no escuro. */
+function previaDoSlide(sl){
+  const daGaleria = aparencia.slideDe === 'galeria';
+  const itens = daGaleria
+    ? listaGaleria(sl)
+    : (bd.servicos || []).filter(s => s.foto && s.ativo !== false)
+        .map(s => ({ url: s.foto, tipo: 'foto' }));
+  if(!itens.length){
+    return `<div class="fone-slide vazio">${daGaleria
+      ? 'Nenhuma foto ou vídeo ainda — adicione em Identidade visual.'
+      : 'Nenhum serviço com foto ainda.'}</div>`;
+  }
+  const m = itens[0];
+  return `<div class="fone-slide">
+    ${m.tipo === 'video'
+      ? `<video src="${m.url}" muted playsinline preload="metadata"></video>`
+      : `<img src="${m.url}" alt="">`}
+    ${itens.length > 1 ? `<span class="fone-slide-n">1 de ${itens.length}</span>` : ''}
+  </div>`;
+}
 
 /* A prévia. Não é decoração: escolher cor sem ver onde ela cai é escolher no
    escuro, e o dono só descobriria o resultado abrindo o próprio link no
@@ -2256,12 +2330,13 @@ function pintarPreviaFone(){
        ${imagemDoSalao(sl, 'fundo')
          ? `<div class="fone-fundo" style="background-image:url('${imagemDoSalao(sl, 'fundo')}')"></div>`
          : ''}
-       <div class="fone-topo">
+       <div class="fone-topo" data-letra="${aparencia.letra}">
          ${sl.logo ? `<img src="${sl.logo}" alt="">`
                    : `<div class="fone-selo">${(sl.nome || 'A').charAt(0)}</div>`}
          <b>${sl.nome || 'Seu salão'}</b>
-         <span>Agende seu horário</span>
+         <span>${(Endereco.completo(sl.endereco)[0]) || 'Agende seu horário'}</span>
        </div>
+       ${previaDoSlide(sl)}
        <div class="fone-cta ${aparencia.brilho ? 'com-brilho' : ''}">Agendar horário</div>
        <div class="fone-svs">
          ${svs.length ? svs.map(s => `
@@ -2289,6 +2364,8 @@ function salvarAparencia(){
     tema: aparencia.tema,
     precoNaCapa: aparencia.precoNaCapa,
     brilho: aparencia.brilho,
+    letra: aparencia.letra,
+    slideDe: aparencia.slideDe,
   });
   salvar();
   const aviso = document.getElementById('salvouAparencia');
@@ -2402,6 +2479,129 @@ function salvarCadastroSalao(){
       const ainda = document.getElementById('salvouSalao');
       if(ainda) ainda.textContent = '';
     }, 2600);
+  }
+}
+
+/* ── A GALERIA DA CAPA ────────────────────────────────────────────────────
+   Fotos e vídeos que o dono escolhe, na ordem que ele quiser. Vira o slide da
+   capa quando ele marca "Minhas fotos e vídeos" em Aparência.
+
+   Mora em `saloes.cfg.galeria`, como lista de {url, tipo, legenda} — jsonb
+   que já existe, então nenhum salão precisa de alteração de tabela.
+
+   A ORDEM É EDITÁVEL porque ela é a mensagem: a primeira mídia é a que quase
+   todo mundo vê, já que boa parte fecha a página antes do segundo slide. Sem
+   poder escolher qual vem primeiro, o dono estaria confiando isso à ordem em
+   que subiu os arquivos. */
+function listaGaleria(sl){
+  const g = (sl.cfg || {}).galeria;
+  return Array.isArray(g) ? g.filter(m => m && m.url) : [];
+}
+
+function gravarGaleria(sl, lista){
+  sl.cfg = Object.assign({}, sl.cfg, { galeria: lista });
+}
+
+function galeriaDoSalao(sl){
+  const g = listaGaleria(sl);
+  const daGaleria = ((sl.cfg || {}).slideDe === 'galeria');
+  return `
+    <div class="foto-txt" style="min-width:0">
+      <b>Slide da capa · minhas fotos e vídeos</b>
+      <p>Aparece no lugar das fotos dos serviços quando você escolhe
+        <b>Minhas fotos e vídeos</b> em Aparência${daGaleria ? '' :
+        ' — hoje está usando as fotos dos serviços'}.</p>
+      <p class="fmt">Fotos em JPG, PNG ou WEBP. Vídeo em MP4, até
+        ${Math.round(Imagens.TETO_VIDEO / 1024 / 1024)} MB — uns 10 segundos
+        contam a história, e vídeo pesado faz a página da cliente demorar.</p>
+    </div>
+    <div class="galeria" id="galeriaSalao">
+      ${g.map((m, i) => `
+        <figure class="gal-item">
+          ${m.tipo === 'video'
+            ? `<video src="${m.url}" muted playsinline preload="metadata"></video>
+               <span class="gal-tag">vídeo</span>`
+            : `<img src="${m.url}" alt="" loading="lazy">`}
+          ${i === 0 ? '<span class="gal-primeiro">1ª a aparecer</span>' : ''}
+          <div class="gal-acoes">
+            <button title="Mover para trás" aria-label="Mover para trás"
+                    ${i === 0 ? 'disabled' : ''}
+                    onclick="moverNaGaleria(${i}, -1)">&lsaquo;</button>
+            <button title="Remover" aria-label="Remover"
+                    onclick="tirarDaGaleria(${i})">&times;</button>
+            <button title="Mover para frente" aria-label="Mover para frente"
+                    ${i === g.length - 1 ? 'disabled' : ''}
+                    onclick="moverNaGaleria(${i}, 1)">&rsaquo;</button>
+          </div>
+        </figure>`).join('')}
+      <label class="gal-mais">
+        <span data-ico="mais"></span>
+        <b>Adicionar</b>
+        <small>foto ou vídeo</small>
+        <input type="file" accept="image/*,video/*" hidden multiple
+               onchange="subirNaGaleria(this)">
+      </label>
+    </div>`;
+}
+
+async function subirNaGaleria(campo){
+  const arquivos = [...(campo.files || [])];
+  campo.value = '';
+  if(!arquivos.length) return;
+  const sl = acharSalao(salaoAtual);
+  const lista = listaGaleria(sl).slice();
+  const problemas = [];
+
+  for(const arquivo of arquivos){
+    try{
+      const video = Imagens.ehVideo(arquivo);
+      // Nome estável e único por mídia: o Storage sobrescreve pelo caminho, e
+      // duas fotos com o mesmo nome viravam uma só.
+      const chave = 'galeria-' + Dados.novoId().slice(0, 8);
+      const url = await Imagens.guardar(arquivo, 'galeria', salaoAtual, chave);
+      lista.push({ url, tipo: video ? 'video' : 'foto', legenda: '' });
+    }catch(e){
+      problemas.push(arquivo.name + ': ' + e.message);
+    }
+  }
+
+  gravarGaleria(sl, lista);
+  salvar(); pintar();
+  /* Falha de um arquivo não derruba os outros: quem escolhe cinco de uma vez
+     e tem um vídeo grande demais no meio fica com os quatro que couberam, e
+     sabe qual não coube. */
+  if(problemas.length){
+    alert('Não consegui subir ' + problemas.length + ' de ' + arquivos.length
+        + ':\n\n' + problemas.join('\n\n'));
+  }
+}
+
+function moverNaGaleria(i, passo){
+  const sl = acharSalao(salaoAtual);
+  const lista = listaGaleria(sl).slice();
+  const j = i + passo;
+  if(j < 0 || j >= lista.length) return;
+  [lista[i], lista[j]] = [lista[j], lista[i]];
+  gravarGaleria(sl, lista);
+  salvar(); pintar();
+}
+
+function tirarDaGaleria(i){
+  const sl = acharSalao(salaoAtual);
+  const lista = listaGaleria(sl).slice();
+  const fora = lista[i];
+  if(!fora) return;
+  if(!confirm('Remover esta mídia do slide?')) return;
+  lista.splice(i, 1);
+  gravarGaleria(sl, lista);
+  salvar(); pintar();
+
+  /* Apagar do Storage é limpeza, não parte do salvamento: se falhar, a mídia
+     já saiu da lista e não aparece mais em lugar nenhum. */
+  const nome = String(fora.url || '').split('/').pop().split('?')[0];
+  if(Dados.ligado && nome){
+    Dados.apagarImagem(salaoAtual, nome)
+      .catch(e => console.warn('[AgendaPro] sobrou o arquivo no Storage:', e.message));
   }
 }
 
@@ -3343,22 +3543,18 @@ function mostrarQuemEstaLogado(){
     document.querySelector('.corpo').appendChild(d);
   }
 
-  /* ── O RODAPÉ TEM QUE DIZER ONDE OS DADOS ESTÃO ─────────────────────────
-     O texto que vem no HTML é o do modo demonstração: "dados no próprio
-     navegador (localStorage). Nada é enviado para servidor nenhum."
+  /* ── O RODAPÉ ─────────────────────────────────────────────────────────
+     Em demonstração ele avisa, com razão, que os dados ficam no navegador e
+     somem — isso é informação de que a pessoa precisa antes de digitar
+     qualquer coisa.
 
-     Isso era corrigido na última linha da partida — depois de `iniciar()`. Só
-     que os dois caminhos de conta sem salão dão `return` bem antes, e a tela
-     ficava ligada ao banco de produção AFIRMANDO que nada sai do navegador.
-     Numa tela onde a pessoa vai digitar telefone e histórico de cliente, essa
-     é a frase errada para se estar errado.
-
-     Agora quem arruma é uma função, chamada nos três caminhos. */
+     Ligado ao banco, dizia "AgendaPro · ligado ao banco (produção)". Isso
+     não é aviso, é recado de programador: quem tem salão não precisa saber
+     em que ambiente está, e ler "produção" no rodapé do próprio negócio
+     passa a impressão de estar dentro de uma ferramenta de teste. Some. */
   function arrumarRodape(){
     const rod = document.querySelector('.rodape');
-    if(rod && NA_NUVEM){
-      rod.innerHTML = 'AgendaPro · ligado ao banco (' + Dados.ambiente + ')';
-    }
+    if(rod && NA_NUVEM) rod.style.display = 'none';
     // "Recomeçar demonstração" apaga e recria os dados de exemplo. Ligado ao
     // banco ele não tem o que fazer, e o nome sozinho já assusta quem tem
     // clientes de verdade cadastrados.
