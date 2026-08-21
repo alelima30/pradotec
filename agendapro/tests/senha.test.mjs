@@ -101,6 +101,38 @@ igual('e-mail que NÃO existe recebe a mesma resposta, palavra por palavra',
   (await p.textContent('#recado')).replace(semConta, 'X'),
   recado.replace(EMAIL, 'X'));
 
+/* ── PEDIR DUAS VEZES SEGUIDAS ────────────────────────────────────────────
+   O Supabase limita quantos e-mails saem seguidos e responde, palavra por
+   palavra, "For security purposes, you can only request this after 35
+   seconds". Nós dizíamos "verifique a conexão" — e a pessoa vai olhar o
+   wi-fi, o cabo e o celular, sendo que o que faltava era esperar meio minuto.
+
+   O limite não é sobre a conta: vale igual para endereço que existe e para
+   endereço que não existe. Contá-lo não vaza nada. Por isso este é o único
+   motivo de falha que esta tela pode nomear.
+
+   A resposta é fingida aqui de propósito: fazer a bancada limitar de verdade
+   deixaria as outras seis chamadas de `recover` deste arquivo instáveis. */
+secao('Pedir o link duas vezes seguidas');
+{
+  const t = await ctx.newPage();
+  await t.route('**/auth/v1/recover**', r => r.fulfill({ status: 429,
+    contentType: 'application/json',
+    body: JSON.stringify({ code: 429, error_code: 'over_email_send_rate_limit',
+      msg: 'For security purposes, you can only request this after 35 seconds.' }) }));
+  await t.goto(BASE + '/entrar.html'); await t.waitForTimeout(3600);
+  await t.fill('#email', EMAIL);
+  await t.click('.esqueci');
+  await t.waitForTimeout(1200);
+  const dito = (await t.textContent('#recado')).replace(/\s+/g, ' ').trim();
+  verdade('diz para esperar, com o número de segundos que o servidor mandou — '
+          + JSON.stringify(dito.slice(0, 60)),
+    dito.includes('Espere 35 segundos'));
+  verdade('e não manda conferir a conexão, que não tem nada a ver',
+    !/conex[aã]o/i.test(dito));
+  await t.close();
+}
+
 secao('Abrir o link do e-mail');
 
 // O que o e-mail traria. A bancada guarda; o Supabase manda pela caixa postal.

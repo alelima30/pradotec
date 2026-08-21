@@ -523,11 +523,32 @@ async function esqueci(){
     await Dados.pedirNovaSenha(email);
   }catch(e){
     console.error('[AgendaPro] recuperação:', e);
-    /* Nem aqui dizemos se o e-mail existe. A única falha que vale contar é a
-       de rede — as outras, contadas, viram um verificador de contas de graça
-       para quem quiser saber quem usa o sistema. */
-    mostrar('ruim', '<b>Não consegui enviar agora.</b> Verifique a conexão e '
-      + 'tente de novo em instantes.');
+    /* ── DUAS FALHAS, DUAS FRASES ─────────────────────────────────────────
+       Nem aqui dizemos se o e-mail existe: contado, isso vira um verificador
+       de contas de graça para quem quiser saber quem usa o sistema.
+
+       Mas o limite de envio NÃO é sobre a conta — é do remetente, e vale
+       igual para endereço que existe e para endereço que não existe. Contá-lo
+       não vaza nada, e omiti-lo custa caro: o Supabase responde
+
+         "For security purposes, you can only request this after 35 seconds"
+
+       e nós dizíamos "verifique a conexão". A pessoa vai olhar o wi-fi, o
+       cabo e o celular, sendo que o que faltava era esperar meio minuto.
+
+       O aviso é `info`, não `ruim`: nada quebrou, só é cedo demais. */
+    const cod = String(e.codigo || ''), cru = String(e.message || '');
+    if(cod.indexOf('rate_limit') >= 0 || e.status === 429
+       || /after \d+ seconds|rate limit|security purposes/i.test(cru)){
+      const seg = (cru.match(/after (\d+) seconds/) || [])[1];
+      mostrar('info', '<b>Espere ' + (seg ? seg + ' segundos' : 'um minuto')
+        + ' para pedir de novo.</b> O Supabase limita quantos e-mails saem '
+        + 'seguidos — não é erro seu, e o pedido anterior pode já estar a '
+        + 'caminho. Confira a caixa de entrada e o lixo eletrônico.');
+    } else {
+      mostrar('ruim', '<b>Não consegui enviar agora.</b> Verifique a conexão e '
+        + 'tente de novo em instantes.');
+    }
     bt.disabled = false; bt.textContent = rotulo;
     return;
   }
