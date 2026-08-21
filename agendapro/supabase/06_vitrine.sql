@@ -45,7 +45,21 @@ language sql stable security definer set search_path = public as $$
       -- A tela precisa saber até quando desenhar o calendário. Sai daqui
       -- pronto, já com o limite aplicado, para a tela não ter que repetir a
       -- regra — e não ter como discordar dela.
-      'diasLiberados', public.dias_liberados(s.id)
+      'diasLiberados', public.dias_liberados(s.id),
+
+      /* ── A APARÊNCIA QUE O SALÃO ESCOLHEU ──────────────────────────────
+         Só as três chaves visuais, nomeadas uma a uma — nunca o `cfg`
+         inteiro. `cfg` é jsonb e vai crescer; devolvê-lo por atacado
+         significa publicar para qualquer visitante toda configuração que
+         alguém puser lá no futuro, sem ninguém decidir isso. Chave nova só
+         aparece aqui se for escrita aqui, de propósito.
+
+         Nulo quer dizer "não escolheu", e a tela usa o padrão dela — assim
+         salão antigo, criado antes disto existir, continua bonito sem
+         precisar de migração. */
+      'cor',  s.cfg->>'cor',
+      'tema', s.cfg->>'tema',
+      'precoNaCapa', coalesce((s.cfg->>'precoNaCapa')::boolean, false)
     ),
 
     'servicos', coalesce((

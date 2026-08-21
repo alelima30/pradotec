@@ -330,11 +330,16 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
     <section class="passo" id="p-capa">
       <div id="capaMarca"></div>
       <div id="capaAviso"></div>
+      <!-- O convite, logo abaixo do nome. Quem chega pelo WhatsApp veio para
+           marcar: o caminho tem que estar à mão antes de qualquer rolagem. -->
+      <div id="capaBoas"></div>
       <div id="capaFoto"></div>
       <!-- As fotos dos serviços passando. Vem ANTES dos nomes: é a imagem que
            faz a pessoa parar de rolar, e o nome que ela lê em seguida. -->
       <div id="capaSlides" class="slide-caixa"></div>
-      <div class="cat">O que oferecemos</div>
+      <!-- O título de serviços é escrito por `desenharCapa()`, junto com a
+           lista. Estava aqui fixo E lá dentro de novo, então a tela mostrava
+           "O QUE OFERECEMOS" e "SERVIÇOS" um debaixo do outro. -->
       <div id="capaServicos"></div>
       <div class="cat" id="rotuloEquipe">Quem atende</div>
       <div id="capaEquipe"></div>
@@ -570,21 +575,21 @@ const ATIVOS = ['pendente','confirmado','em_atendimento','concluido'];
    ──────────────────────────────────────────────────────────────────────── */
 const VOCABULARIO = {
   barbearia: { casa:'Barbearia',       quem:'barbeiro',     atende:'Quem corta',
-               acao:'Agendar corte' },
+               acao:'Agendar corte',    oferecemos:'Nossos cortes' },
   salao:     { casa:'Salão de beleza', quem:'profissional', atende:'Quem atende',
-               acao:'Agendar horário' },
+               acao:'Agendar horário',  oferecemos:'Nossos serviços' },
   manicure:  { casa:'Esmalteria',      quem:'manicure',     atende:'Quem atende',
-               acao:'Agendar horário' },
+               acao:'Agendar horário',  oferecemos:'Nossos serviços' },
   estetica:  { casa:'Estética',        quem:'esteticista',  atende:'Quem atende',
-               acao:'Agendar sessão' },
+               acao:'Agendar sessão',   oferecemos:'Nossos tratamentos' },
   clinica:   { casa:'Clínica',         quem:'profissional', atende:'Quem atende',
-               acao:'Agendar consulta' },
+               acao:'Agendar consulta', oferecemos:'Nossos atendimentos' },
   tatuagem:  { casa:'Estúdio',         quem:'tatuador',     atende:'Quem tatua',
-               acao:'Agendar sessão' },
+               acao:'Agendar sessão',   oferecemos:'Nossos trabalhos' },
   pet:       { casa:'Pet shop',        quem:'tosador',      atende:'Quem atende',
-               acao:'Agendar banho' },
+               acao:'Agendar banho',    oferecemos:'Nossos serviços' },
   outro:     { casa:'Atendimento',     quem:'profissional', atende:'Quem atende',
-               acao:'Agendar horário' },
+               acao:'Agendar horário',  oferecemos:'O que oferecemos' },
 };
 function voc(chave){
   const v = VOCABULARIO[(salao && salao.tipo) || 'salao'] || VOCABULARIO.salao;
@@ -826,6 +831,8 @@ function bdDaVitrine(v){
       id: salaoId, slug: s.slug, nome: s.nome, tipo: s.tipo,
       logo: s.logo, capa: s.capa, telefone: s.telefone, whatsapp: s.whatsapp,
       endereco: s.endereco, fuso: s.fuso,
+      // A aparência que o salão escolheu no painel, em Meu salão.
+      cor: s.cor, tema: s.tema, precoNaCapa: s.precoNaCapa === true,
       cfg: { diasLiberados: s.diasLiberados },
     }],
     servicos: (v.servicos || []).map(x => ({
@@ -1139,27 +1146,56 @@ function desenharCapa(){
          loading="lazy"></div>`
     : '';
 
-  /* ── A VITRINE: O QUE A CASA FAZ, SEM TABELA DE PREÇOS ──────────────────
-     Antes a capa era um cardápio: cada serviço com foto, duração e valor.
-     Vendia errado. Quem abre o link vindo do WhatsApp ainda não decidiu
-     nada — está olhando a casa, não comparando preço — e a primeira tela
-     cheia de números convida a comparar em vez de convidar a marcar.
+  /* ── O CONVITE, ANTES DA ROLAGEM ────────────────────────────────────────
+     Quem abre este link veio do WhatsApp para marcar horário. O botão fixo
+     do rodapé sempre existiu, mas ele é discreto de propósito — e numa tela
+     de celular a primeira dobra é tudo o que muita gente vê. Este cartão põe
+     o caminho principal onde o olho já está, logo abaixo do nome da casa. */
+  document.getElementById('capaBoas').innerHTML = `
+    <div class="boas">
+      <div class="boas-oi">Bem-vindo!</div>
+      <button class="boas-cta" onclick="irPara('servico')">
+        <span data-ico="calendario"></span> Agendar horário</button>
+      ${sessao ? `<button class="boas-b2" onclick="irPara('meus')">
+        <span data-ico="relogio"></span> Meus horários</button>` : ''}
+    </div>`;
 
-     Agora a capa mostra O QUE SE FAZ ali: os nomes, e as fotos passando num
-     slide. O valor aparece no passo seguinte, quando a pessoa já clicou em
-     "Agendar horário" e está escolhendo — que é onde o preço é informação
-     útil, e não obstáculo.
-     ──────────────────────────────────────────────────────────────────── */
+  /* ── A VITRINE ──────────────────────────────────────────────────────────
+     Cada serviço num cartão com a foto, como a vitrine de uma loja mostra o
+     trabalho. Antes eram fitas de texto: sem foto e sem peso, uma casa com
+     quatro serviços parecia uma lista de compras.
+
+     O PREÇO é escolha do salão, em Meu salão → Aparência. Nem toda casa
+     quer o valor na primeira tela: quem tem preço competitivo ganha
+     mostrando, e quem cobra por avaliação perde. Antes isto era uma decisão
+     nossa, tomada uma vez para todo mundo.
+
+     Serviço sem foto não fica de fora nem ganha um buraco cinza: o cartão
+     encolhe para uma linha com o nome. Salão que ainda não subiu foto
+     nenhuma continua com uma capa apresentável. */
   const svs = servicosDoSalao();
+  const comPreco = salao.precoNaCapa === true;
   const porCat = {};
-  for(const s of svs){ (porCat[s.categoria || 'Serviços'] ||= []).push(s); }
+  for(const s of svs){ (porCat[s.categoria || ''] ||= []).push(s); }
+  const categorias = Object.keys(porCat);
 
-  document.getElementById('capaServicos').innerHTML =
-    Object.entries(porCat).map(([cat, lista]) => `
-      <div class="cat" style="margin-top:12px">${cat}</div>
-      <div class="fitas">${lista.map(s =>
-        `<span class="fita-servico">${s.nome}</span>`).join('')}</div>
-    `).join('');
+  document.getElementById('capaServicos').innerHTML = !svs.length ? '' : `
+    <div class="cat">${voc('oferecemos')}</div>
+    ${categorias.map(cat => `
+      ${categorias.length > 1 && cat ? `<div class="cat-sub">${cat}</div>` : ''}
+      <div class="sv-grade">${porCat[cat].map(s => `
+        <button class="sv-cartao${s.foto ? '' : ' sem-foto'}"
+                onclick="irPara('servico')">
+          ${s.foto ? `<span class="sv-cartao-foto"
+                        style="background-image:url('${s.foto}')"></span>` : ''}
+          <span class="sv-cartao-txt">
+            <b>${s.nome}</b>
+            <span class="sv-cartao-linha">
+              ${comPreco ? `<span class="sv-cartao-preco">${real(s.preco)}</span>` : ''}
+              <span class="sv-cartao-dur">${s.duracaoMin} min</span>
+            </span>
+          </span>
+        </button>`).join('')}</div>`).join('')}`;
 
   montarSlides(svs);
 
@@ -2490,6 +2526,8 @@ function entrarNoSalao(slug){
   document.documentElement.setAttribute('data-estilo',
     s.tipo === 'barbearia' ? 'barbearia' : 'salao');
 
+  aplicarAparencia(s);
+
   document.getElementById('tituloSalao').textContent = s.nome;
   document.getElementById('subSalao').textContent = voc('casa');
   // Monograma, como fazem os aplicativos que hospedam muitas contas: a inicial
@@ -2502,6 +2540,99 @@ function entrarNoSalao(slug){
 
   historico = [];
   irPara('capa', true);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A COR E O FUNDO QUE O SALÃO ESCOLHEU
+
+   Uma barbearia de dourado e grafite e uma esmalteria de rosa e branco não
+   podem ser a mesma página com o nome trocado. O salão escolhe em Meu salão
+   → Aparência, e é aqui que a escolha vira tela.
+
+   ⚠ A LETRA DO BOTÃO NÃO PODE SER SEMPRE BRANCA.
+
+   Sobre o dourado #C8A33C, texto branco dá cerca de 2,3:1 de contraste — bem
+   abaixo dos 4,5:1 que o mínimo legível pede, e o botão principal da página
+   vira um borrão para quem enxerga pouco, ou para qualquer um no sol. Sobre
+   o roxo escuro, texto preto é igualmente ruim.
+
+   Então a letra é calculada da luminância da cor, não escolhida. É a mesma
+   conta que o modelo que serviu de referência faz: dourado com letra preta,
+   e não dourado com letra branca.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function corValida(c){ return /^#[0-9a-fA-F]{6}$/.test(String(c || '')); }
+
+function rgbDe(hex){
+  return [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16));
+}
+
+// Luminância relativa (WCAG).
+function luminancia(hex){
+  const [r, g, b] = rgbDe(hex).map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/* A letra que se lê melhor SOBRE esta cor — preta ou branca.
+
+   A primeira versão comparava a luminância com um número escolhido a olho
+   (0,42), e errava justamente no caso que motivou tudo isto: o dourado
+   #C8A33C tem luminância 0,377, abaixo do corte, e ganhava letra BRANCA. O
+   contraste real de branco sobre esse dourado é 2,5:1 — metade do mínimo
+   legível. Preto sobre ele dá 8,5:1.
+
+   Então não há número mágico: calcula-se o contraste dos dois e escolhe-se o
+   maior. É a mesma conta que a norma manda fazer, e dá de graça o resultado
+   certo para qualquer cor que o salão inventar. */
+function letraSobre(hex){
+  const L = luminancia(hex);
+  const comBranco = 1.05 / (L + 0.05);
+  const comPreto  = (L + 0.05) / 0.05;
+  return comPreto > comBranco ? '#101014' : '#FFFFFF';
+}
+
+// Mistura a cor com preto (p<0) ou branco (p>0), para o hover e as bordas.
+function mexer(hex, p){
+  const alvo = p > 0 ? 255 : 0, f = Math.abs(p);
+  const [r, g, b] = rgbDe(hex).map(v => Math.round(v + (alvo - v) * f));
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function aplicarAparencia(s){
+  const raiz = document.documentElement;
+
+  if((s.tema || '') === 'escuro') raiz.setAttribute('data-tema', 'escuro');
+  else raiz.removeAttribute('data-tema');
+
+  // Sem cor escolhida, fica o roxo do AgendaPro — que é o que salão antigo,
+  // criado antes disto existir, já tinha. Nada a migrar.
+  if(!corValida(s.cor)) return;
+  const cor = s.cor;
+  const escuro = (s.tema || '') === 'escuro';
+  const [r, g, b] = rgbDe(cor);
+
+  const p = (k, v) => raiz.style.setProperty(k, v);
+  p('--acao', cor);
+  p('--acao-hover', mexer(cor, escuro ? 0.14 : -0.14));
+  p('--acao-txt', letraSobre(cor));
+  p('--acao-soft', `rgba(${r},${g},${b},.12)`);
+
+  /* A cor ESCRITA precisa de contraste com o papel, e é outra conta: sobre
+     branco, um amarelo vivo não se lê; sobre grafite, um azul escuro some.
+     Então o texto usa uma versão puxada da cor, não a cor crua. */
+  p('--ac-500', escuro ? mexer(cor, 0.30) : mexer(cor, -0.18));
+  p('--ac-600', escuro ? mexer(cor, 0.30) : mexer(cor, -0.28));
+  p('--ac-700', escuro ? mexer(cor, 0.44) : mexer(cor, -0.40));
+  p('--ac-soft', `rgba(${r},${g},${b},${escuro ? '.15' : '.10'})`);
+  p('--ac-line', `rgba(${r},${g},${b},${escuro ? '.34' : '.28'})`);
+  p('--marca', cor);
+
+  // A barra do navegador acompanha, no celular. É o detalhe que faz a página
+  // parecer do salão e não uma página genérica com a logo dele.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', escuro ? '#0A0810' : cor);
 }
 
 function guardarSessao(){

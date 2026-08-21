@@ -2054,6 +2054,35 @@ function pintarSalao(){
     </div>
 
     <div class="card">
+      <h3 class="secao">Aparência do link do cliente</h3>
+      <p class="secao-sub">A cara da página que a cliente abre. Escolha aqui e
+        veja na prévia ao lado.</p>
+
+      <div class="rot" style="margin-bottom:8px">Cor da marca</div>
+      <div class="cores" id="paletaCores"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <input type="color" id="corLivre" class="cor-livre"
+               oninput="escolherCor(this.value)">
+        <label for="corLivre" class="secao-sub" style="margin:0">
+          ou escolha exatamente a sua</label>
+      </div>
+
+      <div class="rot" style="margin:18px 0 8px">Fundo</div>
+      <div class="regua" id="reguaTema" style="justify-content:flex-start"></div>
+
+      <div class="rot" style="margin:18px 0 8px">Preços na capa</div>
+      <div class="regua" id="reguaPreco" style="justify-content:flex-start"></div>
+      <p class="secao-sub" id="explicaPreco" style="margin-top:9px"></p>
+
+      <div class="previa-fone" id="previaFone"></div>
+
+      <div class="card-acoes">
+        <button class="btn btn-p" onclick="salvarAparencia()">Salvar aparência</button>
+        <span id="salvouAparencia" class="salvou"></span>
+      </div>
+    </div>
+
+    <div class="card">
       <h3 class="secao">Identidade visual</h3>
       <p class="secao-sub">O que o cliente vê ao abrir o link do salão.</p>
       ${cartao('logo', 'Logo',
@@ -2075,6 +2104,152 @@ function pintarSalao(){
 
   // Depois do innerHTML: os botões da janela só existem agora.
   pintarJanelaAgenda();
+  pintarAparencia();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A APARÊNCIA DO LINK DA CLIENTE
+
+   Três escolhas — cor, fundo e se a capa mostra preço — guardadas em
+   `saloes.cfg`, o mesmo jsonb da janela da agenda. A `vitrine()` devolve
+   essas três chaves nomeadas uma a uma para a página da cliente.
+
+   Cores prontas antes do seletor livre porque quem tem salão não quer
+   escolher hexadecimal: quer uma cor que combine com a fachada. As sete
+   cobrem o que aparece de verdade — barbearia puxa dourado ou grafite,
+   estética puxa rosa ou lilás. O seletor livre fica para quem tem cor de
+   marca definida e não abre mão.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const CORES = [
+  ['#C8A33C', 'Dourado'],  ['#5B21B6', 'Roxo'],   ['#B0316A', 'Rosa'],
+  ['#0C7568', 'Verde'],    ['#1D4ED8', 'Azul'],   ['#C2410C', 'Laranja'],
+  ['#3F3F46', 'Grafite'],
+];
+const PRECOS = [
+  [true,  'Mostrar',  'A cliente já vê quanto custa antes de escolher. Bom para '
+                    + 'quem tem preço competitivo e não quer perguntas no WhatsApp.'],
+  [false, 'Esconder', 'A capa mostra só as fotos e os nomes. O preço aparece na '
+                    + 'hora de escolher o serviço. Bom para serviço que varia.'],
+];
+
+let aparencia = null;      // { cor, tema, precoNaCapa }
+let aparenciaDoSalao = null;
+
+function lerAparencia(){
+  const sl = acharSalao(salaoAtual) || {};
+  const c = sl.cfg || {};
+  return {
+    cor:  c.cor || CORES[1][0],
+    tema: c.tema === 'escuro' ? 'escuro' : 'claro',
+    precoNaCapa: c.precoNaCapa === true,
+  };
+}
+
+function pintarAparencia(){
+  const paleta = document.getElementById('paletaCores');
+  if(!paleta) return;
+  // Trocar de estabelecimento no seletor tem que trocar a aparência editada
+  // junto — senão salvar gravaria a cor de um salão no outro.
+  if(!aparencia || aparenciaDoSalao !== salaoAtual){
+    aparencia = lerAparencia();
+    aparenciaDoSalao = salaoAtual;
+  }
+
+  paleta.innerHTML = CORES.map(([hex, nome]) =>
+    `<button type="button" class="cor ${hex.toLowerCase() === aparencia.cor.toLowerCase() ? 'on' : ''}"
+             style="--amostra:${hex}" title="${nome}" aria-label="${nome}"
+             onclick="escolherCor('${hex}')"></button>`).join('');
+  document.getElementById('corLivre').value = aparencia.cor;
+
+  document.getElementById('reguaTema').innerHTML =
+    [['claro','Claro'],['escuro','Escuro']].map(([v, rot]) =>
+      `<button type="button" class="${aparencia.tema === v ? 'on' : ''}"
+               onclick="escolherTema('${v}')">${rot}</button>`).join('');
+
+  document.getElementById('reguaPreco').innerHTML = PRECOS.map(([v, rot]) =>
+    `<button type="button" class="${aparencia.precoNaCapa === v ? 'on' : ''}"
+             onclick="escolherPreco(${v})">${rot}</button>`).join('');
+  const achado = PRECOS.find(p => p[0] === aparencia.precoNaCapa);
+  document.getElementById('explicaPreco').textContent = achado ? achado[2] : '';
+
+  pintarPreviaFone();
+}
+
+/* A letra que se lê melhor sobre a cor escolhida — a MESMA conta que a página
+   da cliente faz (`letraSobre` em agendar.html). Se as duas discordassem, a
+   prévia mentiria justamente sobre a escolha que ela existe para mostrar.
+
+   Sem isto a prévia era sempre de letra branca, e o dourado — que precisa de
+   letra preta, 8,5:1 contra 2,5:1 — aparecia aqui legível e chegava ilegível
+   no celular da cliente. */
+function letraSobre(hex){
+  if(!/^#[0-9a-fA-F]{6}$/.test(String(hex || ''))) return '#FFFFFF';
+  const L = [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16))
+    .map(v => { const c = v / 255;
+                return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); })
+    .reduce((s, v, i) => s + [0.2126, 0.7152, 0.0722][i] * v, 0);
+  return (L + 0.05) / 0.05 > 1.05 / (L + 0.05) ? '#101014' : '#FFFFFF';
+}
+
+function escolherCor(hex){  aparencia.cor = hex;  pintarAparencia(); }
+function escolherTema(t){   aparencia.tema = t;   pintarAparencia(); }
+function escolherPreco(v){  aparencia.precoNaCapa = v; pintarAparencia(); }
+
+/* A prévia. Não é decoração: escolher cor sem ver onde ela cai é escolher no
+   escuro, e o dono só descobriria o resultado abrindo o próprio link no
+   celular. Aqui ele vê antes de salvar. */
+function pintarPreviaFone(){
+  const alvo = document.getElementById('previaFone');
+  if(!alvo) return;
+  const sl = acharSalao(salaoAtual) || {};
+  const escuro = aparencia.tema === 'escuro';
+  const svs = (bd.servicos || []).filter(s => s.ativo !== false).slice(0, 2);
+
+  alvo.innerHTML =
+    `<div class="fone ${escuro ? 'fone-escuro' : ''}"
+          style="--marca:${aparencia.cor};--marca-txt:${letraSobre(aparencia.cor)}">
+       <div class="fone-topo">
+         ${sl.logo ? `<img src="${sl.logo}" alt="">`
+                   : `<div class="fone-selo">${(sl.nome || 'A').charAt(0)}</div>`}
+         <b>${sl.nome || 'Seu salão'}</b>
+         <span>Agende seu horário</span>
+       </div>
+       <div class="fone-cta">Agendar horário</div>
+       <div class="fone-svs">
+         ${svs.length ? svs.map(s => `
+           <div class="fone-sv">
+             <div class="fone-sv-foto"${s.foto ? ` style="background-image:url('${s.foto}')"` : ''}></div>
+             <div class="fone-sv-txt">
+               <b>${s.nome}</b>
+               ${aparencia.precoNaCapa
+                 ? `<span class="fone-preco">${real(s.preco || 0)}</span>` : ''}
+             </div>
+           </div>`).join('')
+         : '<p class="fone-nada">Cadastre serviços para vê-los aqui.</p>'}
+       </div>
+     </div>
+     <p class="secao-sub" style="text-align:center;margin-top:8px">
+       Prévia — é assim que a cliente vê</p>`;
+}
+
+function salvarAparencia(){
+  const sl = acharSalao(salaoAtual);
+  // Mesmo cuidado da janela da agenda: `cfg` guarda mais coisa com o tempo, e
+  // sobrescrever o objeto inteiro apagaria o que outra tela puser lá.
+  sl.cfg = Object.assign({}, sl.cfg, {
+    cor: aparencia.cor,
+    tema: aparencia.tema,
+    precoNaCapa: aparencia.precoNaCapa,
+  });
+  salvar();
+  const aviso = document.getElementById('salvouAparencia');
+  if(aviso){
+    aviso.textContent = 'Salvo';
+    setTimeout(() => {
+      const ainda = document.getElementById('salvouAparencia');
+      if(ainda) ainda.textContent = '';
+    }, 2600);
+  }
 }
 
 function estadoDoEspaco(){

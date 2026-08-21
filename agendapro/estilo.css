@@ -568,6 +568,63 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 /* Anel dourado em volta da ficha de tinta: o detalhe que amarra as duas
    cores sem colocá-las para brigar. */
 .regua button.on{box-shadow:0 0 0 3px var(--rx-soft) !important}
+/* ═══════════════════════════════════════════════════════════════════════════
+   A APARÊNCIA DO LINK DA CLIENTE — paleta e prévia
+
+   Quem tem salão não escolhe hexadecimal: escolhe uma cor que combina com a
+   fachada. Daí as fichas de cor prontas, com o seletor livre atrás para quem
+   tem marca definida.
+
+   A prévia existe porque escolher cor sem ver onde ela cai é escolher no
+   escuro — o dono só descobriria o resultado abrindo o próprio link no
+   celular, e aí já salvou.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.cores{display:flex;gap:9px;flex-wrap:wrap}
+.cor{
+  width:40px;height:40px;border-radius:50%;border:2px solid var(--borda);
+  background:var(--amostra);cursor:pointer;transition:.15s;padding:0;
+}
+.cor:hover{transform:scale(1.08)}
+/* O anel usa a própria cor da ficha: assim a marca de "escolhida" nunca
+   briga com a cor que ela está marcando. */
+.cor.on{box-shadow:0 0 0 3px var(--painel),0 0 0 5px var(--amostra);border-color:transparent}
+.cor-livre{
+  width:44px;height:36px;padding:2px;border:1px solid var(--borda);
+  border-radius:var(--r-sm);background:var(--painel);cursor:pointer;
+}
+
+.previa-fone{display:flex;flex-direction:column;align-items:center;margin-top:20px}
+.fone{
+  width:236px;border-radius:22px;padding:18px 14px 16px;
+  border:1px solid var(--borda);background:var(--painel2);
+  box-shadow:var(--sombra);overflow:hidden;
+}
+.fone-escuro{background:#141416;border-color:#2A2A2E;color:#F2F2F3}
+.fone-topo{text-align:center;margin-bottom:14px}
+.fone-topo img, .fone-selo{
+  width:54px;height:54px;border-radius:15px;margin:0 auto 9px;display:block;
+  object-fit:cover;
+}
+.fone-selo{
+  background:var(--marca);color:var(--marca-txt);font-weight:700;font-size:24px;
+  display:flex;align-items:center;justify-content:center;
+}
+.fone-topo b{display:block;font-size:14.5px;line-height:1.25}
+.fone-topo span{font-size:11.5px;opacity:.6}
+.fone-cta{
+  background:var(--marca);color:var(--marca-txt);text-align:center;font-weight:650;
+  font-size:13px;padding:11px;border-radius:12px;margin-bottom:13px;
+}
+.fone-sv{display:flex;gap:9px;align-items:center;margin-bottom:8px}
+.fone-sv-foto{
+  width:44px;height:44px;border-radius:10px;flex:none;
+  background:var(--borda) center/cover no-repeat;
+}
+.fone-escuro .fone-sv-foto{background-color:#26262A}
+.fone-sv-txt b{display:block;font-size:12px;line-height:1.3}
+.fone-preco{font-size:12.5px;font-weight:700;color:var(--marca)}
+.fone-nada{font-size:11.5px;opacity:.55;text-align:center;padding:8px 0}
+
 /* O plano em destaque é uma recomendação da casa, não uma escolha já feita:
    ele usa a cor de ação (a mesma do botão), e não o verde de seleção — senão
    a tela mostra dois planos "escolhidos", o marcado e o recomendado. */
@@ -797,7 +854,12 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
 .slides{
   position:relative; border-radius:var(--r); overflow:hidden;
   border:1px solid var(--borda); background:var(--painel2);
-  aspect-ratio:4 / 3;
+  /* 16/10 e não 4/3: em 4/3 o slide comia 550px de uma tela de 915, e os
+     serviços — que são o que a pessoa veio ver — começavam fora da primeira
+     dobra. Deitado, sobra tela para o primeiro cartão aparecer e convidar a
+     rolar. A foto continua inteira: quem enquadra é o `contain` com o
+     borrão atrás, não a proporção da caixa. */
+  aspect-ratio:16 / 10;
 }
 .slide{
   position:absolute; inset:0; margin:0;
@@ -867,6 +929,77 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
   border:1px solid var(--borda); background:var(--painel);
   font-size:13.5px; font-weight:520; color:var(--txt);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A CAPA DO LINK DA CLIENTE
+
+   O convite, e a vitrine. Quem abre este link veio do WhatsApp para marcar
+   horário — o caminho principal fica na primeira dobra, e os serviços viram
+   cartões com foto em vez das fitas de texto de antes: uma casa com quatro
+   serviços parecia uma lista de compras.
+
+   Tudo pendurado em `--acao` e `--acao-txt`, que a página reescreve com a
+   cor que o salão escolheu. Nada de cor fixa aqui dentro: cor escrita à mão
+   é a que não obedece à personalização.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.boas{
+  border:1px solid var(--ac-line); border-radius:var(--r-lg);
+  background:var(--ac-soft); padding:15px; margin-bottom:20px;
+}
+.boas-oi{
+  font-weight:650; font-size:15px; color:var(--ac-600); margin-bottom:11px;
+}
+.boas-cta, .boas-b2{
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  width:100%; min-height:52px; border-radius:var(--r);
+  font-size:16px; font-weight:650; cursor:pointer; transition:.15s;
+}
+.boas-cta{
+  background:var(--acao); color:var(--acao-txt); border:1px solid var(--acao);
+  box-shadow:var(--sombra);
+}
+.boas-cta:hover{ background:var(--acao-hover); border-color:var(--acao-hover) }
+.boas-b2{
+  margin-top:9px; background:var(--painel); color:var(--txt);
+  border:1px solid var(--borda-forte); font-weight:560; font-size:15px;
+}
+.boas-b2:hover{ background:var(--painel2) }
+/* Os ícones herdam a cor da letra do botão — inclusive quando ela vira preta
+   por causa de uma cor de marca clara, como o dourado. */
+.boas-cta .ic-svg, .boas-b2 .ic-svg{ width:19px; height:19px }
+
+.cat-sub{
+  font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--txt3); margin:14px 0 8px;
+}
+
+.sv-grade{
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:11px; margin-bottom:4px;
+}
+.sv-cartao{
+  display:flex; flex-direction:column; text-align:left; overflow:hidden;
+  border:1px solid var(--borda); border-radius:var(--r);
+  background:var(--painel); cursor:pointer; transition:.15s; padding:0;
+}
+.sv-cartao:hover{ border-color:var(--acao); box-shadow:var(--sombra) }
+.sv-cartao-foto{
+  display:block; aspect-ratio:4 / 3; background:var(--painel2) center/cover no-repeat;
+}
+.sv-cartao-txt{ padding:11px 12px 12px; display:block }
+.sv-cartao-txt b{
+  display:block; font-size:14px; line-height:1.3; color:var(--txt);
+  margin-bottom:5px;
+}
+.sv-cartao-linha{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap }
+.sv-cartao-preco{ font-size:16px; font-weight:700; color:var(--ac-600) }
+.sv-cartao-dur{ font-size:12.5px; color:var(--txt3) }
+
+/* Serviço sem foto não ganha um buraco cinza: o cartão vira uma linha e
+   ocupa a largura toda. Salão que ainda não subiu foto nenhuma continua com
+   uma capa apresentável, em vez de uma grade de retângulos vazios. */
+.sv-cartao.sem-foto{ grid-column:1 / -1 }
+.sv-cartao.sem-foto .sv-cartao-txt{ padding:13px 14px }
 
 .grade-servicos{
   display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:11px;
