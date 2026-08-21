@@ -303,6 +303,50 @@ verdade('e link de confirmação vencido é dito, em vez de um formulário calad
   venceuConf.includes('já venceu'));
 igual('com o fragmento limpo também aí', new URL(r8.url()).hash, '');
 
+/* ══════════════════════════════════════════════════════════════════════════
+   O LINK QUE CAI NO LUGAR ERRADO
+
+   Mandar o `redirect_to` não basta: o Supabase só o respeita se ele estiver
+   na lista de Redirect URLs do projeto. Fora dela — e por descuido ela fica
+   fora — a pessoa é devolvida ao "Site URL", que costuma ser a raiz do site.
+
+   E a raiz fazia `location.replace('entrar.html')`, que joga o #fragmento
+   FORA. Com ele ia embora o token de recuperação, que É a prova de
+   identidade de quem esqueceu a senha: ela clicava no link do e-mail e
+   chegava numa tela de login pedindo justamente a senha que não lembra.
+
+   Um caminho que depende de uma caixa de texto no painel do Supabase estar
+   preenchida sem erro de digitação não é um caminho: é uma armadilha. Aqui
+   o link cai nos dois lugares errados mais prováveis, e tem que dar certo
+   nos dois.
+   ══════════════════════════════════════════════════════════════════════════ */
+secao('O link cai na raiz do site, ou na tela de login');
+
+await fetch(BASE + '/auth/v1/recover', { method:'POST',
+  headers:{ 'Content-Type':'application/json', apikey:'k' },
+  body: JSON.stringify({ email: EMAIL }) });
+const rec2 = await fetch(BASE + '/_recuperacao?email=' + encodeURIComponent(EMAIL))
+  .then(r => r.json());
+const pedaco = '#access_token=' + rec2.access_token + '&refresh_token=r0&type=recovery';
+
+const r9 = await ctx.newPage();
+await r9.goto(BASE + '/index.html' + pedaco);
+await r9.waitForTimeout(1500);
+igual('caindo na raiz do site, o link ainda chega na tela de senha nova',
+  new URL(r9.url()).pathname, '/nova-senha.html');
+verdade('com o formulário pronto — e não um login pedindo a senha esquecida',
+  await r9.evaluate(() => document.getElementById('form').style.display !== 'none'));
+
+/* Recuperação não é login. O token de recuperação TAMBÉM é uma sessão
+   válida, então a tela de entrar o aceitaria e mandaria a pessoa ao painel
+   — logada, e sem nunca ter trocado a senha. Ela sairia dali achando que
+   trocou, e no dia seguinte só a senha velha valeria. */
+const r10 = await ctx.newPage();
+await r10.goto(BASE + '/entrar.html' + pedaco);
+await r10.waitForTimeout(3000);
+igual('caindo na tela de login, vai para a troca — recuperação não é login',
+  new URL(r10.url()).pathname, '/nova-senha.html');
+
 secao('Chegar sem o link');
 
 const r3 = await ctx.newPage();

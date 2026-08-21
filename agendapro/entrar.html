@@ -569,6 +569,19 @@ function chegouPeloEmail(){
     return false;
   }
 
+  /* ── RECUPERAÇÃO NÃO É LOGIN ──────────────────────────────────────────
+     O token de recuperação também é uma sessão válida, e por isso o trecho
+     abaixo o aceitaria e mandaria a pessoa para o painel — logada, sim, e
+     sem NUNCA ter trocado a senha. Ela sairia dali achando que trocou, e no
+     dia seguinte a senha velha (a que ela esqueceu) seria a única que vale.
+
+     O Supabase marca a diferença em `type`. Recuperação vai para a tela de
+     senha nova, com o fragmento inteiro, que é onde o token é usado. */
+  if(f.get('type') === 'recovery'){
+    location.replace('nova-senha.html' + (location.hash || ''));
+    return true;
+  }
+
   const tok = f.get('access_token');
   if(!tok || !NA_NUVEM) return false;
   Dados.entrarComToken({ token: tok, refresh: f.get('refresh_token') });
