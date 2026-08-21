@@ -179,6 +179,37 @@ console.log('\nColuna que não é texto: vazio da tela vira null');
   dizer(cli2.nascimento === '1990-05-02', 'e a data preenchida passa intacta');
 }
 
+/* ── DINHEIRO CHEGA COMO TEXTO ────────────────────────────────────────────
+   O PostgREST devolve `numeric` como string, para não perder precisão. O
+   JavaScript aceita e faz outra coisa: `0 + '80.00' + '45.00'` é
+   '080.0045.00'. Total de comanda e comissão saem daí.
+
+   O `paraTela()` converte, e esta seção existe para a lista dele não
+   envelhecer: ela sai do schema, não da memória de quem escreveu. */
+console.log('\nColuna numérica vira número, não texto');
+{
+  const LIDAS = D.TABELAS_SINCRONIZADAS.concat(['planos','assinaturas','perfis','vinculos']);
+  const NUM = /^(numeric|decimal|real|double)/;
+  const faltando = [];
+  for(const t of LIDAS){
+    for(const c of (tabelasComTipo[t] || [])){
+      if(NUM.test(c.tipo) && !D.NUMERICAS.has(c.nome)) faltando.push(t + '.' + c.nome);
+    }
+  }
+  dizer(faltando.length === 0,
+    faltando.length ? 'faltam em NUMERICAS: ' + faltando.join(', ')
+                    : 'toda coluna numérica está em NUMERICAS');
+
+  const s = D.paraTela('servicos', { preco: '80.00', comissao_pct: '40.00', nome: 'Corte' });
+  dizer(typeof s.preco === 'number' && s.preco === 80, 'preço "80.00" vira o número 80');
+  dizer(s.nome === 'Corte', 'e o texto continua texto');
+  dizer(0 + s.preco + 45 === 125, 'e agora soma em vez de concatenar');
+
+  const v = D.paraTela('servicos', { comissao_pct: null });
+  dizer(v.comissaoPct === null,
+    'null continua null — "sem comissão definida" não é "comissão zero"');
+}
+
 console.log('\nO identificador que a tela cunha serve para o banco');
 {
   // Era 'x' + base36 — "xxe7qkwou" — e toda coluna id é uuid. Nada criado

@@ -239,6 +239,126 @@ igual('e a de sair também',                        await q.inputValue('#j2b'), 
 igual('o almoço no meio não se perde — volta às 14:00', await q.inputValue('#j2c'), '14:00');
 igual('e a saída da tarde',                        await q.inputValue('#j2d'), '18:00');
 
+/* ── MARCAR E BLOQUEAR PELO PAINEL ────────────────────────────────────────
+   O uso diário do lado do salão: a recepção anota alguém no balcão, e o dono
+   bloqueia a própria folga. Os dois estavam quebrados na nuvem, e falhavam
+   com a mensagem crua do Postgres:
+
+       column "data" of relation "bloqueios" does not exist
+
+   A tela pensa em `{data, minutos}`; o banco guarda dois `timestamptz`. Sem a
+   tradução, nada que o painel criasse na agenda chegava ao banco — só o link
+   da cliente marcava, porque ele passa por `agendar()`.
+
+   Este caso cobra a ida E A VOLTA. Só a ida não bastaria: converter na
+   gravação e errar na leitura mostraria o horário deslocado no dia seguinte,
+   que é pior do que não gravar — porque parece que funcionou.
+   ──────────────────────────────────────────────────────────────────────── */
+/* O modal do passo anterior ainda está aberto, e o fundo escuro dele
+   intercepta o clique na aba. Teste que trava por isso falha por cenário
+   errado, não por defeito. */
+const fecharModalAberto = () => q.evaluate(() => {
+  const f = document.getElementById('fundo');
+  if(f) f.classList.remove('on');
+});
+
+/* Sem serviço cadastrado, `abrirNovo()` mostra "Falta cadastro" em vez do
+   formulário — e está certo: não dá para marcar o que o salão não faz. */
+await fecharModalAberto();
+await q.click('a:has-text("Serviços"), button:has-text("Serviços")');
+await q.waitForTimeout(700);
+await q.click('button:has-text("+ Serviço")');
+await q.waitForTimeout(600);
+await q.fill('#sNome', 'Corte');
+await q.fill('#sPreco', '80');
+await q.click('#modalPe button:has-text("Salvar")');
+await q.waitForTimeout(2500);
+igual('cadastrar um serviço pelo painel não devolve erro', avisos.join(' | '), '');
+
+await fecharModalAberto();
+await q.click('a:has-text("Agenda"), button:has-text("Agenda")');
+await q.waitForTimeout(700);
+await q.click('button:has-text("+ Agendamento")');
+await q.waitForTimeout(700);
+await q.fill('#fNome', 'Cliente do Balcão');
+await q.fill('#fTel', '51988776655');
+await q.fill('#fInicio', '14:30');
+await q.evaluate(() => {
+  const c = document.querySelector('#modalCorpo input[type=checkbox]');
+  if(c && !c.checked) c.click();
+});
+await q.waitForTimeout(300);
+const diaMarcado = await q.inputValue('#fData');
+await q.click('#modalPe button:has-text("Agendar")');
+await q.waitForTimeout(2800);
+igual('marcar pelo painel não devolve erro', avisos.join(' | '), '');
+
+const marcados = await q.evaluate(() =>
+  (typeof bd !== 'undefined' && bd.agendamentos) ? bd.agendamentos.length : -1);
+igual('e existe uma marcação', marcados, 1);
+
+await q.reload();
+await q.waitForTimeout(3500);
+await q.click('a:has-text("Agenda"), button:has-text("Agenda")');
+await q.waitForTimeout(900);
+const voltou = await q.evaluate(() => {
+  const b = (typeof bd !== 'undefined' && bd.agendamentos) || [];
+  return b[0] ? { data: b[0].data, inicio: b[0].inicio, servicos: (b[0].servicos||[]).length } : null;
+});
+igual('depois de recarregar, o dia volta igual', voltou && voltou.data, diaMarcado);
+// 14:30 = 870 minutos desde a meia-noite. Se a conversão de fuso errar em uma
+// hora, este número vira 810 ou 930 — e é exatamente esse o erro que aparece
+// só no domingo em que o horário de verão vira.
+igual('e a HORA volta igual, sem deslocar o fuso', voltou && voltou.inicio, 870);
+igual('e o serviço do atendimento também voltou', voltou && voltou.servicos, 1);
+
+/* ── O CAIXA ──────────────────────────────────────────────────────────────
+   Três defeitos moravam aqui, e os três só apareciam na nuvem:
+
+     · a comanda gravava `data`, coluna que não existe (ela tem `aberta_em`);
+     · os itens e os pagamentos moram em tabelas filhas, e ninguém traduzia —
+       o Caixa abria sempre zerado;
+     · e o PostgREST devolve `numeric` como STRING, então somar concatenava:
+       `0 + '80.00' + '45.00'` é '080.0045.00'. Faturamento do dia, comissão e
+       total de comanda saem dessa conta.
+
+   O último é o que assusta: um sistema de salão que erra a conta do caixa não
+   tem serventia nenhuma, e ele erraria em silêncio, com número plausível na
+   tela. Por isso o teste confere o TIPO, não só o valor. */
+const agId = await q.evaluate(() =>
+  (typeof bd !== 'undefined' && bd.agendamentos[0] || {}).id);
+await q.evaluate(id => comandaDoAgendamento(id), agId);
+await q.waitForTimeout(2500);
+igual('abrir a comanda do atendimento não devolve erro', avisos.join(' | '), '');
+
+await q.reload();
+await q.waitForTimeout(3500);
+const caixa = await q.evaluate(() => {
+  const c = (typeof bd !== 'undefined' && bd.comandas[0]) || {};
+  const sub = (c.itens || []).reduce((s, i) => s + i.qtd * i.precoUnit, 0);
+  return { comandas: (bd.comandas || []).length, itens: (c.itens || []).length,
+           subtotal: sub, tipo: typeof sub, dia: c.data };
+});
+igual('a comanda sobreviveu ao recarregamento', caixa.comandas, 1);
+igual('com o item do atendimento dentro', caixa.itens, 1);
+igual('o subtotal é NÚMERO, não texto — senão a soma concatena', caixa.tipo, 'number');
+igual('e vale o preço do serviço', caixa.subtotal, 80);
+verdade('e o dia da comanda saiu de `aberta_em`', /^\d{4}-\d{2}-\d{2}$/.test(caixa.dia || ''));
+
+await fecharModalAberto();
+await q.click('a:has-text("Equipe"), button:has-text("Equipe")');
+await q.waitForTimeout(700);
+await q.click('#listaEquipe button:has-text("Bloquear horário")');
+await q.waitForTimeout(700);
+await q.fill('#bIni', '12:00');
+await q.fill('#bFim', '13:00');
+await q.click('#modalPe button:has-text("Bloquear"), #modalPe button:has-text("Salvar")');
+await q.waitForTimeout(2500);
+igual('bloquear um horário não devolve erro', avisos.join(' | '), '');
+igual('e o bloqueio existe',
+  await q.evaluate(() =>
+    (typeof bd !== 'undefined' && bd.bloqueios) ? bd.bloqueios.length : -1), 1);
+
 /* ── A FOTO DE QUEM ATENDE ────────────────────────────────────────────────
    Imagem é o único pedaço do sistema que não passa pelo PostgREST: outro
    serviço, outro caminho, corpo binário. A bancada não tinha nada disso, e
@@ -248,6 +368,14 @@ igual('e a saída da tarde',                        await q.inputValue('#j2d'), 
    endereço, recarregar e continuar lá. */
 const PNG_4x4 = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAHElEQVQI12P4'
               + '//8/AzYEEwAAKzQD/6Ac0AAAAABJRU5ErkJggg==';
+
+// Reabre o cadastro de quem atende: os casos acima fecharam o modal para
+// poder trocar de aba.
+await fecharModalAberto();
+await q.click('a:has-text("Equipe"), button:has-text("Equipe")');
+await q.waitForTimeout(700);
+await q.click('#listaEquipe button:has-text("Editar")');
+await q.waitForTimeout(700);
 await q.setInputFiles('#modalCorpo input[type=file]',
   { name: 'rosto.png', mimeType: 'image/png', buffer: Buffer.from(PNG_4x4, 'base64') });
 await q.waitForTimeout(1200);

@@ -1405,6 +1405,9 @@ function comandaDoAgendamento(agId){
     const a = bd.agendamentos.find(x => x.id === agId);
     c = {
       id:id(), salaoId:salaoAtual, agendamentoId:agId, clienteId:a.clienteId,
+      // `numero` e `aberta_em` são do banco: o número vem de um gatilho, e a
+      // hora de abertura tem o `default now()`. `data` é só da tela, e o
+      // `desmontarAgenda()` a remove antes de gravar.
       numero: proximoNumero(), data:a.data, desconto:0, pagamentos:[],
       itens: (a.servicos||[]).map(s => ({
         tipo:'servico', descricao: acharServico(s.servicoId).nome,
@@ -2498,10 +2501,183 @@ function desmontarJornadas(d){
   d.jornadas = linhas;
 }
 
+/* ── A AGENDA VAI E VOLTA EM DOIS FORMATOS ────────────────────────────────
+   Esta tela pensa em `{data:'2026-08-22', inicio:540, fim:600}` — dia e
+   minutos desde a meia-noite. O banco guarda dois `timestamptz`, e não tem
+   coluna `data` nenhuma.
+
+   Sem a tradução, TUDO que o painel cria na agenda era recusado:
+
+       column "data" of relation "bloqueios" does not exist
+
+   Quer dizer: a recepção não conseguia anotar ninguém no balcão, e o dono não
+   conseguia bloquear a própria folga. O uso diário do produto, do lado do
+   salão, não chegava ao banco. Só o link da cliente marcava, porque ele passa
+   por `agendar()`, que recebe timestamptz de verdade.
+
+   ── POR QUE O FUSO VAI NO TEXTO, E NÃO NUMA CONTA AQUI ────────────────────
+   Montar o instante em JavaScript exigiria descobrir o deslocamento do fuso
+   naquele dia — e errar isso é o clássico: funciona o ano inteiro e erra uma
+   hora no domingo em que o horário de verão vira.
+
+   O Postgres já sabe fazer isso. Mandando o texto
+
+       2026-08-22 09:00:00 America/Sao_Paulo
+
+   ele resolve com o banco de fusos dele, que é atualizado por gente que
+   acompanha mudança de lei. A conta certa é a que não é feita aqui.
+   ──────────────────────────────────────────────────────────────────────── */
+function fusoDoSalaoAtual(){
+  const s = (bd && acharSalao && acharSalao(salaoAtual)) || {};
+  return s.fuso || 'America/Sao_Paulo';
+}
+
+// timestamptz do banco → { data, min } no fuso do salão.
+function instanteParaTela(iso, fuso){
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: fuso, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23',
+  }).formatToParts(new Date(iso));
+  const g = t => partes.find(x => x.type === t).value;
+  return { data: g('year') + '-' + g('month') + '-' + g('day'),
+           min: Number(g('hour')) * 60 + Number(g('minute')) };
+}
+
+// { data, min } → texto que o Postgres converte sozinho.
+function telaParaInstante(data, min, fuso){
+  const hh = String(Math.floor(min / 60)).padStart(2, '0');
+  const mm = String(min % 60).padStart(2, '0');
+  return data + ' ' + hh + ':' + mm + ':00 ' + fuso;
+}
+
+const COM_HORARIO = ['agendamentos', 'bloqueios'];
+
+function montarAgenda(d){
+  if(!d) return d;
+  const fuso = (d.saloes && d.saloes[0] && d.saloes[0].fuso) || 'America/Sao_Paulo';
+
+  for(const t of COM_HORARIO){
+    for(const linha of (d[t] || [])){
+      // Só converte o que veio do banco. `String` com 'T' é ISO; número já é
+      // minuto, e reconverter viraria lixo.
+      if(typeof linha.inicio === 'string'){
+        const i = instanteParaTela(linha.inicio, fuso);
+        const f = instanteParaTela(linha.fim, fuso);
+        linha.data = i.data; linha.inicio = i.min; linha.fim = f.min;
+      }
+    }
+  }
+
+  // Os serviços de cada atendimento moram numa tabela filha; a tela os quer
+  // dentro do agendamento.
+  const porAg = {};
+  for(const s of (d.agendamento_servicos || [])){
+    (porAg[s.agendamentoId] = porAg[s.agendamentoId] || []).push(s);
+  }
+  for(const a of (d.agendamentos || [])){
+    a.servicos = (porAg[a.id] || [])
+      .sort((x, y) => (x.ordem || 0) - (y.ordem || 0))
+      .map(s => ({ servicoId: s.servicoId, duracaoMin: s.duracaoMin,
+                   preco: Number(s.preco), comissaoPct: Number(s.comissaoPct) }));
+  }
+
+  /* ── O CAIXA ────────────────────────────────────────────────────────────
+     Mesma história em outra mesa. A comanda guarda os itens e os pagamentos
+     DENTRO dela na tela, e em duas tabelas filhas no banco — e ninguém
+     traduzia, então o Caixa na nuvem abria sempre zerado.
+
+     E a tela filtra o dia por `c.data`, uma coluna que não existe: a comanda
+     tem `aberta_em`, que é um instante. O dia sai dele, no fuso do salão. */
+  const porCom = {}, pagPorCom = {};
+  for(const i of (d.comanda_itens || [])) (porCom[i.comandaId] = porCom[i.comandaId] || []).push(i);
+  for(const g of (d.pagamentos || [])) (pagPorCom[g.comandaId] = pagPorCom[g.comandaId] || []).push(g);
+
+  for(const c of (d.comandas || [])){
+    if(c.abertaEm) c.data = instanteParaTela(c.abertaEm, fuso).data;
+    c.itens = (porCom[c.id] || []).map(i => ({
+      id: i.id, tipo: i.tipo, descricao: i.descricao, qtd: Number(i.qtd),
+      servicoId: i.servicoId, produtoId: i.produtoId,
+      precoUnit: Number(i.precoUnit), profissionalId: i.profissionalId,
+      comissaoPct: Number(i.comissaoPct) || 0,
+    }));
+    c.pagamentos = (pagPorCom[c.id] || []).map(g => ({
+      id: g.id, forma: g.forma, valor: Number(g.valor),
+      parcelas: g.parcelas, taxa: Number(g.taxa) || 0,
+    }));
+  }
+  return d;
+}
+
+function desmontarAgenda(d){
+  if(!d) return;
+  const fuso = fusoDoSalaoAtual();
+
+  for(const t of COM_HORARIO){
+    for(const linha of (d[t] || [])){
+      if(typeof linha.inicio === 'number'){
+        const dia = linha.data;
+        linha.inicio = telaParaInstante(dia, linha.inicio, fuso);
+        linha.fim    = telaParaInstante(dia, linha.fim, fuso);
+        // `data` não existe no banco. Deixá-la aqui é o 400 que derrubava a
+        // gravação inteira.
+        delete linha.data;
+      }
+    }
+  }
+
+  // Reaproveita o id da linha filha que já existe, para a gravação não virar
+  // apagar-e-recriar a cada salvamento.
+  const antigas = new Map();
+  for(const s of ((_baixado && _baixado.agendamento_servicos) || [])){
+    antigas.set([s.agendamentoId, s.servicoId, s.ordem].join('|'), s.id);
+  }
+  const linhas = [];
+  for(const a of (d.agendamentos || [])){
+    (a.servicos || []).forEach((s, i) => {
+      const ordem = i + 1;
+      linhas.push({
+        id: antigas.get([a.id, s.servicoId, ordem].join('|')) || Dados.novoId(),
+        agendamentoId: a.id, servicoId: s.servicoId, ordem,
+        duracaoMin: s.duracaoMin, preco: s.preco, comissaoPct: s.comissaoPct,
+      });
+    });
+  }
+  d.agendamento_servicos = linhas;
+
+  // ── O caixa, pelo mesmo caminho ──
+  const itens = [], pagos = [];
+  for(const c of (d.comandas || [])){
+    // `data` é da tela; no banco o dia sai de `aberta_em`. Deixá-la aqui é o
+    // 400 que derruba a gravação inteira, igual ao dos bloqueios.
+    delete c.data;
+    (c.itens || []).forEach(i => {
+      itens.push({
+        id: i.id || Dados.novoId(), comandaId: c.id,
+        tipo: i.tipo, descricao: i.descricao, qtd: i.qtd,
+        servicoId: i.servicoId || null, produtoId: i.produtoId || null,
+        precoUnit: i.precoUnit, profissionalId: i.profissionalId || null,
+        comissaoPct: i.comissaoPct,
+        // `total` e `comissao_valor` são colunas CALCULADAS pelo banco.
+        // Mandá-las de volta é pedir divergência — e o Postgres recusa
+        // escrita em coluna gerada.
+      });
+    });
+    (c.pagamentos || []).forEach(g => {
+      pagos.push({
+        id: g.id || Dados.novoId(), comandaId: c.id,
+        forma: g.forma, valor: g.valor,
+        parcelas: g.parcelas || 1, taxa: g.taxa || 0,
+      });
+    });
+  }
+  d.comanda_itens = itens;
+  d.pagamentos = pagos;
+}
+
 async function carregarTudo(){
   if(!NA_NUVEM) return carregar();
   try{
-    const d = montarJornadas(sohMeusSaloes(await Dados.baixar(salaoAtual)));
+    const d = montarAgenda(montarJornadas(sohMeusSaloes(await Dados.baixar(salaoAtual))));
     _baixado = _copia(d);
     return d;
   }catch(e){
@@ -2559,6 +2735,8 @@ function salvar(){
     // horário de trabalho nunca chegava ao banco: `jornada` é campo de tela e
     // some no caminho.
     desmontarJornadas(bd);
+    // A agenda também: `data` + minutos viram timestamptz antes de subir.
+    desmontarAgenda(bd);
     Dados.subir(_baixado, bd)
       .then(() => { _baixado = _copia(bd); })
       .catch(async e => {

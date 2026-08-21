@@ -77,9 +77,13 @@ const COLUNAS = {
 // inexistente faz o PostgREST devolver 400 e derruba a gravação inteira.
 const SO_DA_TELA = {
   agendamentos: ['servicos'],       // vira linhas em agendamento_servicos
-  comandas:     ['itens','pagamentos','numero'],  // numero é do gatilho
+  comandas:     ['itens','pagamentos','numero','data'],
   profissionais:['jornada'],        // vira linhas em jornadas
   assinaturas:  ['planoPretendido'],
+  // `total` e `comissao_valor` são GENERATED ALWAYS no schema: o Postgres
+  // recusa escrita neles, e a gravação inteira cai junto. Quem calcula é o
+  // banco, e é assim que a conta da comanda não depende da versão da tela.
+  comanda_itens: ['total','comissaoValor'],
 };
 
 /* ── CAMPO VAZIO NÃO É TEXTO VAZIO ────────────────────────────────────────
@@ -132,12 +136,43 @@ function listaJsonb(r){
   return r ? [r] : [];
 }
 
+/* ── DINHEIRO CHEGA COMO TEXTO, E TEXTO NÃO SOMA ──────────────────────────
+   O PostgREST devolve `numeric` como STRING — de propósito, para não perder
+   precisão no JSON, onde todo número é float. O JavaScript não avisa: ele
+   aceita a string e faz outra coisa.
+
+   Dois estragos, um visível e um caro:
+
+     · a tela do salão mostrava "80.00" onde devia mostrar "R$ 80,00", porque
+       `(('80.00')||0).toLocaleString(...)` devolve a própria string, sem
+       reclamar de nada;
+
+     · e somar concatena. `0 + '80.00' + '45.00'` dá '080.0045.00'. Total de
+       comanda, comissão e faturamento do dia saem disso — e um sistema de
+       salão que erra a conta do caixa não tem serventia nenhuma.
+
+   Converter aqui, no ponto por onde toda leitura passa, resolve os dois de
+   uma vez. A lista sai do schema e o colunas.test.js confere que continua
+   completa: coluna numérica nova entra aqui ou reprova lá.
+   ──────────────────────────────────────────────────────────────────────── */
+const NUMERICAS = new Set([
+  'comissao_pct', 'comissao_total', 'comissao_valor', 'custo', 'desconto',
+  'estoque', 'preco', 'preco_mes', 'preco_unit', 'qtd', 'sinal_exigido',
+  'sinal_pago', 'subtotal', 'taxa', 'total', 'valor', 'valor_previsto',
+]);
+
 function paraTela(tabela, linha){
   const mapa = COLUNAS[tabela] || {};
   const inverso = {};
   for(const k of Object.keys(mapa)) inverso[mapa[k]] = k;
   const saida = {};
-  for(const k of Object.keys(linha)) saida[inverso[k] || k] = linha[k];
+  for(const k of Object.keys(linha)){
+    const v = linha[k];
+    // null continua null: zero e "não preenchido" são coisas diferentes, e
+    // trocar um pelo outro faria "comissão não definida" virar "comissão 0%".
+    saida[inverso[k] || k] =
+      (NUMERICAS.has(k) && typeof v === 'string' && v !== '') ? Number(v) : v;
+  }
   return saida;
 }
 
@@ -580,7 +615,11 @@ const Demo = {
 
 const TABELAS_SINCRONIZADAS = [
   'saloes','profissionais','servicos','servicos_profissionais','jornadas',
-  'bloqueios','clientes','agendamentos','lista_espera','produtos',
+  'bloqueios','clientes','agendamentos',
+  // Logo depois do pai, e não em qualquer lugar: a chave estrangeira exige
+  // que o agendamento exista antes das linhas de serviço dele.
+  'agendamento_servicos',
+  'lista_espera','produtos',
   'comandas','comanda_itens','pagamentos',
 ];
 
@@ -769,6 +808,7 @@ Dados.sessaoAtual = () => (sessao && sessao.token) ? sessao : null;
    mandando "xxe7qkwou" para uma coluna uuid. Uma implementação só, aqui. */
 Dados.novoId = novoId;
 Dados.VAZIO_E_NULO = VAZIO_E_NULO;   // conferido contra o schema pelo colunas.test.js
+Dados.NUMERICAS   = NUMERICAS;       // idem
 
 Dados.ligado = LIGADO;
 Dados.ambiente = cfg.ambiente || (LIGADO ? 'nuvem' : 'demonstração');
