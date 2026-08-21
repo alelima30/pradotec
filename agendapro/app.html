@@ -2726,6 +2726,24 @@ function limparRecusa(msg){
        + (mostrar.length > 3 ? '\n\n(e mais ' + (mostrar.length - 3) + ')' : '');
 }
 
+/* ── TABELA QUE NÃO CARREGOU TEM QUE APARECER ─────────────────────────────
+   Falha de leitura era só uma linha no console, e console ninguém abre no
+   celular — que é onde o salão trabalha. Na tela, tabela que não veio e
+   tabela vazia são idênticas: sem `jornadas` a agenda não tem horário livre
+   nenhum, sem `comanda_itens` o Caixa abre zerado. Parece dia parado.
+
+   Interrompe de propósito, como o aviso de gravação recusada: trabalhar em
+   cima de dados que não carregaram custa mais caro que o susto. */
+function avisoDeCarga(falhas){
+  const linhas = falhas.slice(0, 3)
+    .map(f => '• ' + f.tabela + ': ' + f.motivo).join('\n');
+  alert('Não consegui carregar tudo do banco.\n\n' + linhas
+      + (falhas.length > 3 ? '\n(e mais ' + (falhas.length - 3) + ')' : '')
+      + '\n\nO que está faltando na tela NÃO quer dizer que está vazio no '
+      + 'banco. Recarregue a página; se continuar, mande este texto para o '
+      + 'suporte.');
+}
+
 function salvar(){
   if(NA_NUVEM){
     // Grava no banco e só então atualiza o retrato. Se falhar, a pessoa
@@ -2928,6 +2946,24 @@ function mostrarQuemEstaLogado(){
     // primeira visita — e é a deixa para semear.
     if(NA_NUVEM && !bd) return;
     if(NA_NUVEM){
+      /* ── A SESSÃO QUE VENCEU NO MEIO DO EXPEDIENTE ────────────────────
+         O token do Supabase vale uma hora. Quando ele vence e a renovação
+         também não passa, a pessoa não está "deslogada" no sentido de nunca
+         ter entrado: ela estava trabalhando aqui há um minuto.
+
+         Isto merecia — e não tinha — uma frase própria. O painel abria
+         inteiro e dizia "Nenhum salão nesta conta" para quem tem salão,
+         agenda e caixa lá dentro. Quem lê isso não entende "faça login de
+         novo"; entende "meus dados sumiram". */
+      if(bd.sessaoExpirou){
+        semSalao(
+          '<b>Sua sessão expirou</b>'
+          + 'Por segurança o acesso vence depois de um tempo parado. '
+          + 'Seus dados estão todos lá — é só '
+          + '<a class="link" href="entrar.html">entrar de novo</a>.');
+        document.getElementById('abas').innerHTML = '';
+        return;
+      }
       if(bd.semSessao){
         semSalao(
           '<b>Entre para ver sua agenda</b>'
@@ -2935,6 +2971,14 @@ function mostrarQuemEstaLogado(){
           + 'Crie a sua em 2 minutos</a>.');
         document.getElementById('abas').innerHTML = '';
         return;
+      }
+      /* Tabela que não carregou por defeito nosso não pode passar calada: sem
+         `jornadas` a agenda não tem horário livre nenhum, sem `comanda_itens`
+         o Caixa abre zerado. Vazio por defeito e vazio de verdade têm a mesma
+         cara na tela — e foi assim que quatro 400 duraram meses. */
+      if(bd.falhas && bd.falhas.length){
+        console.error('[AgendaPro] não carregou:', bd.falhas);
+        setTimeout(() => avisoDeCarga(bd.falhas), 400);
       }
       if(!bd.saloes || !bd.saloes.length){
         /* ── A CONTA DA PLATAFORMA CAI AQUI ─────────────────────────────

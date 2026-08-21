@@ -55,6 +55,43 @@ const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; char
 // porque quem confere de verdade é o RLS a partir de request.jwt.claim.sub.
 const sessoes = new Map();
 
+/* ── O TOKEN DO SUPABASE MORRE EM UMA HORA ────────────────────────────────
+   Aqui ele não morria nunca, e essa diferença escondeu um defeito inteiro:
+   o `dados.js` guardava o `refresh_token` e NUNCA o usava. Em produção, uma
+   hora depois do login toda requisição volta 401, o `baixar()` engolia como
+   "é o RLS funcionando" e o painel abria com tudo vazio — "nenhum salão
+   nesta conta" para quem tem salão. Na bancada isso era impossível de
+   reproduzir, porque o token era eterno.
+
+   Então agora ele expira, dá para renová-lo, e dá para matá-lo na hora pela
+   porta `/_expirar`. `validade` guarda quando cada token morre; `renovacoes`
+   liga refresh_token ao dono. */
+const validade   = new Map();   // access_token  → instante em que morre
+const renovacoes = new Map();   // refresh_token → id do usuário
+const HORA = 3600;
+
+function novaSessao(id, segundos){
+  const s = segundos == null ? HORA : segundos;
+  const tok = 't' + (++seq), ref = 'r' + seq;
+  sessoes.set(tok, id);
+  validade.set(tok, Date.now() + s * 1000);
+  renovacoes.set(ref, id);
+  return { access_token: tok, refresh_token: ref, token_type: 'bearer',
+           expires_in: s, expires_at: Math.floor(Date.now()/1000) + s,
+           user: { id } };
+}
+
+// null = sem token. `{expirado:true}` = tinha token, e ele venceu — que é
+// coisa MUITO diferente de "não está logado", e o código de cima precisa
+// saber a diferença para renovar em vez de mandar a pessoa fazer login.
+function tokenDe(req){
+  const a = (req.headers.authorization || '').replace('Bearer ', '');
+  if(!a || !sessoes.has(a)) return null;
+  const morre = validade.get(a);
+  if(morre != null && Date.now() > morre) return { expirado: true };
+  return { id: sessoes.get(a) };
+}
+
 // e-mail → token de recuperação. Só a bancada tem isto: o Supabase manda por
 // e-mail, e aqui não há caixa postal. O teste pesca em /_recuperacao.
 const recuperacoes = new Map();
@@ -88,9 +125,19 @@ const json = (res, code, corpo) => {
 const erroAuth = (res, codigo, frase, status) =>
   json(res, status || 400, { code: status || 400, error_code: codigo, msg: frase });
 
+/* Token vencido é 401 com `PGRST301`, exatamente como o PostgREST responde.
+   Devolver 400, ou tratar como visitante anônimo, faria o código de cima
+   aprender a lidar com uma coisa que a produção não faz. */
+function jwtVencido(){
+  const e = new Error('JWT expired');
+  e.status = 401; e.code = 'PGRST301';
+  return e;
+}
+
 function usuarioDo(req){
-  const a = (req.headers.authorization || '').replace('Bearer ', '');
-  return sessoes.get(a) || null;
+  const t = tokenDe(req);
+  if(t && t.expirado) throw jwtVencido();
+  return t ? t.id : null;
 }
 
 /* ── A bancada precisa ser tão ESTRITA quanto o Supabase ───────────────────
@@ -178,8 +225,7 @@ const http_ = http.createServer(async (req, res) => {
                 values (gen_random_uuid(), $1, $2::jsonb, $3) returning id`,
           [b.email, JSON.stringify(b.data || {}), b.password || null])
           .then(r => r.rows[0].id);
-        const tok = 't' + (++seq); sessoes.set(tok, id);
-        return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
+        return json(res, 200, novaSessao(id));
       }
 
       if(acao === 'otp'){
@@ -204,8 +250,23 @@ const http_ = http.createServer(async (req, res) => {
             [b.phone, JSON.stringify({ nome: 'Cliente', telefone: b.phone })])
             .then(r => r.rows[0].id);
         }
-        const tok = 't' + (++seq); sessoes.set(tok, id);
-        return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
+        return json(res, 200, novaSessao(id));
+      }
+
+      if(acao.startsWith('token') && u.searchParams.get('grant_type') === 'refresh_token'){
+        /* A renovação. É a metade que faltava do login: o Supabase entrega
+           `refresh_token` junto com o `access_token`, e é com ele que a
+           sessão continua viva depois da primeira hora.
+
+           O refresh_token é de uso único no Supabase — cada renovação
+           devolve um novo e invalida o anterior. Aqui igual, porque um
+           código que reaproveita o mesmo refresh funcionaria na bancada e
+           falharia em produção na segunda renovação. */
+        const dono = renovacoes.get(b.refresh_token || '');
+        if(!dono) return erroAuth(res, 'refresh_token_not_found',
+          'Invalid Refresh Token: Refresh Token Not Found');
+        renovacoes.delete(b.refresh_token);
+        return json(res, 200, novaSessao(dono));
       }
 
       if(acao.startsWith('token')){
@@ -224,8 +285,7 @@ const http_ = http.createServer(async (req, res) => {
           return erroAuth(res, 'email_not_confirmed', 'Email not confirmed');
         }
         const id = u.id;
-        const tok = 't' + (++seq); sessoes.set(tok, id);
-        return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
+        return json(res, 200, novaSessao(id));
       }
 
       /* Reenviar a confirmação. Como o `recover`, responde 200 sempre — dizer
@@ -288,6 +348,15 @@ const http_ = http.createServer(async (req, res) => {
        cadastrar num projeto com "Confirm email" ligado. É o segundo motivo
        de 400 no login, e sem poder produzi-lo aqui a tela que o trata — com
        o botão de reenviar — não teria teste nenhum. */
+    /* Mata o token de quem mandou o pedido, na hora. É a única forma de
+       reproduzir em segundos o que em produção leva uma hora: a sessão que
+       vence com a pessoa no meio do trabalho. Só a bancada tem esta porta. */
+    if(u.pathname === '/_expirar'){
+      const a = (req.headers.authorization || '').replace('Bearer ', '');
+      if(sessoes.has(a)) validade.set(a, Date.now() - 1000);
+      return json(res, 200, { expirado: sessoes.has(a) });
+    }
+
     if(u.pathname === '/_naoconfirmado'){
       const b = await corpoDe(req) || {};
       await pool.query(
@@ -440,8 +509,12 @@ const http_ = http.createServer(async (req, res) => {
 
   }catch(e){
     console.error('[erro]', req.method, req.url, '→', e.message);
-    return json(res, 400, { message: e.message, code: e.code, hint: e.hint,
-                            details: e.detail });
+    /* O `status` do erro era IGNORADO: tudo saía como 400, inclusive o 401 de
+       chave no lugar errado e o de token vencido. Código que só vê 400 nunca
+       aprende a renovar a sessão — e em produção, onde o 401 é 401, some com
+       os dados da pessoa sem dizer nada. */
+    return json(res, e.status || 400,
+      { message: e.message, code: e.code, hint: e.hint, details: e.detail });
   }
 });
 

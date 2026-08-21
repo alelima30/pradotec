@@ -287,6 +287,74 @@ console.log('\nOs cabeçalhos da chave');
     'status ' + nos_dois.status);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   A SESSÃO QUE VENCE NO MEIO DO EXPEDIENTE
+
+   O token do Supabase vale uma hora. Junto dele vem um `refresh_token`, que
+   serve para trocá-lo por outro sem pedir a senha de novo. Nós guardávamos
+   esse refresh desde o primeiro dia e NUNCA o usávamos.
+
+   Uma hora depois do login, então: 401 em toda requisição, o `baixar()`
+   engolindo o 401 como "é o RLS funcionando", e o painel abrindo com tudo
+   vazio — "Nenhum salão nesta conta" para quem tem salão, agenda e caixa
+   lá dentro.
+
+   Aqui não pegava porque na bancada o token não vencia nunca. Agora ele
+   vence, e a porta `/_expirar` mata o token na hora, para o que em produção
+   leva uma hora acontecer aqui em um segundo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+secao('A sessão vence, e o sistema se vira sozinho');
+{
+  const p = novaAba();
+  const marca = 'renova-' + Date.now().toString(36);
+  await p.criarConta({ email: marca + '@teste.com', senha: 'minhasenhaboa',
+    nome: 'Marta Prado', telefone: '+5551' + (700000000 + (Date.now() % 99999999)) });
+  await p.chamar('criar_salao', { p_nome_salao: 'Salao ' + marca, p_tipo:'salao',
+    p_telefone:'(51) 99887-6655', p_documento:null, p_origem:null });
+
+  const antes = p.sessao();
+  dizer(!!antes.expiraEm && antes.expiraEm > Date.now(),
+    'o login anota QUANDO o token vence', JSON.stringify(antes.expiraEm));
+  dizer(!!antes.refresh, 'e guarda o refresh_token, que é o que renova');
+
+  // Mata o token que está na mão dela, como o relógio faria numa hora.
+  const morto = await fetch(BASE + '/_expirar',
+    { method:'POST', headers:{ Authorization: 'Bearer ' + antes.token } })
+    .then(r => r.json());
+  dizer(morto.expirado === true, 'a bancada mata o token, como o relógio faria');
+
+  const salos = await p.lista('saloes');
+  dizer(salos.length === 1,
+    'com o token vencido, a leitura AINDA funciona — renovou sozinha',
+    'vieram ' + salos.length + ' salões');
+  dizer(p.sessao() && p.sessao().token !== antes.token,
+    'e o token guardado é outro, não o que venceu');
+
+  /* A metade que importa: gravar. Uma renovação que só conserta a leitura
+     deixa a pessoa achando que o sistema voltou — e perdendo o que digita. */
+  const meu = salos[0];
+  await p.atualizar('saloes', meu.id, { whatsapp: '(51) 90000-0000' });
+  const conferido = (await p.lista('saloes'))[0];
+  dizer(conferido.whatsapp === '(51) 90000-0000',
+    'e a gravação também passa depois da renovação', conferido.whatsapp);
+
+  /* Quando nem o refresh vale mais, a sessão acabou de verdade. Aí o certo é
+     apagá-la: guardada, ela faria cada tela seguinte tentar e falhar calada.
+     E o `baixar()` precisa dizer `sessaoExpirou` — é o que separa "entre para
+     ver sua agenda" de "sua sessão expirou, seus dados estão todos lá". */
+  const viva = p.sessao();
+  await fetch(BASE + '/_expirar',
+    { method:'POST', headers:{ Authorization: 'Bearer ' + viva.token } });
+  p.sessao().refresh = 'refresh-que-nao-existe';
+
+  const bd = await p.baixar();
+  dizer(bd.sessaoExpirou === true,
+    'refresh recusado: o painel sabe que a sessão VENCEU, não que nunca houve');
+  dizer(bd.semSessao === true, 'e trata como sem sessão, para não abrir vazio');
+  dizer(p.sessaoAtual() === null,
+    'a sessão morta é apagada, em vez de ficar tentando para sempre');
+}
+
 console.log('\n' + (falhas
   ? `✗ ${falhas} de ${ok+falhas} falharam.`
   : `✓ ${ok} verificações contra um Postgres de verdade.`));

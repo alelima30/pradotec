@@ -282,6 +282,78 @@ async function conferir(resp){
   throw erro;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   A SESSÃO PRECISA SER RENOVADA — E NÃO ERA
+
+   O token de acesso do Supabase vale UMA HORA. Junto dele vem um
+   `refresh_token`, que existe para trocar o token vencido por um novo sem
+   pedir a senha de novo. Nós guardávamos esse refresh desde o primeiro dia e
+   NUNCA o usávamos.
+
+   O que isso fazia, uma hora depois do login:
+
+     · toda requisição ao banco voltava 401 (`PGRST301`, "JWT expired");
+     · o `baixar()` tratava 401 como "esta pessoa não alcança esta tabela —
+       é o RLS funcionando" e devolvia lista vazia;
+     · o painel abria inteiro, bonito, e dizia "Nenhum salão nesta conta"
+       para quem tem salão, agenda, clientes e caixa lá dentro.
+
+   Nenhum teste pegava porque na bancada o token não vencia nunca. Foi
+   preciso fazê-lo vencer lá (e ganhar a porta `/_expirar`) para o defeito
+   aparecer em segundos em vez de em uma hora.
+
+   `renovando` guarda a promessa em curso: o painel dispara umas quinze
+   requisições na abertura, e sem isso as quinze pediriam renovação ao mesmo
+   tempo. O refresh do Supabase é de uso único — a primeira renovação
+   funcionaria e as outras quatorze derrubariam a sessão.
+   ═══════════════════════════════════════════════════════════════════════════ */
+let renovando = null;
+
+function quandoVence(r){
+  if(r && r.expires_at) return Number(r.expires_at) * 1000;
+  return Date.now() + (Number((r && r.expires_in) || 3600) * 1000);
+}
+
+// Um minuto de folga: renovar em cima da hora perde a corrida com a rede.
+function perto_de_vencer(){
+  return !!(sessao && sessao.expiraEm && Date.now() > sessao.expiraEm - 60000);
+}
+
+async function renovarSessao(){
+  if(!sessao || !sessao.refresh) return false;
+  if(renovando) return renovando;
+  renovando = (async () => {
+    try{
+      const r = await auth('token?grant_type=refresh_token',
+                           { refresh_token: sessao.refresh });
+      guardarSessao({ token: r.access_token, refresh: r.refresh_token,
+        usuarioId: (r.user && r.user.id) || (sessao && sessao.usuarioId) || null,
+        expiraEm: quandoVence(r) });
+      return true;
+    }catch(e){
+      /* Refresh recusado é a sessão acabando de verdade — passou do prazo, ou
+         a pessoa saiu noutro aparelho. Apagar é o certo: guardada, ela faria
+         cada tela seguinte tentar e falhar de novo, calada. */
+      console.info('[dados] a sessão terminou: ' + e.message);
+      guardarSessao(null);
+      return false;
+    }finally{ renovando = null; }
+  })();
+  return renovando;
+}
+
+/* Faz a requisição com a sessão viva: renova ANTES se está no fim, e renova
+   DEPOIS se o servidor recusou por token vencido. Uma tentativa a mais, só
+   uma — repetir sem limite transformaria uma sessão morta em laço infinito. */
+async function comSessaoViva(tentar){
+  if(sessao && sessao.token && perto_de_vencer()) await renovarSessao();
+  let resp = await tentar();
+  if(resp.status === 401 && sessao && sessao.refresh){
+    if(await renovarSessao()) resp = await tentar();
+  }
+  return resp;
+}
+
 async function rest(caminho, opcoes){
   // ⚠ Os cabeçalhos são montados DEPOIS da cópia das opções, de propósito.
   //
@@ -294,10 +366,16 @@ async function rest(caminho, opcoes){
   // O erro só aparecia na gravação, nunca na leitura, e a mensagem apontava
   // para permissão de tabela — o lugar errado. Quem pegou foi o teste contra
   // um Postgres de verdade (tests/nuvem.test.mjs).
+  //
+  // E são montados A CADA TENTATIVA: depois de renovar a sessão, o token é
+  // outro. Reaproveitar o objeto de cabeçalhos mandaria o token vencido de
+  // novo, e a renovação não teria servido para nada.
   const o = Object.assign({}, opcoes || {});
-  o.headers = cabecalhos(o.headers);
+  const extras = o.headers;
+  const tentar = () => fetch(cfg.url + '/rest/v1/' + caminho,
+    Object.assign({}, o, { headers: cabecalhos(extras) }));
 
-  const resp = await fetch(cfg.url + '/rest/v1/' + caminho, o);
+  const resp = await comSessaoViva(tentar);
   await conferir(resp);
   const txt = await resp.text();
   return txt ? JSON.parse(txt) : null;
@@ -331,7 +409,7 @@ const Nuvem = {
       data: { nome, telefone } });
     if(r.access_token){
       guardarSessao({ token: r.access_token, refresh: r.refresh_token,
-                      usuarioId: r.user && r.user.id });
+                      usuarioId: r.user && r.user.id, expiraEm: quandoVence(r) });
     }
     return r;
   },
@@ -339,7 +417,7 @@ const Nuvem = {
   async entrar({ email, senha }){
     const r = await auth('token?grant_type=password', { email, password: senha });
     guardarSessao({ token: r.access_token, refresh: r.refresh_token,
-                    usuarioId: r.user && r.user.id });
+                    usuarioId: r.user && r.user.id, expiraEm: quandoVence(r) });
     return r;
   },
 
@@ -410,7 +488,7 @@ const Nuvem = {
   async conferirCodigo(telefone, codigo){
     const r = await auth('verify', { type: 'sms', phone: telefone, token: codigo });
     guardarSessao({ token: r.access_token, refresh: r.refresh_token,
-                    usuarioId: r.user && r.user.id });
+                    usuarioId: r.user && r.user.id, expiraEm: quandoVence(r) });
     return r;
   },
 
@@ -725,7 +803,19 @@ async function baixar(salaoId){
     return vazio;
   }
   const bd = {};
+  const falhas = [];
   for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)){
+    /* A sessão pode ter morrido no meio da descarga: a primeira tabela tenta,
+       leva 401, a renovação é recusada, e `sessao` some. Sem esta saída, as
+       catorze tabelas seguintes fariam catorze requisições sem token — todas
+       falhando — e o painel abriria vazio dizendo "nenhum salão nesta conta"
+       para quem só precisava entrar de novo. */
+    if(LIGADO && !(sessao && sessao.token)){
+      for(const r of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)) bd[r] = bd[r] || [];
+      bd.semSessao = true;
+      bd.sessaoExpirou = true;
+      return bd;
+    }
     try{
       /* ── QUEM PODE SER FILTRADA POR SALÃO ────────────────────────────────
          Aqui havia uma lista escrita à mão — `['saloes','planos','perfis',
@@ -763,12 +853,17 @@ async function baixar(salaoId){
       if(/does not exist|malformed|invalid input|400/i.test(cru)){
         console.error('[dados] pergunta malfeita para "' + t + '" — isto é '
           + 'defeito do código, não permissão: ' + cru);
+        /* E agora sobe para a tela. Este ramo é defeito NOSSO, e ele passou
+           anos parecendo permissão justamente por morrer no console — que
+           ninguém abre no celular, que é onde o salão trabalha. */
+        falhas.push({ tabela: t, motivo: cru });
       } else {
         console.info('[dados] sem acesso a "' + t + '": ' + cru);
       }
       bd[t] = [];
     }
   }
+  if(falhas.length) bd.falhas = falhas;
   return bd;
 }
 
@@ -817,16 +912,20 @@ async function enviarImagem(salaoId, nomeArquivo, blob){
   if(!salaoId) throw new Error('Sem salão: não sei em que pasta guardar.');
   const caminho = salaoId + '/' + nomeArquivo;
 
-  const resp = await fetch(cfg.url + '/storage/v1/object/salao/' + caminho, {
-    method: 'POST',
-    headers: {
-      'apikey': cfg.chave,
-      'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
-      'Content-Type': blob.type || 'image/jpeg',
-      'x-upsert': 'true',
-    },
-    body: blob,
-  });
+  // Pelo `comSessaoViva()` como todo o resto: enviar a foto é justamente o
+  // tipo de coisa que se faz depois de uma hora de painel aberto, e um 401
+  // aqui apagaria a logo do salão sem explicar por quê.
+  const resp = await comSessaoViva(() =>
+    fetch(cfg.url + '/storage/v1/object/salao/' + caminho, {
+      method: 'POST',
+      headers: {
+        'apikey': cfg.chave,
+        'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
+        'Content-Type': blob.type || 'image/jpeg',
+        'x-upsert': 'true',
+      },
+      body: blob,
+    }));
   if(!resp.ok){
     const txt = await resp.text().catch(() => '');
     throw new Error('Falha ao enviar a imagem (' + resp.status + '): ' + txt);
@@ -839,13 +938,14 @@ async function enviarImagem(salaoId, nomeArquivo, blob){
 
 async function apagarImagem(salaoId, nomeArquivo){
   const caminho = salaoId + '/' + nomeArquivo;
-  const resp = await fetch(cfg.url + '/storage/v1/object/salao/' + caminho, {
-    method: 'DELETE',
-    headers: {
-      'apikey': cfg.chave,
-      'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
-    },
-  });
+  const resp = await comSessaoViva(() =>
+    fetch(cfg.url + '/storage/v1/object/salao/' + caminho, {
+      method: 'DELETE',
+      headers: {
+        'apikey': cfg.chave,
+        'Authorization': 'Bearer ' + ((sessao && sessao.token) || cfg.chave),
+      },
+    }));
   // 404 não é erro: o arquivo já não estava lá, que é o estado desejado.
   if(!resp.ok && resp.status !== 404){
     throw new Error('Falha ao apagar a imagem (' + resp.status + ').');
