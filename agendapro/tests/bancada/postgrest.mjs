@@ -8,6 +8,31 @@ import path from 'node:path';
 import pg from 'pg';
 
 const RAIZ = new URL('../..', import.meta.url).pathname;
+/* ── DATA É TEXTO, COMO O POSTGREST DE VERDADE DEVOLVE ────────────────────
+   O driver `pg` converte uma coluna `date` em objeto Date do JavaScript, e
+   `JSON.stringify` transforma isso em "2026-08-28T00:00:00.000Z". O PostgREST
+   do Supabase devolve "2026-08-28", e ponto.
+
+   A diferença não é acadêmica: a tela do plano faz
+   `trialAte.split('-')` para contar quantos dias faltam no teste grátis. Com
+   o formato do PostgREST, dá 28. Com o formato do driver, o terceiro pedaço
+   vira "28T00:00:00.000Z", o Number disso é NaN, e a tela mostra "faltam NaN
+   dia(s)".
+
+   Passei um tempo atrás desse defeito no produto. Ele não existe no produto:
+   existia AQUI. Bancada que mente é pior que bancada que falta — ela inventa
+   defeito e, do outro lado da moeda, esconde os de verdade.
+
+   1082 é o `date`, que sai cru: "2026-08-28", igual ao PostgREST.
+   1114 e 1184 são os timestamps. Esses o Postgres devolve com espaço no meio
+   ("2026-08-21 09:41:40+00") e o PostgREST devolve em ISO, com o T. Deixar o
+   formato do Postgres aqui seria trocar uma infidelidade por outra.
+   ──────────────────────────────────────────────────────────────────────── */
+pg.types.setTypeParser(1082, v => v);
+for(const oid of [1114, 1184]){
+  pg.types.setTypeParser(oid, v => (v == null ? v : new Date(v).toISOString()));
+}
+
 const pool = new pg.Pool({ host:'/tmp', port:5444, user:'postgres', database:'app' });
 
 const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8',
