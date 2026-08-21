@@ -193,6 +193,55 @@ igual('sem erro de JavaScript no tema claro',
 await q.close();
 
 /* ══════════════════════════════════════════════════════════════════════════
+   A FOTO DA CASA COMO FAIXA DO TOPO
+
+   É o que todo aplicativo de reserva faz, e por um motivo bom: a foto é a
+   única coisa da tela que diz "este lugar existe e é assim". Aqui ela era um
+   cartão comum no meio da página, depois do nome e dos botões — o lugar onde
+   já não convence ninguém.
+
+   E o nome NÃO vai por cima dela: escrever sobre foto de terceiro é apostar
+   na foto. Uma parede clara e o texto branco some; uma escura e o preto
+   some. Fica abaixo, no fundo da página, onde o contraste é sempre o mesmo.
+   ══════════════════════════════════════════════════════════════════════════ */
+secao('Com foto do salão, e sem');
+
+const FOTO = 'data:image/svg+xml;base64,' + Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450">'
+  + '<rect width="800" height="450" fill="#3b3128"/></svg>').toString('base64');
+await d.atualizar('saloes', salaoId, { capa: FOTO });
+
+const f = await abrir();
+verdade('a foto vira a faixa do topo', await f.isVisible('.hero-foto'));
+verdade('sangrando pelas bordas, sem moldura dos lados',
+  await f.evaluate(() => document.querySelector('.hero-foto').getBoundingClientRect().width
+                      >= document.documentElement.clientWidth - 1),
+  'foto com moldura branca dos lados parece anúncio colado, não a casa');
+verdade('e ela começa no topo da tela, sem faixa morta acima',
+  await f.evaluate(() => document.querySelector('.hero-foto').getBoundingClientRect().top <= 1),
+  'sobrava o cabeçalho vazio empurrando a imagem para baixo');
+verdade('o nome fica ABAIXO da foto, não escrito por cima dela',
+  await f.evaluate(() => {
+    const foto = document.querySelector('.hero-foto').getBoundingClientRect();
+    const nome = document.querySelector('.marca-salao h2').getBoundingClientRect();
+    return nome.top >= foto.bottom;
+  }));
+verdade('e a mesma foto não aparece duas vezes na rolagem',
+  await f.evaluate(() => !document.querySelector('#capaFoto .capa-foto')));
+igual('sem erro de JavaScript', f.erros.length ? f.erros.join(' | ') : 0, 0);
+await f.close();
+
+await d.atualizar('saloes', salaoId, { capa: null });
+const g = await abrir();
+verdade('sem foto, não sobra faixa nenhuma', !(await g.isVisible('.hero-foto')));
+verdade('e o cabeçalho volta, porque agora ele tem função',
+  await g.evaluate(() => !document.body.classList.contains('capa-com-foto')));
+verdade('a capa continua apresentável: selo, nome e endereço no fundo liso',
+  await g.isVisible('.marca-selo') && await g.isVisible('.marca-salao h2'));
+igual('sem erro de JavaScript', g.erros.length ? g.erros.join(' | ') : 0, 0);
+await g.close();
+
+/* ══════════════════════════════════════════════════════════════════════════
    SALÃO QUE NUNCA ESCOLHEU NADA
    ══════════════════════════════════════════════════════════════════════════ */
 secao('Salão antigo, que nunca abriu a tela de aparência');

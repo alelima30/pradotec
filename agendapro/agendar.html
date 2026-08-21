@@ -1128,11 +1128,39 @@ function desenharSaloes(){
 }
 
 function desenharCapa(){
-  // A marca vem primeiro e grande. O cliente chega aqui por um link no
-  // WhatsApp, sem saber o que vai abrir — reconhecer a casa no primeiro
-  // segundo é o que separa "é do meu salão" de "isso é golpe".
+  /* ── A FOTO DA CASA COMO FAIXA DO TOPO ──────────────────────────────────
+     A marca vem primeiro e grande: o cliente chega aqui por um link no
+     WhatsApp, sem saber o que vai abrir, e reconhecer a casa no primeiro
+     segundo é o que separa "é do meu salão" de "isso é golpe".
+
+     Quando há foto do salão, ela ocupa a faixa inteira do topo — sangrando
+     pelas bordas — e a logo fica montada na beira de baixo dela. É o que
+     todo aplicativo de reserva faz, e por um motivo bom: a foto é a única
+     coisa da tela que diz "este lugar existe e é assim".
+
+     Antes essa foto era um cartão comum no meio da página, depois do nome e
+     dos botões — o lugar onde ela já não convence ninguém de nada.
+
+     ⚠ O NOME NÃO VAI POR CIMA DA FOTO. Escrever sobre foto de terceiro é
+     apostar na foto: uma parede clara e o texto branco some; uma escura e o
+     preto some. Nenhum véu resolve os dois sem sujar a imagem. Aqui a faixa
+     é só imagem, e nome e endereço ficam ABAIXO dela, no fundo da página,
+     onde o contraste é o mesmo sempre.
+
+     Sem foto, fica exatamente a capa de antes: selo, nome e endereço no
+     fundo liso. Salão que ainda não subiu nada continua apresentável. */
+  const temFoto = !!salao.capa;
+  /* Com foto, o cabeçalho sai de cena. Na capa ele já está transparente e sem
+     texto — sobrava uma faixa morta de uns 90px empurrando a imagem para
+     baixo, e a foto que devia ser a primeira coisa da tela começava depois de
+     um vazio. O que ele carregaria (o atalho para "meus horários") está no
+     cartão de boas-vindas e no aviso logo abaixo. */
+  document.body.classList.toggle('capa-com-foto', temFoto);
   document.getElementById('capaMarca').innerHTML = `
-    <div class="marca-salao">
+    ${temFoto ? `<div class="hero-foto"
+                   style="background-image:url('${salao.capa}')"
+                   role="img" aria-label="Foto de ${salao.nome}"></div>` : ''}
+    <div class="marca-salao${temFoto ? ' com-foto' : ''}">
       <div class="marca-selo">
         ${salao.logo ? `<img src="${salao.logo}" alt="">`
                      : (salao.nome || '?').trim().charAt(0).toUpperCase()}
@@ -1141,10 +1169,9 @@ function desenharCapa(){
       <p class="sub">${Endereco.linha(salao.endereco) || 'Agende seu horário'}</p>
     </div>`;
 
-  document.getElementById('capaFoto').innerHTML = salao.capa
-    ? `<div class="capa-foto"><img src="${salao.capa}" alt="${salao.nome}"
-         loading="lazy"></div>`
-    : '';
+  // A foto do salão agora é a faixa do topo; repeti-la aqui seria a mesma
+  // imagem duas vezes na mesma rolagem.
+  document.getElementById('capaFoto').innerHTML = '';
 
   /* ── O CONVITE, ANTES DA ROLAGEM ────────────────────────────────────────
      Quem abre este link veio do WhatsApp para marcar horário. O botão fixo

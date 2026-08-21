@@ -819,6 +819,27 @@ body[data-passo="capa"] .cabeca h1,
 body[data-passo="capa"] .cabeca #subSalao{ display:none }
 body[data-passo="capa"] .cabeca-linha{ min-height:34px }
 
+/* ── A FAIXA DE FOTO DO TOPO ───────────────────────────────────────────────
+   Sangra pelas bordas: os 18px de respiro do conteúdo são desfeitos com
+   margem negativa, porque foto de capa com moldura branca dos lados parece
+   anúncio colado, não a casa.
+
+   O `--topo-negativo` sobe também o cabeçalho, para a foto encostar na barra
+   do navegador — na capa o cabeçalho já está transparente e sem texto. */
+body.capa-com-foto[data-passo="capa"] .cabeca{ display:none }
+.hero-foto{
+  margin:-18px -18px 0; aspect-ratio:16 / 9;
+  background:var(--painel2) center/cover no-repeat;
+  border-bottom:1px solid var(--borda);
+}
+/* Com foto, a logo monta na beira de baixo dela — o anel na cor do fundo é o
+   que a recorta da imagem sem precisar de sombra. */
+.marca-salao.com-foto{ padding-top:0 }
+.marca-salao.com-foto .marca-selo{
+  margin-top:-38px; position:relative;
+  box-shadow:0 0 0 4px var(--bg), var(--sombra-md);
+}
+
 .marca-salao{ text-align:center; padding:6px 0 18px }
 .marca-selo{
   width:76px; height:76px; margin:0 auto 12px;
