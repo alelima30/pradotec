@@ -25,7 +25,7 @@ const vm = require('vm');
 
 const RAIZ = path.dirname(__dirname);
 const TELAS = ['app.html', 'agendar.html', 'criar.html', 'entrar.html',
-               'admin.html', 'index.html'];
+               'admin.html', 'index.html', 'nova-senha.html'];
 const AVULSOS = ['dados.js', 'demo.js', 'imagens.js', 'icones.js',
                  'endereco.js', 'config.js', 'sw.js'];
 

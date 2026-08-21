@@ -33,7 +33,17 @@ for(const oid of [1114, 1184]){
   pg.types.setTypeParser(oid, v => (v == null ? v : new Date(v).toISOString()));
 }
 
-const pool = new pg.Pool({ host:'/tmp', port:5444, user:'postgres', database:'app' });
+/* Aqui na máquina de desenvolvimento o Postgres atende num socket em /tmp,
+   na porta 5444. No CI ele é um serviço em localhost:5432, com senha. Ler do
+   ambiente é o que deixa o mesmo arquivo servir aos dois — e as variáveis são
+   as mesmas que o `psql` já entende, então quem roda não aprende nada novo. */
+const pool = new pg.Pool({
+  host:     process.env.PGHOST     || '/tmp',
+  port:     Number(process.env.PGPORT || 5444),
+  user:     process.env.PGUSER     || 'postgres',
+  password: process.env.PGPASSWORD || undefined,
+  database: process.env.PGDATABASE || 'app',
+});
 
 const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8',
   // .svg entrou quando o logotipo apareceu quebrado no painel da plataforma:
@@ -44,6 +54,10 @@ const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; char
 // token → id do usuário. O Supabase usa JWT assinado; aqui basta o mapa,
 // porque quem confere de verdade é o RLS a partir de request.jwt.claim.sub.
 const sessoes = new Map();
+
+// e-mail → token de recuperação. Só a bancada tem isto: o Supabase manda por
+// e-mail, e aqui não há caixa postal. O teste pesca em /_recuperacao.
+const recuperacoes = new Map();
 
 // As imagens enviadas, em memória. O processo é descartável; ninguém precisa
 // delas depois que o teste termina.
@@ -132,9 +146,10 @@ const http_ = http.createServer(async (req, res) => {
            metadados e para. Quem cria o perfil é o gatilho do 08_conta.sql.
            Se ele sumir, os testes caem — que é o ponto. */
         const id = await pool.query(
-          `insert into auth.users (id, email, raw_user_meta_data)
-                values (gen_random_uuid(), $1, $2::jsonb) returning id`,
-          [b.email, JSON.stringify(b.data || {})]).then(r => r.rows[0].id);
+          `insert into auth.users (id, email, raw_user_meta_data, encrypted_password)
+                values (gen_random_uuid(), $1, $2::jsonb, $3) returning id`,
+          [b.email, JSON.stringify(b.data || {}), b.password || null])
+          .then(r => r.rows[0].id);
         const tok = 't' + (++seq); sessoes.set(tok, id);
         return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
       }
@@ -165,9 +180,18 @@ const http_ = http.createServer(async (req, res) => {
       }
 
       if(acao.startsWith('token')){
-        const id = await pool.query("select id from auth.users where email=$1", [b.email])
-          .then(r => r.rows[0] && r.rows[0].id);
-        if(!id) return json(res, 400, { error_description: 'Invalid login credentials' });
+        /* A senha é CONFERIDA aqui. Antes não era, e isso fazia um teste
+           dizer "entra com a senha nova" passando também com a senha errada
+           — a asserção parecia forte e não valia nada. Trocar de senha só é
+           uma funcionalidade se a velha parar de funcionar. */
+        const { rows } = await pool.query(
+          "select id, encrypted_password from auth.users where lower(email)=lower($1)",
+          [b.email || '']);
+        const u = rows[0];
+        if(!u || (u.encrypted_password != null && u.encrypted_password !== b.password)){
+          return json(res, 400, { error_description: 'Invalid login credentials' });
+        }
+        const id = u.id;
         const tok = 't' + (++seq); sessoes.set(tok, id);
         return json(res, 200, { access_token: tok, refresh_token: 'r'+seq, user: { id } });
       }
@@ -176,7 +200,50 @@ const http_ = http.createServer(async (req, res) => {
         const a = (req.headers.authorization||'').replace('Bearer ','');
         sessoes.delete(a); return json(res, 204, {});
       }
+
+      /* ── ESQUECI MINHA SENHA ─────────────────────────────────────────
+         O Supabase responde 200 mesmo para e-mail que não existe, e isso
+         não é descuido: uma resposta diferente transformaria a tela num
+         verificador de contas para quem quiser saber quem usa o sistema.
+         A bancada faz igual — se ela distinguisse, um teste poderia passar
+         aqui e vazar lá.
+
+         O e-mail de verdade não é enviado (não há caixa postal nenhuma
+         aqui). Em vez disso o token fica guardado, e o teste o pesca por
+         `GET /_recuperacao?email=...` — que existe SÓ na bancada. */
+      if(acao === 'recover'){
+        const { rows } = await pool.query(
+          'select id from auth.users where lower(email) = lower($1)', [b.email || '']);
+        if(rows[0]){
+          const tok = 'rec' + (++seq);
+          sessoes.set(tok, rows[0].id);
+          recuperacoes.set(String(b.email).toLowerCase(), tok);
+        }
+        return json(res, 200, {});
+      }
+
+      if(acao === 'user' && (req.method === 'PUT' || req.method === 'PATCH')){
+        const id = usuarioDo(req);
+        if(!id) return json(res, 401, { message: 'não autenticado' });
+        if(b.password){
+          await pool.query(
+            'update auth.users set encrypted_password = $2 where id = $1',
+            [id, b.password]);
+        }
+        const { rows } = await pool.query(
+          'select id, email from auth.users where id = $1', [id]);
+        return json(res, 200, rows[0] || { id });
+      }
+
       return json(res, 404, { message: 'auth: ' + acao });
+    }
+
+    /* Só a bancada tem esta porta: devolve o token que o Supabase mandaria
+       por e-mail. Sem ela, o caminho de recuperar senha ficaria sem teste —
+       e é justamente o caminho que a pessoa usa quando já está com pressa. */
+    if(u.pathname === '/_recuperacao'){
+      const tok = recuperacoes.get(String(u.searchParams.get('email') || '').toLowerCase());
+      return json(res, tok ? 200 : 404, tok ? { access_token: tok } : {});
     }
 
     /* ── STORAGE ────────────────────────────────────────────────────────

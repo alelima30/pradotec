@@ -125,6 +125,13 @@ function paraBanco(tabela, obj){
   return saida;
 }
 
+/* Resposta de função que devolve ARRAY jsonb. Vem como a própria lista; se
+   algum dia vier embrulhada numa linha, o segundo caso desembrulha. */
+function listaJsonb(r){
+  if(Array.isArray(r)) return Array.isArray(r[0]) ? r[0] : r;
+  return r ? [r] : [];
+}
+
 function paraTela(tabela, linha){
   const mapa = COLUNAS[tabela] || {};
   const inverso = {};
@@ -268,6 +275,33 @@ const Nuvem = {
   // Código no WhatsApp: quem gera, valida e expira é o Supabase Auth. A
   // entrega passa pelo Send SMS Hook, que chama a Edge Function. Nada disso
   // acontece aqui — é justamente o ponto: o navegador nunca vê o código.
+  /* ── ESQUECI MINHA SENHA ────────────────────────────────────────────
+     O Supabase manda o e-mail; nós só pedimos. O `redirect_to` é para onde
+     o link do e-mail devolve a pessoa, e ele PRECISA estar na lista de
+     "Redirect URLs" do projeto — fora dela o Supabase manda para a home e a
+     pessoa clica no link, chega no lugar certo sem o token, e conclui que o
+     sistema está quebrado.
+
+     Nunca dizemos se o e-mail existe. Uma tela que responde "não achamos
+     esse e-mail" é um verificador de contas de graça para quem quiser saber
+     quem usa o sistema — e este é o mesmo motivo de o Supabase também
+     responder 200 para endereço que não existe. */
+  async pedirNovaSenha(email){
+    const volta = new URL('nova-senha.html', location.href).href;
+    await auth('recover', { email, gotrue_meta_security: {} });
+    return { redirect: volta };
+  },
+
+  /* Troca a senha de quem chegou pelo link do e-mail. O token de recuperação
+     vem no #fragmento da URL e já É uma sessão — por isso `guardarSessao()`
+     antes: sem Authorization, o PUT em /user é recusado. */
+  async trocarSenha({ token, refresh, senha }){
+    if(token) guardarSessao({ token, refresh: refresh || null, usuarioId: null });
+    const r = await auth('user', { password: senha }, 'PUT');
+    if(r && r.id) guardarSessao({ token, refresh: refresh || null, usuarioId: r.id });
+    return r;
+  },
+
   async pedirCodigo(telefone){
     return auth('otp', { phone: telefone, create_user: true });
   },
@@ -345,6 +379,46 @@ const Nuvem = {
     // Função que devolve escalar vem crua; a de conjunto vem em lista.
     const v = Array.isArray(r) ? r[0] : r;
     return v && v.salao ? v : null;
+  },
+
+  /* ── O QUE É DELA ─────────────────────────────────────────────────────
+     Marcar devolve um SEGREDO daquela marcação, e é ele que abre "meus
+     horários", cancelar e a lista de espera. Quem tem o segredo é quem
+     marcou — ninguém mais o viu passar.
+
+     Os segredos ficam no navegador, e por isso a lista é por APARELHO. É uma
+     limitação honesta: quem marcou no computador do trabalho precisa do link
+     para cancelar do celular. No dia em que houver SMS, ela cai. */
+  /* ── UMA ARMADILHA DO POSTGREST ────────────────────────────────────────
+     Função que devolve escalar vem CRUA, sem linha em volta. Estas devolvem
+     um array jsonb, então a resposta JÁ É a lista.
+
+     A primeira versão fazia `Array.isArray(r) ? r[0] : r`, copiado do
+     `vitrine()` — que devolve um OBJETO e por isso precisa desembrulhar.
+     Aqui isso pegava a primeira marcação e chamava de lista: a tela dizia
+     "nenhum horário" para quem tinha acabado de marcar. O mesmo padrão, o
+     resultado oposto, porque o tipo por dentro é outro. */
+  async meusAgendamentos(tokens){
+    return listaJsonb(await rest('rpc/meus_agendamentos', {
+      method: 'POST', body: JSON.stringify({ p_tokens: tokens || [] }) }));
+  },
+  async cancelarAgendamento(token){
+    return rest('rpc/cancelar_agendamento', {
+      method: 'POST', body: JSON.stringify({ p_token: token }) });
+  },
+  async entrarNaFila(dados){
+    // Esta devolve um OBJETO jsonb, e aí sim o desembrulho faz sentido.
+    const r = await rest('rpc/entrar_na_fila', {
+      method: 'POST', body: JSON.stringify(dados) });
+    return (Array.isArray(r) ? r[0] : r) || {};
+  },
+  async minhaFila(tokens){
+    return listaJsonb(await rest('rpc/minha_fila', {
+      method: 'POST', body: JSON.stringify({ p_tokens: tokens || [] }) }));
+  },
+  async sairDaFila(token){
+    return rest('rpc/sair_da_fila', {
+      method: 'POST', body: JSON.stringify({ p_token: token }) });
   },
 
   // Compatibilidade: quem só quer o salão continua chamando isto.
@@ -435,6 +509,8 @@ const Demo = {
     return { user: { id: p.id } };
   },
   async entrar(){ throw new Error('Login por senha só existe no modo nuvem.'); },
+  async pedirNovaSenha(){ throw new Error('Recuperação de senha só existe no modo nuvem.'); },
+  async trocarSenha(){ throw new Error('Recuperação de senha só existe no modo nuvem.'); },
   async pedirCodigo(){ return { demo: true }; },
   async conferirCodigo(telefone){
     const d = lerDemo();

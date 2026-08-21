@@ -616,6 +616,34 @@ let historico = [];
    vira, uma dessas contas erra em uma hora. Devolvendo ao banco exatamente a
    string que ele me deu, não existe conta para errar.
    ──────────────────────────────────────────────────────────────────────── */
+/* ── OS SEGREDOS DAS MARCAÇÕES DESTE APARELHO ─────────────────────────────
+   Marcar devolve um segredo daquela marcação; guardá-lo é o que permite ver,
+   cancelar e sair da fila depois. Quem tem o segredo é quem marcou.
+
+   Ficam separados da sessão de propósito: a sessão é "este aparelho lembra do
+   seu nome", e sair dela não pode apagar o direito de cancelar um horário.
+   ──────────────────────────────────────────────────────────────────────── */
+const CHAVE_TOKENS = 'agendapro.cliente.tokens.v1';
+
+function lerTokens(){
+  try{
+    const cru = localStorage.getItem(CHAVE_TOKENS);
+    const d = cru ? JSON.parse(cru) : {};
+    return { agendamentos: d.agendamentos || [], fila: d.fila || [] };
+  }catch(e){ return { agendamentos: [], fila: [] }; }
+}
+
+function guardarToken(tipo, token){
+  if(!token) return;
+  const d = lerTokens();
+  if(!d[tipo].includes(token)) d[tipo].push(token);
+  // Um aparelho não acumula mil marcações; 60 é folga larga e evita que o
+  // armazenamento cresça para sempre.
+  d[tipo] = d[tipo].slice(-60);
+  try{ localStorage.setItem(CHAVE_TOKENS, JSON.stringify(d)); }
+  catch(e){ console.error('[AgendaPro] não consegui guardar o código:', e); }
+}
+
 let vagas = {};
 let instantes = {};
 let vagasChave = null;       // a pergunta que gerou o que está em `vagas`
@@ -1076,16 +1104,8 @@ function desenhar(){
   if(tela === 'codigo')      { desenharCodigo();    bp.textContent='Confirmar código'; trilhaAte(0); }
   if(tela === 'nome')        { desenharNome();      bp.textContent='Continuar'; trilhaAte(0); }
   if(tela === 'confirmar')   { desenharConfirmar(); bp.textContent='Confirmar agendamento'; trilhaAte(4); }
-  if(tela === 'pronto')      {
-    // Na nuvem, "ver meus horários" levaria a um código de verificação e,
-    // no fim dele, ao aviso de que esta tela ainda não consulta a agenda.
-    // Três toques para chegar a uma negativa. O botão que sobra é o que
-    // realmente serve: marcar outro.
-    bp.textContent = NA_NUVEM ? 'Marcar outro horário' : 'Ver meus horários';
-    trilhaAte(0);
-    bs.style.display = NA_NUVEM ? 'none' : '';
-    bs.textContent = 'Marcar outro';
-  }
+  if(tela === 'pronto')      { bp.textContent='Ver meus horários'; trilhaAte(0);
+                               bs.style.display=''; bs.textContent='Marcar outro'; }
   if(tela === 'meus')        { desenharMeus();      bp.textContent='Agendar novo horário'; trilhaAte(0); }
 }
 
@@ -1568,29 +1588,14 @@ function desenharEspera(diaCheio){
     return;
   }
 
-  /* ── O BOTÃO QUE NÃO PODE EXISTIR AINDA ────────────────────────────────
-     A lista de espera grava em `bd.listaEspera`, que na nuvem é um vetor
-     vazio na memória desta aba: a cliente clicaria, leria "você está na lista
-     de espera", fecharia a página — e não haveria lista nenhuma. Ninguém
-     avisaria, e ela ficaria esperando um WhatsApp que não vem, achando que o
-     salão a esqueceu.
-
-     Promessa que o sistema não cumpre é pior que funcionalidade ausente.
-     Enquanto `lista_espera` não tiver a função pública para gravar de fora,
-     na nuvem esta tela oferece o caminho que funciona de verdade: falar com o
-     salão. */
+  /* Na nuvem a fila é do banco, e o pedido volta com um segredo que este
+     aparelho guarda — é com ele que a pessoa sai da lista depois. */
   if(NA_NUVEM){
-    const zap = (salao.whatsapp || salao.telefone || '').replace(/\D/g,'');
     alvo.innerHTML = diaCheio ? `
-      <div class="na-fila">
-        <b><span data-ico="sino"></span> Dia sem vaga</b>
-        Escolha outra data acima${zap ? ', ou chame ' + salao.nome
-          + ' no WhatsApp para entrar na lista de espera' : ''}.
-        ${zap ? `<div style="margin-top:9px">
-          <a class="bp" target="_blank" rel="noopener"
-             href="https://wa.me/${zap.length > 11 ? zap : '55' + zap}">Falar no WhatsApp</a>
-        </div>` : ''}
-      </div>` : '';
+      <button class="espera" onclick="entrarNaFila()">
+        <span data-ico="sino"></span> Entrar na lista de espera
+        <small>Avisamos assim que surgir uma vaga</small>
+      </button>` : '';
     return;
   }
 
@@ -1626,12 +1631,49 @@ function sairDaFila(id){
   salvar(); desenhar();
 }
 
-function confirmarFila(){
+async function confirmarFila(){
   const nome = (document.getElementById('filaNome').value || '').trim();
   const tel  = (document.getElementById('filaTel').value || '').trim();
   if(nome.length < 2 || soDigitos(tel).length < 10){
     document.getElementById('avisoFila').innerHTML =
       '<div class="recado erro">Precisamos do seu nome e de um WhatsApp válido para avisar.</div>';
+    return;
+  }
+
+  if(NA_NUVEM){
+    const bp = document.getElementById('btPrincipal');
+    const rotulo = bp.textContent;
+    bp.disabled = true; bp.textContent = 'Entrando na lista…';
+    try{
+      /* A duração NÃO vai daqui: `entrar_na_fila()` a calcula a partir dos
+         serviços, pelo mesmo motivo de `agendar()`. Se fosse do navegador, a
+         fila encheria de pedidos de três horas que ninguém pediu. */
+      const r = await Dados.entrarNaFila({
+        p_salao: salao.id,
+        p_servicos: escolha.servicos,
+        p_nome: nome,
+        p_telefone: tel,
+        p_de:  document.getElementById('filaDe').value,
+        p_ate: document.getElementById('filaAte').value,
+        p_profissional: escolha.profissionalId === '*' ? null : escolha.profissionalId,
+        p_turno: document.getElementById('filaTurno').value || 'qualquer',
+      });
+      if(r && r.token) guardarToken('fila', r.token);
+    }catch(e){
+      console.error('[AgendaPro] fila:', e);
+      document.getElementById('avisoFila').innerHTML =
+        '<div class="recado erro">' + (e.message || 'Não consegui agora.') + '</div>';
+      bp.disabled = false; bp.textContent = rotulo;
+      return;
+    }
+    bp.disabled = false; bp.textContent = rotulo;
+    // Guarda o nome e o telefone para a pessoa não redigitar na próxima tela.
+    if(!sessao) { sessao = { nome, telefone: tel, verificado: false }; guardarSessao(); }
+    meusDaNuvem = null;
+    alert('Pronto! Você está na lista.\n\nAssim que alguém cancelar nesse '
+        + 'período, o salão te chama no WhatsApp.');
+    historico = [];
+    irPara('quando', true);
     return;
   }
 
@@ -1820,6 +1862,141 @@ function desenharConfirmar(){
     <div class="l total"><span>Total</span><b>${real(precoEscolhido())}</b></div>`;
 }
 
+/* ── MEUS HORÁRIOS, NA NUVEM ──────────────────────────────────────────────
+   Pergunta ao banco pelos segredos que este aparelho guardou. O banco só
+   responde sobre os que reconhece — segredo inventado não devolve linha, e
+   não devolve mensagem diferente de "não é seu": qualquer diferença entre as
+   duas viraria um oráculo para quem estivesse tentando adivinhar.
+
+   `podeMexer` vem calculado de lá, e não daqui. É a mesma regra que
+   `cancelar_agendamento()` cobra — as duas pontas não podem discordar, senão
+   a tela oferece um botão que o banco recusa.
+   ──────────────────────────────────────────────────────────────────────── */
+let meusDaNuvem = null;
+
+async function desenharMeusDaNuvem(alvo){
+  const guardados = lerTokens();
+
+  if(!guardados.agendamentos.length && !guardados.fila.length){
+    alvo.innerHTML = '<div class="nada"><b>Nenhum horário neste aparelho</b>'
+      + 'Quando você marcar por aqui, aparece nesta tela. Marcações feitas '
+      + 'noutro celular ou computador ficam lá — a confirmação no WhatsApp '
+      + 'traz o link delas.</div>';
+    return;
+  }
+
+  if(meusDaNuvem === null){
+    alvo.innerHTML = '<div class="nada"><b>Buscando seus horários…</b></div>';
+    try{
+      const [ags, fila] = await Promise.all([
+        Dados.meusAgendamentos(guardados.agendamentos),
+        Dados.minhaFila(guardados.fila),
+      ]);
+      meusDaNuvem = { ags: ags || [], fila: fila || [] };
+    }catch(e){
+      console.error('[AgendaPro] meus horários:', e);
+      alvo.innerHTML = '<div class="nada"><b>Não consegui buscar agora.</b>'
+        + 'Pode ser a conexão. '
+        + '<button class="link" onclick="recarregarMeus()">Tentar de novo</button></div>';
+      return;
+    }
+    // O desenho é síncrono; agora que a resposta chegou, ele roda de novo.
+    return desenharMeusDaNuvem(alvo);
+  }
+
+  const { ags, fila } = meusDaNuvem;
+  if(!ags.length && !fila.length){
+    alvo.innerHTML = '<div class="nada"><b>Nenhum horário por aqui</b>'
+      + 'Os horários deste aparelho já passaram ou foram cancelados.</div>';
+    return;
+  }
+
+  const rotulo = {pendente:'Aguardando', confirmado:'Confirmado',
+    em_atendimento:'Em atendimento', concluido:'Atendido',
+    cancelado:'Cancelado', faltou:'Não compareceu'};
+  const classe = {pendente:'st-pend', confirmado:'st-conf', em_atendimento:'st-conf',
+    concluido:'st-conc', cancelado:'st-canc', faltou:'st-falt'};
+
+  const quando = (iso) => {
+    const { data, min } = noFuso(iso);
+    return dataLonga(data) + ' · ' + hm(min);
+  };
+
+  const cartao = a => `
+    <div class="item ${a.podeMexer ? '' : 'passado'}">
+      <div class="item-topo">
+        <div><h3>${(a.servicos || []).join(' + ') || 'Atendimento'}${
+          a.atendido ? ` <span class="selo-combo">${a.atendido}</span>` : ''}</h3>
+          <div class="q">${quando(a.inicio)}</div>
+          <div class="q">com ${a.profissional} · ${real(Number(a.valor) || 0)}</div></div>
+        <span class="selo-st ${classe[a.status] || ''}">${rotulo[a.status] || a.status}</span>
+      </div>
+      ${a.podeMexer ? `<div class="acoes">
+        <button class="bp perigo" onclick="cancelarNaNuvem('${a.token}')">Cancelar</button>
+      </div>` : ''}
+    </div>`;
+
+  const futuros = ags.filter(a => a.podeMexer);
+  const resto   = ags.filter(a => !a.podeMexer);
+
+  alvo.innerHTML =
+      (futuros.length ? '<div class="cat">Próximos</div>' + futuros.map(cartao).join('') : '')
+    + (fila.length ? '<div class="cat">Na lista de espera</div>'
+        + fila.map(e => `
+          <div class="item">
+            <div class="item-topo">
+              <div><h3>Esperando vaga</h3>
+                <div class="q">${e.de === e.ate ? 'em ' + dataLonga(e.de)
+                  : 'entre ' + dataCurta(e.de) + ' e ' + dataCurta(e.ate)}</div>
+                <div class="q">Avisamos no WhatsApp assim que abrir</div></div>
+              <span class="selo-st st-pend">Aguardando</span>
+            </div>
+            <div class="acoes">
+              <button class="bp" onclick="sairDaFilaNaNuvem('${e.token}')">Sair da lista</button>
+            </div>
+          </div>`).join('') : '')
+    + (resto.length ? '<div class="cat">Antes</div>' + resto.map(cartao).join('') : '');
+
+  /* Os cancelamentos de última hora não somem da tela: viram um recado sobre
+     o que fazer. Botão que desaparece perto da hora deixa a pessoa achando
+     que o sistema quebrou justo quando ela tem pressa. */
+  const emCima = ags.filter(a => !a.podeMexer
+    && ['pendente','confirmado'].includes(a.status)
+    && new Date(a.inicio) > new Date());
+  if(emCima.length){
+    alvo.innerHTML += '<div class="recado" style="margin-top:12px">'
+      + 'Para desmarcar com menos de 2 horas de antecedência, fale com '
+      + salao.nome + ' — a cadeira já não dá tempo de ser oferecida a outra '
+      + 'pessoa.</div>';
+  }
+}
+
+function recarregarMeus(){ meusDaNuvem = null; desenhar(); }
+
+async function cancelarNaNuvem(token){
+  if(!confirm('Cancelar este horário?')) return;
+  try{
+    await Dados.cancelarAgendamento(token);
+  }catch(e){
+    console.error('[AgendaPro] cancelar:', e);
+    alert(e.message || 'Não consegui cancelar agora.');
+  }
+  // Recarrega do banco em vez de riscar na tela: se o cancelamento falhou,
+  // mostrar "cancelado" seria a pior mentira possível aqui.
+  recarregarMeus();
+}
+
+async function sairDaFilaNaNuvem(token){
+  if(!confirm('Sair da lista de espera?')) return;
+  try{
+    await Dados.sairDaFila(token);
+  }catch(e){
+    console.error('[AgendaPro] sair da fila:', e);
+    alert(e.message || 'Não consegui sair da lista agora.');
+  }
+  recarregarMeus();
+}
+
 function desenharMeus(){
   const ficha = minhaFicha();
   document.getElementById('subMeus').textContent =
@@ -1828,25 +2005,15 @@ function desenharMeus(){
   const lista = meusAgendamentos();
   const alvo = document.getElementById('listaMeus');
 
-  /* ── NA NUVEM, ESTA TELA AINDA NÃO SABE ────────────────────────────────
-     Ver, cancelar e remarcar mexem em dado de alguém, então precisam de
-     prova de identidade — senão basta saber o telefone da vizinha para
-     cancelar o horário dela. A verificação por código aqui é simulada, e
-     ainda não existe no banco uma função que devolva "os horários deste
-     telefone" com essa prova.
+  /* ── NA NUVEM, QUEM RESPONDE É O BANCO ─────────────────────────────────
+     Ver e cancelar mexem em dado de alguém, então precisam de prova de
+     identidade — senão basta saber o telefone da vizinha para cancelar o
+     horário dela. A prova é o segredo que `agendar()` devolveu e este
+     aparelho guardou: quem o tem é quem marcou.
 
-     Enquanto não existe, o certo é DIZER isso. A alternativa seria cair no
-     "Nenhum horário por aqui" logo abaixo — que é falso, e é o pior tipo de
-     falso: a cliente marcou há dois minutos, abre esta tela, lê que não tem
-     nada, e marca de novo. Aí o salão tem duas cadeiras vendidas para a
-     mesma pessoa e uma reclamação para resolver no balcão. */
-  if(NA_NUVEM){
-    alvo.innerHTML = '<div class="nada"><b>Seus horários chegam pelo WhatsApp</b>'
-      + 'A confirmação e o lembrete vêm por lá. Para desmarcar ou trocar de '
-      + 'horário, fale com ' + salao.nome + ' — esta tela ainda não consulta a '
-      + 'agenda de quem já marcou.</div>';
-    return;
-  }
+     Sem SMS, sem código simulado, e sem a lista vazia mentirosa que estava
+     aqui antes. */
+  if(NA_NUVEM){ desenharMeusDaNuvem(alvo); return; }
 
   if(!lista.length){
     alvo.innerHTML = '<div class="nada"><b>Nenhum horário por aqui</b>'
@@ -1915,15 +2082,7 @@ function acaoPrincipal(){
   if(tela === 'codigo')    return conferirCodigo();
   if(tela === 'nome')      return salvarNome();
   if(tela === 'confirmar') return confirmarAgendamento();
-  if(tela === 'pronto'){
-    if(NA_NUVEM){
-      escolha = {servicos:[], profissionalId:null, data:null, inicio:null,
-                 para:'mim', filhoNome:''};
-      esquecerVagas();
-      return irPara('servico');
-    }
-    return abrirMeus();
-  }
+  if(tela === 'pronto')    return abrirMeus();
   if(tela === 'meus')      { escolha = {servicos:[], profissionalId:null, data:null,
                                         inicio:null, para:'mim', filhoNome:''};
                              return irPara('servico'); }
@@ -1933,6 +2092,16 @@ function acaoPrincipal(){
 // por isso que aqui exige: sem prova de identidade, bastaria saber o telefone
 // de alguém para cancelar o horário dessa pessoa.
 function abrirMeus(){
+  /* ── NA NUVEM A PROVA É OUTRA ──────────────────────────────────────────
+     O código por telefone aqui é simulado — não há provedor de SMS — e um
+     código simulado não prova nada: parece verificação e não é.
+
+     A prova de verdade é o segredo que este aparelho guardou ao marcar.
+     Quem o tem é quem marcou, e o banco só responde sobre os segredos que
+     recebe. Então não há código a pedir: a tela abre, e o que ela mostra já
+     é só o que é desta pessoa. */
+  if(NA_NUVEM){ meusDaNuvem = null; return irPara('meus'); }
+
   if(sessao && sessao.verificado) return irPara('meus');
   destinoAposCodigo = 'meus';
   irPara('telefone');
@@ -2200,15 +2369,24 @@ async function confirmarNaNuvem(profId, prof){
   bp.disabled = true; bp.textContent = 'Marcando…';
   aviso.innerHTML = '';
 
-  const marcar = (quandoIso, atendido) => Dados.chamar('agendar', {
-    p_profissional: profId,
-    p_inicio: quandoIso,
-    p_servicos: escolha.servicos,
-    p_nome: sessao.nome,
-    p_telefone: sessao.telefone,
-    p_atendido_nome: atendido || null,
-    p_obs: recado || null,
-  });
+  /* O `agendar()` devolve o segredo daquela marcação. Guardar aqui, e não
+     depois, é o que garante que ele não se perca se a tela seguinte falhar:
+     marcação feita sem o segredo guardado é marcação que a pessoa não
+     consegue mais cancelar sozinha. */
+  const marcar = async (quandoIso, atendido) => {
+    const r = await Dados.chamar('agendar', {
+      p_profissional: profId,
+      p_inicio: quandoIso,
+      p_servicos: escolha.servicos,
+      p_nome: sessao.nome,
+      p_telefone: sessao.telefone,
+      p_atendido_nome: atendido || null,
+      p_obs: recado || null,
+    });
+    const feito = Array.isArray(r) ? r[0] : r;
+    if(feito && feito.token) guardarToken('agendamentos', feito.token);
+    return feito;
+  };
 
   try{
     if(escolha.para === 'ambos'){

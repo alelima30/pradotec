@@ -42,7 +42,24 @@ if [ -z "${PLAYWRIGHT:-}" ]; then
   exit 1
 fi
 export PLAYWRIGHT
-export CHROMIUM="${CHROMIUM:-/opt/pw-browsers/chromium}"
+
+# ── Onde está o Chromium ───────────────────────────────────────────────────
+# Nesta máquina de desenvolvimento ele mora em /opt/pw-browsers/chromium. No
+# CI, quem sabe o caminho é o próprio Playwright, e apontar para /opt lá faria
+# TODAS as suítes de navegador falharem com "executable doesn't exist" — um
+# erro sobre caminho, que ninguém lê como "estou na outra máquina".
+if [ -z "${CHROMIUM:-}" ] && [ -x /opt/pw-browsers/chromium ]; then
+  CHROMIUM=/opt/pw-browsers/chromium
+fi
+if [ -z "${CHROMIUM:-}" ] || [ ! -x "$CHROMIUM" ]; then
+  CHROMIUM="$(node -e "console.log(require('$PLAYWRIGHT').chromium.executablePath())" 2>/dev/null || true)"
+fi
+if [ -z "${CHROMIUM:-}" ] || [ ! -x "$CHROMIUM" ]; then
+  echo "✗ Não achei o Chromium. Instale com 'npx playwright install chromium'"
+  echo "  ou aponte:  CHROMIUM=/caminho/para/chromium bash tests/tudo.sh"
+  exit 1
+fi
+export CHROMIUM
 
 ESTATICO="${ESTATICO:-http://127.0.0.1:8099}"
 BANCADA="${BANCADA:-http://127.0.0.1:8123}"
@@ -87,6 +104,7 @@ rodar "nuvem"              node "$AQUI/nuvem.test.mjs"
 rodar "cota"               node "$AQUI/cota.test.mjs"
 rodar "funil na nuvem"     node "$AQUI/funil-nuvem.test.mjs"
 rodar "link da cliente"    node "$AQUI/cliente-nuvem.test.mjs"
+rodar "senha"              node "$AQUI/senha.test.mjs"
 rodar "cadastro"           node "$AQUI/cadastro.test.mjs"
 rodar "abertura"           node "$AQUI/abertura.test.mjs"
 rodar "celular"            node "$AQUI/celular.test.mjs"
@@ -95,7 +113,7 @@ rodar "plataforma"         node "$AQUI/plataforma.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 12 suítes."
+  echo "✓ Tudo passou — as 13 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

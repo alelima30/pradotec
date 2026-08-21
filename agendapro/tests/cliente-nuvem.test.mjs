@@ -166,22 +166,10 @@ verdade('e a tela final diz o dia, a hora e com quem',
 igual('sem nenhum erro de JavaScript no caminho todo', erros.length, 0);
 igual('e sem nenhuma resposta de erro do servidor', ruins.join(' | '), '');
 
-/* ── O QUE A TELA PROMETE DEPOIS DE MARCAR ─────────────────────────────────
-   Estas duas verificações existem porque a versão anterior desta tela mentia
-   por omissão. `bd.agendamentos` é sempre vazio na nuvem, então "meus
-   horários" respondia "Nenhum horário por aqui" para quem tinha acabado de
-   marcar — e quem lê isso marca de novo, deixando o salão com duas cadeiras
-   vendidas para a mesma pessoa. */
-igual('o botão do fim oferece o que funciona, não o que ainda não existe',
-  (await p.textContent('#btPrincipal')).trim(), 'Marcar outro horário');
-
-await p.evaluate(() => irPara('meus'));
-await p.waitForTimeout(300);
-const meus = await p.textContent('#listaMeus');
-verdade('e "meus horários" diz a verdade em vez de dizer que não há nada',
-  meus.includes('chegam pelo WhatsApp'));
-verdade('sem afirmar que a pessoa não tem horário marcado',
-  !meus.includes('Nenhum horário por aqui'));
+/* Depois de marcar, o caminho natural é ver o que ficou marcado — e é para
+   lá que o botão leva. */
+igual('o botão do fim leva aos horários da pessoa',
+  (await p.textContent('#btPrincipal')).trim(), 'Ver meus horários');
 
 secao('O horário existe no banco, e é do salão');
 
@@ -230,6 +218,84 @@ const naMao = await fetch(BASE + '/rest/v1/rpc/agendar', {
     p_servicos: [corte.id], p_nome: 'Outra Pessoa', p_telefone: '51977665544' }) });
 verdade('e quem tentar marcar em cima dele na mão é recusado pelo banco',
   !naMao.ok);
+
+secao('Meus horários, e cancelar');
+
+/* ── A PROVA SEM SMS ──────────────────────────────────────────────────────
+   Marcar devolve um segredo daquela marcação, e o navegador guarda. É ele
+   que abre "meus horários" e o cancelamento — quem o tem é quem marcou.
+
+   Antes desta parte, a tela dizia que não sabia dos horários de ninguém: o
+   código por telefone é simulado, e código simulado não prova nada. O
+   segredo prova, e não custa provedor de SMS.
+   ──────────────────────────────────────────────────────────────────────── */
+await p.click('#btPrincipal');           // "Ver meus horários", na tela de pronto
+await p.waitForTimeout(2500);
+igual('a tela de "meus horários" abre sem pedir código', await tela(), 'meus');
+
+const meu = await p.textContent('#listaMeus');
+verdade('e mostra a marcação que acabou de ser feita', meu.includes('Corte feminino'));
+verdade('com quem atende', meu.includes('Marta Prado'));
+verdade('e o botão de cancelar', meu.includes('Cancelar'));
+
+/* ── O SEGREDO É A ÚNICA CHAVE ────────────────────────────────────────────
+   Uma aba nova, do mesmo salão, sem o segredo: não pode ver nada. Se
+   bastasse abrir o link do salão para ver marcações, o "meus horários" seria
+   uma lista pública das clientes da casa. */
+const bisbilhoteira = await nav.newContext({ viewport: { width: 430, height: 800 } });
+const b = await bisbilhoteira.newPage();
+await b.goto(BASE + '/agendar.html?salao=' + SLUG);
+await b.waitForTimeout(1500);
+await b.evaluate(() => irPara('meus'));
+await b.waitForTimeout(1500);
+const dela = await b.textContent('#listaMeus');
+verdade('outro aparelho, mesmo salão, não vê marcação nenhuma',
+  !dela.includes('Juliana') && !dela.includes('Corte feminino'));
+verdade('e a tela explica por quê, em vez de parecer quebrada',
+  dela.includes('Nenhum horário neste aparelho'));
+
+// Segredo inventado também não abre nada — é o teste do lado do banco,
+// refeito daqui para provar que a tela não contorna.
+const inventado = await b.evaluate(async () =>
+  (await Dados.meusAgendamentos(['99999999-9999-4999-8999-999999999999'])).length);
+igual('segredo inventado não devolve marcação nenhuma', inventado, 0);
+await bisbilhoteira.close();
+
+// Cancelar de verdade, e conferir no banco — não na tela.
+await p.evaluate(() => {
+  const b = [...document.querySelectorAll('#listaMeus button')]
+    .find(x => x.textContent.includes('Cancelar'));
+  if(b){ window.confirm = () => true; b.click(); }
+});
+await p.waitForTimeout(3000);
+
+const depoisDeCancelar = await dona.lista('agendamentos', { salaoId });
+igual('depois de cancelar, o banco marca como cancelado',
+  (depoisDeCancelar.find(a => a.id === ag.id) || {}).status, 'cancelado');
+
+secao('A lista de espera');
+
+/* Antes isto não existia na nuvem: o botão gravava num vetor da memória e
+   prometia um aviso que nunca sairia. Promessa que o sistema não cumpre é
+   pior que funcionalidade ausente — a pessoa fecha a página achando que está
+   na lista e espera um WhatsApp que não vem. */
+const fila = await p.evaluate(async (args) => {
+  const r = await Dados.entrarNaFila({
+    p_salao: args.salaoId, p_servicos: [args.servicoId],
+    p_nome: 'Juliana Ferreira', p_telefone: '51988776655',
+    p_de: args.hoje, p_ate: args.depois });
+  return r;
+}, { salaoId, servicoId: corte.id,
+     hoje: diaDoAg, depois: new Intl.DateTimeFormat('en-CA', {
+       timeZone:'America/Sao_Paulo', year:'numeric', month:'2-digit', day:'2-digit'
+     }).format(new Date(Date.now() + 5 * 86400000)) });
+
+verdade('entrar na fila devolve um segredo', !!(fila && fila.token));
+
+const naFila = await dona.lista('lista_espera', { salaoId });
+igual('e a linha existe no banco, do salão certo', naFila.length, 1);
+igual('com a duração que o BANCO calculou, não a que a tela mandou',
+  Number((naFila[0] || {}).duracaoMin), DURACAO);
 
 secao('A vitrine: o que a casa faz, sem tabela de preços');
 

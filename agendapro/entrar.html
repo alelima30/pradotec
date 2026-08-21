@@ -416,12 +416,44 @@ async function entrar(){
   }
 }
 
-function esqueci(){
-  mostrar('info', NA_NUVEM
-    ? '<span>Digite seu e-mail acima e fale com a gente pelo WhatsApp: a '
-      + 'recuperação por e-mail entra na próxima versão.</span>'
-    : '<span>Nesta demonstração não existe senha — o botão <b>Entrar no '
-      + 'painel</b> abre o sistema direto.</span>');
+async function esqueci(){
+  if(!NA_NUVEM){
+    mostrar('info', '<span>Nesta demonstração não existe senha — o botão '
+      + '<b>Entrar no painel</b> abre o sistema direto.</span>');
+    return;
+  }
+
+  const email = (document.getElementById('email').value || '').trim();
+  if(!email || !email.includes('@')){
+    mostrar('ruim', '<b>Digite seu e-mail no campo acima</b> e clique aqui de '
+      + 'novo. É para lá que mandamos o link.');
+    document.getElementById('email').focus();
+    return;
+  }
+
+  const bt = document.querySelector('.esqueci');
+  const rotulo = bt.textContent;
+  bt.disabled = true; bt.textContent = 'Enviando…';
+  try{
+    await Dados.pedirNovaSenha(email);
+  }catch(e){
+    console.error('[AgendaPro] recuperação:', e);
+    /* Nem aqui dizemos se o e-mail existe. A única falha que vale contar é a
+       de rede — as outras, contadas, viram um verificador de contas de graça
+       para quem quiser saber quem usa o sistema. */
+    mostrar('ruim', '<b>Não consegui enviar agora.</b> Verifique a conexão e '
+      + 'tente de novo em instantes.');
+    bt.disabled = false; bt.textContent = rotulo;
+    return;
+  }
+  bt.disabled = false; bt.textContent = rotulo;
+
+  /* A frase é deliberadamente "SE existir uma conta". Confirmar que o
+     endereço está cadastrado ajudaria quem tem a lista de e-mails a descobrir
+     quais são clientes — e não ajudaria em nada quem está tentando entrar. */
+  mostrar('ok', '<b>Se existir uma conta com <span class="mono">' + email
+    + '</span>, o link já está a caminho.</b><br>Ele vale por uma hora. Se não '
+    + 'chegar em alguns minutos, procure no lixo eletrônico.');
 }
 
 (function(){

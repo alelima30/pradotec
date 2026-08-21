@@ -18,8 +18,19 @@ create table if not exists auth.users (
   email              text,
   phone              text,
   raw_user_meta_data jsonb,
+  -- Guardada em texto puro, e só aqui: esta tabela vive num banco descartável
+  -- de teste. O Supabase guarda o hash, e nunca a expõe a ninguém.
+  --
+  -- Existe porque sem ela a bancada aceitava QUALQUER senha no login — e um
+  -- teste que diz "entra com a senha nova" passaria também com a senha
+  -- errada, provando nada. Trocar de senha só é uma funcionalidade se a
+  -- senha velha parar de funcionar.
+  encrypted_password text,
   created_at         timestamptz not null default now()
 );
+
+-- Bancos criados antes desta coluna existirem continuam servindo.
+alter table auth.users add column if not exists encrypted_password text;
 
 create or replace function auth.uid() returns uuid
 language sql stable as $$

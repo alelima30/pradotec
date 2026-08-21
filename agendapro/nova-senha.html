@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Nova senha — AgendaPro</title>
+<meta name="description" content="Escolha uma senha nova para entrar no painel." />
+<meta name="theme-color" content="#FFFFFF" />
+<meta name="robots" content="noindex" />
+<link rel="icon" type="image/png" href="icones/icone-192.png" />
+<style>
+/* ===========================================================================
+   AgendaPro — escolher uma senha nova
+   ---------------------------------------------------------------------------
+   A pessoa chega aqui pelo link do e-mail, e o link traz uma SESSÃO no
+   #fragmento da URL. Fragmento não vai para o servidor — fica só no
+   navegador — e é por isso que o Supabase manda o token por ali.
+
+   A tela é curta de propósito: quem chega aqui já esqueceu a senha uma vez
+   hoje e não quer ler nada.
+   =========================================================================== */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+body{
+  min-height:100dvh; display:grid; place-items:center; padding:22px;
+  background:var(--fundo); color:var(--txt);
+}
+.cartao{
+  width:100%; max-width:420px; background:var(--painel);
+  border:1px solid var(--borda); border-radius:var(--r);
+  padding:26px 24px 24px; box-shadow:var(--sombra-md);
+}
+.marca{display:flex;align-items:center;gap:9px;margin-bottom:20px;
+       font-weight:640;letter-spacing:-.02em;font-size:17px}
+.marca i{width:30px;height:30px;border-radius:var(--r-sm);display:grid;
+         place-items:center;background:var(--acao);color:var(--acao-txt);font-style:normal}
+h1{font-size:1.32rem;line-height:1.2;margin-bottom:7px}
+.sub{color:var(--txt2);font-size:14.5px;margin-bottom:20px}
+.campo{margin-bottom:15px}
+.campo label{display:block;font-size:12.5px;font-weight:600;color:var(--txt2);
+             margin-bottom:5px;letter-spacing:.01em}
+.campo input{
+  width:100%; padding:12px 13px; border-radius:var(--r-sm);
+  border:1px solid var(--borda); background:var(--painel2);
+}
+.campo input:focus{outline:2px solid var(--acao);outline-offset:1px;border-color:transparent}
+.grande{
+  width:100%; padding:13px; border-radius:var(--r-sm); font-weight:600;
+  font-size:15px; background:var(--acao); color:var(--acao-txt);
+}
+.grande[disabled]{opacity:.6;cursor:default}
+.aviso{
+  display:flex;gap:10px;padding:12px 14px;border-radius:var(--r-sm);
+  margin-bottom:16px;font-size:14px;line-height:1.5;
+  border:1px solid var(--borda);border-left:3px solid var(--acao);
+  background:var(--painel2);
+}
+.aviso.ruim{border-left-color:var(--pe-500);background:var(--pe-soft)}
+.aviso.ok{border-left-color:var(--su-500);background:var(--su-soft)}
+.aviso b{display:block;margin-bottom:2px}
+.pe{margin-top:16px;text-align:center;font-size:13.5px}
+.pe a{color:var(--txt2)}
+.forca{display:flex;gap:4px;margin-top:7px}
+.forca i{flex:1;height:3px;border-radius:2px;background:var(--borda)}
+.forca i.on{background:var(--acao)}
+.forca-txt{font-size:12px;color:var(--txt2);margin-top:5px}
+</style>
+<link rel="stylesheet" href="estilo.css" />
+</head>
+<body>
+
+<main class="cartao">
+  <div class="marca"><i>A</i><span>Agenda<b>Pro</b></span></div>
+
+  <div id="corpo">
+    <h1>Escolha uma senha nova</h1>
+    <p class="sub">Ela vale para entrar no painel do seu estabelecimento.</p>
+
+    <div id="aviso"></div>
+
+    <form id="form" onsubmit="event.preventDefault(); salvar();">
+      <div class="campo">
+        <label for="senha">Nova senha</label>
+        <input id="senha" type="password" autocomplete="new-password"
+               placeholder="pelo menos 8 caracteres" oninput="medir()">
+        <div class="forca"><i id="f1"></i><i id="f2"></i><i id="f3"></i></div>
+        <div class="forca-txt" id="fTxt"></div>
+      </div>
+      <div class="campo">
+        <label for="senha2">Repita a senha</label>
+        <input id="senha2" type="password" autocomplete="new-password"
+               placeholder="a mesma de cima">
+      </div>
+      <button class="grande" id="btSalvar" type="submit">Salvar e entrar</button>
+    </form>
+
+    <p class="pe"><a href="entrar.html">Voltar para a tela de entrar</a></p>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="dados.js"></script>
+<script>
+'use strict';
+
+const NA_NUVEM = !!(window.Dados && window.Dados.ligado);
+
+function mostrar(tipo, html){
+  document.getElementById('aviso').innerHTML =
+    '<div class="aviso ' + tipo + '">' + html + '</div>';
+}
+
+/* ── DE ONDE VEM O TOKEN ──────────────────────────────────────────────────
+   O Supabase devolve a pessoa com um #fragmento assim:
+
+     nova-senha.html#access_token=...&type=recovery&refresh_token=...
+
+   Fragmento não é enviado ao servidor — é a razão de o token vir por ali e
+   não na query. Lemos, guardamos na memória e LIMPAMOS a barra de endereço:
+   um token de recuperação no histórico do navegador é uma senha esquecida
+   num papel em cima da mesa.
+
+   Quando o link expira, o Supabase manda `error_description` no mesmo
+   fragmento — e essa mensagem, em inglês, é mais útil traduzida do que
+   escondida.
+   ──────────────────────────────────────────────────────────────────────── */
+let entrada = null;
+
+(function lerFragmento(){
+  const bruto = (location.hash || '').replace(/^#/, '');
+  const q = new URLSearchParams(bruto);
+
+  if(q.get('error') || q.get('error_description')){
+    const cru = q.get('error_description') || q.get('error') || '';
+    entrada = null;
+    mostrar('ruim', /expired|invalid/i.test(cru)
+      ? '<b>Este link já venceu.</b>Os links de recuperação valem por uma '
+        + 'hora. Peça um novo em <a href="entrar.html">Entrar</a> → "Esqueci '
+        + 'minha senha".'
+      : '<b>Não consegui usar este link.</b>' + cru);
+    document.getElementById('form').style.display = 'none';
+    return;
+  }
+
+  const token = q.get('access_token');
+  if(token) entrada = { token, refresh: q.get('refresh_token') };
+
+  // Tira o token da barra de endereço sem recarregar a página.
+  if(bruto){
+    try{ history.replaceState(null, '', location.pathname + location.search); }
+    catch(e){}
+  }
+})();
+
+if(!entrada && document.getElementById('form').style.display !== 'none'){
+  if(!NA_NUVEM){
+    mostrar('info', '<b>Esta é a demonstração.</b>Aqui não existe senha — o '
+      + 'botão <b>Entrar no painel</b> abre o sistema direto.');
+    document.getElementById('form').style.display = 'none';
+  } else {
+    /* Chegou sem token: digitou o endereço na mão, ou o link foi aberto duas
+       vezes e o fragmento se perdeu na primeira. Dizer isso é melhor que
+       mostrar um formulário que vai falhar no fim. */
+    mostrar('ruim', '<b>Falta o link do e-mail.</b>Esta página só funciona '
+      + 'aberta pelo link que mandamos. Peça um novo em '
+      + '<a href="entrar.html">Entrar</a> → "Esqueci minha senha".');
+    document.getElementById('form').style.display = 'none';
+  }
+}
+
+/* A mesma régra do cadastro: só tamanho. Regra de composição — "misture
+   letras e números" — produz "Senha123" e nada mais seguro; comprimento é o
+   que importa, e é o que o NIST recomenda desde 2017. */
+function medir(){
+  const s = document.getElementById('senha').value;
+  const n = s.length >= 12 ? (/[^a-zA-Z]/.test(s) ? 3 : 2) : (s.length >= 8 ? 1 : 0);
+  for(let i = 1; i <= 3; i++)
+    document.getElementById('f' + i).classList.toggle('on', i <= n);
+  document.getElementById('fTxt').textContent =
+    ['curta','fraca','boa','forte'][n];
+}
+
+async function salvar(){
+  const s1 = document.getElementById('senha').value;
+  const s2 = document.getElementById('senha2').value;
+
+  if(s1.length < 8){
+    mostrar('ruim', '<b>A senha precisa de pelo menos 8 caracteres.</b>'
+      + 'Uma frase curta funciona bem, e é mais fácil de lembrar.');
+    return;
+  }
+  if(s1 !== s2){
+    mostrar('ruim', '<b>As duas senhas não são iguais.</b>Confira a segunda.');
+    document.getElementById('senha2').focus();
+    return;
+  }
+
+  const bt = document.getElementById('btSalvar');
+  bt.disabled = true; bt.textContent = 'Salvando…';
+  try{
+    await Dados.trocarSenha({ token: entrada.token, refresh: entrada.refresh,
+                              senha: s1 });
+  }catch(e){
+    console.error('[AgendaPro] trocar senha:', e);
+    const cru = String(e.message || '');
+    mostrar('ruim', /expired|invalid|JWT/i.test(cru)
+      ? '<b>Este link já venceu.</b>Peça um novo em '
+        + '<a href="entrar.html">Entrar</a> → "Esqueci minha senha".'
+      : '<b>Não consegui trocar a senha.</b>' + cru);
+    bt.disabled = false; bt.textContent = 'Salvar e entrar';
+    return;
+  }
+
+  /* Trocada a senha, a pessoa JÁ ESTÁ logada — o token de recuperação virou
+     sessão. Mandar de volta para a tela de entrar seria pedir que ela digite
+     agora a senha que acabou de escolher. */
+  mostrar('ok', '<b>Senha trocada.</b>Abrindo o painel…');
+  setTimeout(() => { location.href = 'app.html'; }, 900);
+}
+</script>
+</body>
+</html>
