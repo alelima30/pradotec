@@ -14,6 +14,41 @@
 
 with
 
+-- A função que acha a ficha do cliente. Sem ela, a versão antiga (que
+-- procurava só pelo telefone) continua no ar, e agendar dá erro de chave
+-- duplicada para quem digita um número diferente do que está na ficha.
+ficha_uma(n) as (
+  select count(*) from pg_proc p
+    join pg_namespace nsp on nsp.oid = p.pronamespace
+   where nsp.nspname = 'public' and p.proname = 'ficha_do_cliente'
+),
+
+/* As três chaves que a vitrine passou a entregar. Isto também é o teste mais
+   sensível a UM acidente comum: colar o arquivo com as quebras de linha
+   perdidas. Quando isso acontece, cada `--` engole o resto da linha, quase
+   nada é executado — e o editor mesmo assim responde "Success. No rows
+   returned", porque um arquivo todo comentado de fato não faz nada.
+
+   Aqui não tem como enganar: ou a função nova está no banco, ou não está. */
+vitrine_nova(n) as (
+  select count(*) from (
+    select 1 from pg_proc p
+      join pg_namespace nsp on nsp.oid = p.pronamespace
+     where nsp.nspname = 'public' and p.proname = 'vitrine'
+       and pg_get_functiondef(p.oid) like '%''letra''%'
+    union all
+    select 1 from pg_proc p
+      join pg_namespace nsp on nsp.oid = p.pronamespace
+     where nsp.nspname = 'public' and p.proname = 'vitrine'
+       and pg_get_functiondef(p.oid) like '%''slideDe''%'
+    union all
+    select 1 from pg_proc p
+      join pg_namespace nsp on nsp.oid = p.pronamespace
+     where nsp.nspname = 'public' and p.proname = 'vitrine'
+       and pg_get_functiondef(p.oid) like '%''galeria''%'
+  ) x
+),
+
 -- 1) RLS ligado em toda tabela nossa. Tabela sem RLS no Supabase é tabela
 --    aberta na internet: a chave anônima está no HTML, por definição.
 esperadas(nome) as (
@@ -297,6 +332,23 @@ select * from (
          case when (select n from pol_img) = 4 then 'ok'
               else 'só ' || (select n from pol_img) || ' de 4 — um salão pode '
                    || 'trocar a imagem do outro' end
+
+  union all select 16,
+         case when (select n from ficha_uma) = 1 then '✓' else '✗' end,
+         'A ficha do cliente é procurada pelo perfil, não só pelo telefone',
+         case when (select n from ficha_uma) = 1 then 'ok'
+              else 'falta ficha_do_cliente() — quem marca com um número '
+                || 'diferente do que está na ficha leva "duplicate key value '
+                || 'violates unique constraint ux_cli_perfil" e não consegue '
+                || 'agendar. Cole o 00_tudo.sql inteiro de novo' end
+
+  union all select 17,
+         case when (select n from vitrine_nova) = 3 then '✓' else '✗' end,
+         'A vitrine entrega letra, slide e galeria para a capa',
+         case when (select n from vitrine_nova) = 3 then 'ok'
+              else 'a vitrine() é de uma versão anterior: a letra do nome, a '
+                || 'escolha do slide e a galeria de fotos e vídeos não chegam '
+                || 'na página da cliente. Cole o 00_tudo.sql inteiro de novo' end
 
   union all select 15,
          case when (select count(*) from concessao_faltando) = 0 then '✓' else '✗' end,
