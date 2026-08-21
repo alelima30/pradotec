@@ -133,18 +133,10 @@ begin
 
   v_perfil := auth.uid();
 
-  select c.id into v_cliente from public.clientes c
-   where c.salao_id = v_salao and c.telefone = v_tel;
-
-  if v_cliente is null then
-    insert into public.clientes (salao_id, perfil_id, nome, telefone)
-         values (v_salao, v_perfil, v_nome, v_tel)
-      returning clientes.id into v_cliente;
-  elsif v_perfil is not null then
-    update public.clientes
-       set perfil_id = coalesce(perfil_id, v_perfil)
-     where clientes.id = v_cliente;
-  end if;
+  -- Uma função só para as três chamadas — ver `ficha_do_cliente()` no
+  -- 05_agenda.sql. Aqui estava a terceira cópia da busca só-por-telefone,
+  -- e era ESTA a que rodava: o 09 substitui o agendar() do 05.
+  v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
@@ -356,13 +348,9 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  select c.id into v_cliente from public.clientes c
-   where c.salao_id = p_salao and c.telefone = v_tel;
-  if v_cliente is null then
-    insert into public.clientes (salao_id, perfil_id, nome, telefone)
-         values (p_salao, v_perfil, v_nome, v_tel)
-      returning clientes.id into v_cliente;
-  end if;
+  -- Mesma função das outras duas. Entrar na fila com um número diferente do
+  -- que está na ficha dava o mesmo erro de chave duplicada do agendamento.
+  v_cliente := public.ficha_do_cliente(p_salao, v_nome, v_tel);
 
   -- O mesmo freio de spam de `agendar()`, e pelo mesmo motivo: é um
   -- formulário aberto na internet.

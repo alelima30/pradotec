@@ -438,6 +438,81 @@ verdade('e continua lá depois de recarregar', !!rosto);
 verdade('e é um endereço do servidor, não a imagem inteira dentro da coluna',
   rosto && !rosto.startsWith('data:'));
 
+/* ══════════════════════════════════════════════════════════════════════════
+   A AGENDA TEM QUE SOBREVIVER AO SALVAMENTO
+
+   Relatado assim: "está dando bug na agenda quando acesso comanda e aperto
+   salvar ou mudo de dia". E era exatamente isso.
+
+   `salvar()` chamava `desmontarJornadas(bd)` e `desmontarAgenda(bd)` — no
+   objeto que a tela desenha. As duas mudam o formato NO LUGAR: `inicio`
+   deixa de ser minutos e vira instante ISO, `data` é apagada (não existe no
+   banco), a jornada vira linhas.
+
+   Então, ao fim de todo salvamento, a tela ficava segurando dados que ela
+   não sabe ler. A agenda esvaziava — a filtragem do dia procura `a.data`,
+   recém-apagada — e só voltava quando alguém recarregava a página. Por isso
+   "sumia e voltava", que é a pior forma de defeito: parece intermitente.
+
+   Medido, com um atendimento marcado no dia:
+
+       ANTES   1 cartão → salvar → 0 cartões, e o nome do cliente some
+       DEPOIS  1 cartão → salvar → 1 cartão
+
+   Nenhuma suíte pegava porque nenhuma salvava e DEPOIS olhava a agenda.
+   Esta olha.
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nA agenda depois de salvar, e depois de trocar de dia');
+
+await fecharModalAberto();
+await q.click('a:has-text("Agenda"), button:has-text("Agenda")');
+await q.waitForTimeout(900);
+
+/* Medido pelo DESENHO, não por dentro. O que quebrava era o formato na
+   memória, mas quem sofre é a agenda vazia — e um teste que espia variável
+   interna passa a proteger a implementação em vez do que a pessoa vê.
+
+   `top` em pixels é a prova de que a hora ainda é número: o cartão só tem
+   onde ser posto se `a.inicio` for minutos. Virando texto do banco, ou o
+   cartão some ou vai para o topo. */
+const naAgenda = () => q.evaluate(() => {
+  const cs = [...document.querySelectorAll('.grade .ag')];
+  return {
+    cartoes: cs.length,
+    posicionados: cs.filter(c => parseFloat(c.style.top) > 0).length,
+    texto: cs.map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | '),
+  };
+});
+
+const antesDeSalvar = await naAgenda();
+verdade('há atendimento desenhado na agenda antes de salvar',
+  antesDeSalvar.cartoes > 0, JSON.stringify(antesDeSalvar));
+
+// Salvar QUALQUER coisa — o estrago não dependia do que foi salvo.
+await q.click('a:has-text("Meu salão"), button:has-text("Meu salão")');
+await q.waitForTimeout(900);
+await q.click('button:has-text("Salvar dados")');
+await q.waitForTimeout(2500);
+await q.click('a:has-text("Agenda"), button:has-text("Agenda")');
+await q.waitForTimeout(900);
+
+const depoisDeSalvar = await naAgenda();
+igual('depois de salvar, a agenda continua com os mesmos atendimentos',
+  depoisDeSalvar.cartoes, antesDeSalvar.cartoes);
+igual('cada um no horário certo da coluna, e não empilhado no topo',
+  depoisDeSalvar.posicionados, antesDeSalvar.posicionados);
+igual('com o mesmo conteúdo de antes — nome, horário, serviço',
+  depoisDeSalvar.texto, antesDeSalvar.texto);
+
+// E o segundo caminho do relato: trocar de dia depois de ter salvado.
+await q.click('.ag-nav button:has-text("›"), button:has-text("›")');
+await q.waitForTimeout(700);
+await q.click('.ag-nav button:has-text("‹"), button:has-text("‹")');
+await q.waitForTimeout(900);
+igual('e voltando ao dia de hoje, os atendimentos ainda estão lá',
+  (await naAgenda()).cartoes, antesDeSalvar.cartoes);
+igual('sem nenhum aviso de erro em nada disso', avisos.join(' | '), '');
+
 await nav.close();
 console.log('');
 if (falhou) { console.log(`✗ ${falhou} de ${passou + falhou} falharam.`); process.exit(1); }

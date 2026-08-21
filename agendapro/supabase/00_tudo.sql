@@ -2153,15 +2153,87 @@ begin
   end loop;
 end $$;
 
+/* ---------------------------------------------------------------------------
+   4.5) ficha_do_cliente() — acha a ficha, ou cria
+
+   ⚠ ESTA FUNÇÃO EXISTE PORQUE A MESMA BUSCA ESTAVA ESCRITA TRÊS VEZES
+
+   `agendar()` aqui, `agendar()` de novo no 09_cliente.sql (que substitui
+   esta) e `entrar_na_fila()`. Três cópias, e a regra estava errada nas três
+   do mesmo jeito — procurava-se a ficha SÓ pelo telefone.
+
+   O estrago: quem já tinha ficha no salão e marcava digitando um número
+   diferente do que estava lá (trocou de chip, digitou o do marido, corrigiu
+   o DDD) não era encontrado, caía no insert, e o insert batia na trava
+   `ux_cli_perfil` — que existe justamente para a mesma pessoa não ter duas
+   fichas no mesmo salão. O que a cliente via, no fim de um agendamento
+   inteiro preenchido:
+
+       Não consegui marcar.
+       duplicate key value violates unique constraint "ux_cli_perfil"
+
+   Erro de banco em inglês na cara de quem só queria marcar horário, e sem
+   saída nenhuma: tentar de novo dava o mesmo. O salão perde a marcação e nem
+   fica sabendo que perdeu.
+
+   Agora quem está logado é procurado PELO PERFIL primeiro — é a identidade
+   que a trava protege. O telefone é o segundo caminho, para quem não tem
+   conta. E, corrigido num lugar só, fica corrigido nos três.
+   --------------------------------------------------------------------------- */
+create or replace function public.ficha_do_cliente(
+  p_salao uuid, p_nome text, p_tel text
+) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_perfil  uuid := auth.uid();
+  v_cliente uuid;
+begin
+  if v_perfil is not null then
+    select c.id into v_cliente from public.clientes c
+     where c.salao_id = p_salao and c.perfil_id = v_perfil;
+  end if;
+
+  if v_cliente is null and p_tel is not null then
+    select c.id into v_cliente from public.clientes c
+     where c.salao_id = p_salao and c.telefone = p_tel;
+  end if;
+
+  if v_cliente is null then
+    insert into public.clientes (salao_id, perfil_id, nome, telefone)
+         values (p_salao, v_perfil, p_nome, p_tel)
+      returning clientes.id into v_cliente;
+    return v_cliente;
+  end if;
+
+  /* Reencontrou a ficha. Só preenche o que falta: sobrescrever o nome
+     apagaria a correção que a recepção fez na ficha.
+
+     O telefone novo entra apenas se ninguém mais o tiver neste salão — a
+     outra trava, `ux_cli_tel`, derrubaria a marcação inteira, e a pessoa
+     está aqui para marcar horário, não para arrumar cadastro. Na dúvida fica
+     o que já estava, e o salão conserta pelo painel. */
+  update public.clientes c
+     set perfil_id = coalesce(c.perfil_id, v_perfil),
+         telefone  = case
+           when p_tel is null or p_tel = c.telefone then c.telefone
+           when exists (select 1 from public.clientes o
+                         where o.salao_id = p_salao
+                           and o.telefone = p_tel
+                           and o.id <> c.id) then c.telefone
+           else p_tel end
+   where c.id = v_cliente;
+
+  return v_cliente;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 5) agendar()
 --
 -- Marca de verdade. Recebe a lista de serviços, nunca a duração nem o preço.
 --
 -- Quem chama é `anon` (cliente sem login) ou `authenticated` (cliente com
--- conta). Nos dois casos a ficha do cliente é achada ou criada pelo telefone,
--- dentro daquele salão — o índice único (salao_id, telefone) garante que não
--- nasça ficha repetida, e `so_digitos()` garante que ele funcione.
+-- conta). Nos dois casos a ficha do cliente sai de `ficha_do_cliente()`, que
+-- procura pelo perfil de quem está logado antes de procurar pelo telefone.
 -- ---------------------------------------------------------------------------
 create or replace function public.agendar(
   p_profissional  uuid,
@@ -2241,26 +2313,10 @@ begin
   v_valor   := public.preco_dos_servicos(p_profissional, p_servicos);
   v_fim     := p_inicio + make_interval(mins => v_duracao);
 
-  -- ── A ficha do cliente ───────────────────────────────────────────────────
-  -- Quem está logado leva o agendamento para o perfil dele; quem não está
-  -- fica só com nome e telefone, e os dois se juntam no dia em que essa
-  -- pessoa criar conta com o mesmo número.
-  v_perfil := auth.uid();
-
-  select c.id into v_cliente from public.clientes c
-   where c.salao_id = v_salao and c.telefone = v_tel;
-
-  if v_cliente is null then
-    insert into public.clientes (salao_id, perfil_id, nome, telefone)
-         values (v_salao, v_perfil, v_nome, v_tel)
-      returning clientes.id into v_cliente;
-  elsif v_perfil is not null then
-    -- Reencontrou a ficha e agora sabe de quem é. Só preenche o que falta:
-    -- sobrescrever o nome apagaria a correção que a recepção fez na ficha.
-    update public.clientes
-       set perfil_id = coalesce(perfil_id, v_perfil)
-     where clientes.id = v_cliente;
-  end if;
+  -- A ficha do cliente. A regra inteira mora em `ficha_do_cliente()` — as
+  -- três funções que precisam dela chamam a mesma, e é por isso que ela
+  -- existe (ver o comentário lá em cima).
+  v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
   -- ── Freio de spam ────────────────────────────────────────────────────────
   -- Marcação online sem senha é um formulário aberto na internet. Sem limite,
@@ -2385,6 +2441,14 @@ end $$;
 -- consegue marcar e consegue ver horário vago; não consegue ler a agenda do
 -- salão nem a lista de clientes.
 -- ---------------------------------------------------------------------------
+/* ⚠ `ficha_do_cliente()` NÃO é para ser chamada de fora. Ela é `security
+   definer` e escreve em `clientes`: solta, deixaria qualquer visitante criar
+   e alterar ficha em QUALQUER salão, inclusive tomar um telefone de outra
+   pessoa. Postgres dá execute ao público em toda função nova, então tirar é
+   obrigatório — ela existe só para `agendar()` e `entrar_na_fila()`, que já
+   conferem tudo antes de chegar nela. */
+revoke all on function public.ficha_do_cliente(uuid, text, text) from public;
+
 revoke all on function public.horarios_livres(uuid, date, uuid[]) from public;
 revoke all on function public.agendar(uuid, timestamptz, uuid[], text, text, text, text)
   from public;
@@ -2506,7 +2570,14 @@ language sql stable security definer set search_path = public as $$
          precisar de migração. */
       'cor',  s.cfg->>'cor',
       'tema', s.cfg->>'tema',
-      'precoNaCapa', coalesce((s.cfg->>'precoNaCapa')::boolean, false)
+      'precoNaCapa', coalesce((s.cfg->>'precoNaCapa')::boolean, false),
+      -- A imagem de fundo da página, que o dono anexa em Identidade visual.
+      -- Mora no `cfg` e não numa coluna própria de propósito: `cfg` é jsonb
+      -- e já existe, então nenhum salão precisa de migração de tabela.
+      'fundo', s.cfg->>'fundo',
+      -- O brilho do botão principal. Ausente quer dizer LIGADO: é o padrão, e
+      -- assim salão criado antes disto existir já nasce com ele.
+      'brilho', coalesce((s.cfg->>'brilho')::boolean, true)
     ),
 
     'servicos', coalesce((
@@ -3105,18 +3176,10 @@ begin
 
   v_perfil := auth.uid();
 
-  select c.id into v_cliente from public.clientes c
-   where c.salao_id = v_salao and c.telefone = v_tel;
-
-  if v_cliente is null then
-    insert into public.clientes (salao_id, perfil_id, nome, telefone)
-         values (v_salao, v_perfil, v_nome, v_tel)
-      returning clientes.id into v_cliente;
-  elsif v_perfil is not null then
-    update public.clientes
-       set perfil_id = coalesce(perfil_id, v_perfil)
-     where clientes.id = v_cliente;
-  end if;
+  -- Uma função só para as três chamadas — ver `ficha_do_cliente()` no
+  -- 05_agenda.sql. Aqui estava a terceira cópia da busca só-por-telefone,
+  -- e era ESTA a que rodava: o 09 substitui o agendar() do 05.
+  v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
@@ -3328,13 +3391,9 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  select c.id into v_cliente from public.clientes c
-   where c.salao_id = p_salao and c.telefone = v_tel;
-  if v_cliente is null then
-    insert into public.clientes (salao_id, perfil_id, nome, telefone)
-         values (p_salao, v_perfil, v_nome, v_tel)
-      returning clientes.id into v_cliente;
-  end if;
+  -- Mesma função das outras duas. Entrar na fila com um número diferente do
+  -- que está na ficha dava o mesmo erro de chave duplicada do agendamento.
+  v_cliente := public.ficha_do_cliente(p_salao, v_nome, v_tel);
 
   -- O mesmo freio de spam de `agendar()`, e pelo mesmo motivo: é um
   -- formulário aberto na internet.

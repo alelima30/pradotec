@@ -59,7 +59,14 @@ language sql stable security definer set search_path = public as $$
          precisar de migração. */
       'cor',  s.cfg->>'cor',
       'tema', s.cfg->>'tema',
-      'precoNaCapa', coalesce((s.cfg->>'precoNaCapa')::boolean, false)
+      'precoNaCapa', coalesce((s.cfg->>'precoNaCapa')::boolean, false),
+      -- A imagem de fundo da página, que o dono anexa em Identidade visual.
+      -- Mora no `cfg` e não numa coluna própria de propósito: `cfg` é jsonb
+      -- e já existe, então nenhum salão precisa de migração de tabela.
+      'fundo', s.cfg->>'fundo',
+      -- O brilho do botão principal. Ausente quer dizer LIGADO: é o padrão, e
+      -- assim salão criado antes disto existir já nasce com ele.
+      'brilho', coalesce((s.cfg->>'brilho')::boolean, true)
     ),
 
     'servicos', coalesce((

@@ -242,6 +242,102 @@ igual('sem erro de JavaScript', g.erros.length ? g.erros.join(' | ') : 0, 0);
 await g.close();
 
 /* ══════════════════════════════════════════════════════════════════════════
+   O BOTÃO EM METAL, E O FUNDO QUE O DONO ANEXA
+
+   O metal sai TODO da cor escolhida, via `color-mix`: nenhuma cor nova entra,
+   então dourado vira ouro e grafite vira aço. E o brilho é opcional de duas
+   formas — o dono desliga em Aparência, e quem pediu ao celular para reduzir
+   animações não vê o movimento de jeito nenhum.
+
+   O fundo é o caso perigoso: foto atrás de texto é ilegível em metade das
+   vezes, e a foto é do salão — não dá para prever se vem parede branca ou
+   madeira escura. Por isso o véu, e por isso o teste mede o véu.
+   ══════════════════════════════════════════════════════════════════════════ */
+secao('O botão em metal, e o brilho');
+
+await d.atualizar('saloes', salaoId, { cfg: { cor:'#C8A33C', tema:'escuro' } });
+const mt = await abrir();
+const botao = await mt.evaluate(() => {
+  const b = document.querySelector('.boas-cta');
+  const e = getComputedStyle(b);
+  const luz = getComputedStyle(b, '::after');
+  return { fundo:e.backgroundImage, borda:e.borderTopColor, sombra:e.boxShadow,
+           anima:luz.animationName, recorta:e.overflow };
+});
+verdade('o botão principal é um degradê, não uma cor chapada',
+  /gradient/.test(botao.fundo));
+verdade('com borda própria, mais escura que o corpo — é o que dá o relevo',
+  botao.borda && botao.borda !== 'rgba(0, 0, 0, 0)');
+verdade('e sombra interna de luz em cima, que é o brilho da chapa',
+  /inset/.test(botao.sombra));
+verdade('a faixa de luz atravessa o botão', botao.anima === 'brilho-metal');
+verdade('e fica presa dentro dele, sem vazar pela borda',
+  botao.recorta === 'hidden');
+igual('sem erro de JavaScript', mt.erros.length ? mt.erros.join(' | ') : 0, 0);
+await mt.close();
+
+await d.atualizar('saloes', salaoId, { cfg: { cor:'#C8A33C', tema:'escuro', brilho:false } });
+const sb = await abrir();
+verdade('desligado em Aparência, o movimento some',
+  await sb.evaluate(() => getComputedStyle(
+    document.querySelector('.boas-cta'), '::after').animationName === 'none'));
+verdade('mas o metal fica — o que o dono desligou foi o movimento',
+  await sb.evaluate(() => /gradient/.test(
+    getComputedStyle(document.querySelector('.boas-cta')).backgroundImage)));
+await sb.close();
+
+/* Quem pediu ao sistema para parar de mover coisas não recebe uma faixa de
+   luz varrendo a tela a cada cinco segundos — isso passa longe de enfeite
+   para quem tem enxaqueca vestibular. */
+const rm = await ctx.newPage();
+await rm.emulateMedia({ reducedMotion:'reduce' });
+await d.atualizar('saloes', salaoId, { cfg: { cor:'#C8A33C', tema:'escuro' } });
+await rm.goto(BASE + '/agendar.html?salao=' + SLUG); await rm.waitForTimeout(2200);
+verdade('com "reduzir animações" ligado no aparelho, o brilho não roda',
+  await rm.evaluate(() => getComputedStyle(
+    document.querySelector('.boas-cta'), '::after').animationName === 'none'));
+await rm.close();
+
+secao('O fundo que o dono anexa');
+
+const PAREDE = 'data:image/svg+xml;base64,' + Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600">'
+  + '<rect width="900" height="1600" fill="#F5F0E6"/></svg>').toString('base64');
+await d.atualizar('saloes', salaoId,
+  { cfg: { cor:'#C8A33C', tema:'escuro', fundo: PAREDE } });
+
+const fd = await abrir();
+verdade('a foto vira uma camada presa na tela, atrás de tudo',
+  await fd.evaluate(() => {
+    const e = document.getElementById('fundoImagem');
+    if(!e) return false;
+    const c = getComputedStyle(e);
+    return c.position === 'fixed' && Number(c.zIndex) < 0;
+  }));
+verdade('e NÃO por background-attachment:fixed, que treme no Safari do iPhone',
+  await fd.evaluate(() => getComputedStyle(document.body).backgroundAttachment !== 'fixed'));
+verdade('com um véu por cima — sem ele, metade das fotos deixa o texto ilegível',
+  await fd.evaluate(() => {
+    const v = document.getElementById('fundoVeu');
+    if(!v) return false;
+    const o = Number(getComputedStyle(v).opacity);
+    return o > 0.5 && o < 1;
+  }));
+verdade('a página se marca como "tem fundo", para os cartões saberem',
+  await fd.evaluate(() => document.body.classList.contains('tem-fundo')));
+igual('sem erro de JavaScript', fd.erros.length ? fd.erros.join(' | ') : 0, 0);
+await fd.close();
+
+await d.atualizar('saloes', salaoId, { cfg: { cor:'#C8A33C', tema:'escuro' } });
+const sf = await abrir();
+verdade('sem fundo, nenhuma camada extra é criada',
+  await sf.evaluate(() => !document.getElementById('fundoImagem')
+                       && !document.getElementById('fundoVeu')));
+verdade('e a página não se diz "com fundo"',
+  await sf.evaluate(() => !document.body.classList.contains('tem-fundo')));
+await sf.close();
+
+/* ══════════════════════════════════════════════════════════════════════════
    SALÃO QUE NUNCA ESCOLHEU NADA
    ══════════════════════════════════════════════════════════════════════════ */
 secao('Salão antigo, que nunca abriu a tela de aparência');

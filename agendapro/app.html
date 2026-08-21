@@ -456,10 +456,16 @@ body.carregando-tudo .tela{ display:none }
                style="text-decoration:none">Abrir o app do cliente <span data-ico="externo"></span></a>
           </div>
         </div>
+        <!-- Aqui dizia "a regra que garante isso está no 02_rls.sql". Nome de
+             arquivo do código não quer dizer nada para quem tem salão, e o
+             efeito é o contrário do pretendido: em vez de tranquilizar, faz a
+             pessoa achar que precisa entender de banco de dados para confiar
+             no sistema. A garantia continua a mesma; o que muda é quem
+             consegue ler a frase. -->
         <div class="aviso neutro">
-          Abaixo, uma prévia do que a cliente enxerga: os horários <b>livres</b>.
-          Nome, telefone e histórico de quem já marcou não saem do banco — a
-          regra que garante isso está no <code>02_rls.sql</code>.
+          Abaixo, uma prévia do que a cliente enxerga: os horários
+          <b>livres</b>, e nada além disso. Nome, telefone e histórico de quem
+          já marcou ficam só aqui dentro, com você.
         </div>
         <div class="campo">
           <div class="passo">1 · SERVIÇO</div>
@@ -1941,11 +1947,25 @@ function pintarSalao(){
   const sl = acharSalao(salaoAtual);
   if(!sl) return;
 
+  /* ⚠ A CLASSE LEVA PREFIXO, E NÃO É FRESCURA DE NOMENCLATURA
+
+     Aqui era `class="foto-previa ${'$'}{chave}"` — o nome do campo virando
+     classe de CSS. Funcionou enquanto os campos se chamavam `logo` e `capa`.
+     No dia em que entrou o campo `fundo`, a prévia dele pegou de carona no
+     `.fundo` que já existia nesta página: o VÉU DO MODAL, que é
+     `position:fixed; inset:0`.
+
+     Resultado: um retângulo branco fixo cobrindo o canto superior da tela, em
+     cima do cabeçalho, engolindo o botão do menu no celular. Nada no código
+     do cartão estava errado — a colisão foi de nome, e nome de campo é
+     escolhido por outro motivo que não o CSS.
+
+     Com `fp-`, o espaço de nomes é nosso e a próxima chave nova entra segura. */
   const cartao = (chave, titulo, explica, formato) => `
     <div class="foto-linha">
-      <div class="foto-previa ${chave}">
-        ${sl[chave]
-          ? `<img src="${sl[chave]}" alt="">`
+      <div class="foto-previa fp-${chave}">
+        ${imagemDoSalao(sl, chave)
+          ? `<img src="${imagemDoSalao(sl, chave)}" alt="">`
           : `<span data-ico="${chave === 'logo' ? 'predio' : 'casa'}"></span>`}
       </div>
       <div class="foto-txt">
@@ -1954,11 +1974,11 @@ function pintarSalao(){
         <p class="fmt">${formato}</p>
         <div class="foto-acoes">
           <label class="btn btn-peq">
-            ${sl[chave] ? 'Trocar' : 'Escolher'} imagem
+            ${imagemDoSalao(sl, chave) ? 'Trocar' : 'Escolher'} imagem
             <input type="file" accept="image/*" hidden
                    onchange="subirImagemSalao('${chave}', this)">
           </label>
-          ${sl[chave] ? `<button class="btn btn-peq"
+          ${imagemDoSalao(sl, chave) ? `<button class="btn btn-peq"
              onclick="tirarImagemSalao('${chave}')">Remover</button>` : ''}
         </div>
       </div>
@@ -2074,6 +2094,13 @@ function pintarSalao(){
       <div class="regua" id="reguaPreco" style="justify-content:flex-start"></div>
       <p class="secao-sub" id="explicaPreco" style="margin-top:9px"></p>
 
+      <div class="rot" style="margin:18px 0 8px">Brilho no botão</div>
+      <div class="regua" id="reguaBrilho" style="justify-content:flex-start"></div>
+      <p class="secao-sub" style="margin-top:9px">O botão principal ganha
+        acabamento de metal na sua cor, com uma faixa de luz passando de
+        tempos em tempos. Quem pediu ao celular para reduzir animações não vê
+        o movimento — o acabamento fica de qualquer forma.</p>
+
       <div class="previa-fone" id="previaFone"></div>
 
       <div class="card-acoes">
@@ -2093,6 +2120,12 @@ function pintarSalao(){
         'A foto grande da vitrine. A da equipe funciona melhor que a da '
       + 'fachada vazia — o cliente quer ver quem vai atender.',
         'Deitada, tipo 3 por 2. JPG, PNG ou WEBP.')}
+      <div class="linha-fina"></div>
+      ${cartao('fundo', 'Fundo da página',
+        'Fica atrás de tudo, com um véu por cima para o texto continuar '
+      + 'legível. Foto de ambiente funciona melhor que foto com gente ou '
+      + 'letreiro — o que aparece dela é a atmosfera, não o detalhe.',
+        'Em pé, tipo 9 por 16. JPG, PNG ou WEBP.')}
     </div>
     ${Dados.ligado ? '' : `
     <div class="aviso info" style="margin-top:14px">
@@ -2125,6 +2158,10 @@ const CORES = [
   ['#0C7568', 'Verde'],    ['#1D4ED8', 'Azul'],   ['#C2410C', 'Laranja'],
   ['#3F3F46', 'Grafite'],
 ];
+const BRILHOS = [
+  [true,  'Ligado'],
+  [false, 'Desligado'],
+];
 const PRECOS = [
   [true,  'Mostrar',  'A cliente já vê quanto custa antes de escolher. Bom para '
                     + 'quem tem preço competitivo e não quer perguntas no WhatsApp.'],
@@ -2132,7 +2169,7 @@ const PRECOS = [
                     + 'hora de escolher o serviço. Bom para serviço que varia.'],
 ];
 
-let aparencia = null;      // { cor, tema, precoNaCapa }
+let aparencia = null;      // { cor, tema, precoNaCapa, brilho }
 let aparenciaDoSalao = null;
 
 function lerAparencia(){
@@ -2142,6 +2179,9 @@ function lerAparencia(){
     cor:  c.cor || CORES[1][0],
     tema: c.tema === 'escuro' ? 'escuro' : 'claro',
     precoNaCapa: c.precoNaCapa === true,
+    // Ausente quer dizer LIGADO — o mesmo que a `vitrine()` faz. Salão criado
+    // antes disto existir já nasce com o brilho, sem migração nenhuma.
+    brilho: c.brilho !== false,
   };
 }
 
@@ -2172,6 +2212,10 @@ function pintarAparencia(){
   const achado = PRECOS.find(p => p[0] === aparencia.precoNaCapa);
   document.getElementById('explicaPreco').textContent = achado ? achado[2] : '';
 
+  document.getElementById('reguaBrilho').innerHTML = BRILHOS.map(([v, rot]) =>
+    `<button type="button" class="${aparencia.brilho === v ? 'on' : ''}"
+             onclick="escolherBrilho(${v})">${rot}</button>`).join('');
+
   pintarPreviaFone();
 }
 
@@ -2194,6 +2238,7 @@ function letraSobre(hex){
 function escolherCor(hex){  aparencia.cor = hex;  pintarAparencia(); }
 function escolherTema(t){   aparencia.tema = t;   pintarAparencia(); }
 function escolherPreco(v){  aparencia.precoNaCapa = v; pintarAparencia(); }
+function escolherBrilho(v){ aparencia.brilho = v;      pintarAparencia(); }
 
 /* A prévia. Não é decoração: escolher cor sem ver onde ela cai é escolher no
    escuro, e o dono só descobriria o resultado abrindo o próprio link no
@@ -2208,13 +2253,16 @@ function pintarPreviaFone(){
   alvo.innerHTML =
     `<div class="fone ${escuro ? 'fone-escuro' : ''}"
           style="--marca:${aparencia.cor};--marca-txt:${letraSobre(aparencia.cor)}">
+       ${imagemDoSalao(sl, 'fundo')
+         ? `<div class="fone-fundo" style="background-image:url('${imagemDoSalao(sl, 'fundo')}')"></div>`
+         : ''}
        <div class="fone-topo">
          ${sl.logo ? `<img src="${sl.logo}" alt="">`
                    : `<div class="fone-selo">${(sl.nome || 'A').charAt(0)}</div>`}
          <b>${sl.nome || 'Seu salão'}</b>
          <span>Agende seu horário</span>
        </div>
-       <div class="fone-cta">Agendar horário</div>
+       <div class="fone-cta ${aparencia.brilho ? 'com-brilho' : ''}">Agendar horário</div>
        <div class="fone-svs">
          ${svs.length ? svs.map(s => `
            <div class="fone-sv">
@@ -2240,6 +2288,7 @@ function salvarAparencia(){
     cor: aparencia.cor,
     tema: aparencia.tema,
     precoNaCapa: aparencia.precoNaCapa,
+    brilho: aparencia.brilho,
   });
   salvar();
   const aviso = document.getElementById('salvouAparencia');
@@ -2356,13 +2405,32 @@ function salvarCadastroSalao(){
   }
 }
 
+/* ── ONDE CADA IMAGEM MORA ────────────────────────────────────────────────
+   `logo` e `capa` são colunas da tabela. O `fundo` mora em `saloes.cfg`, o
+   mesmo jsonb da cor e da janela da agenda — de propósito: `cfg` já existe,
+   então nenhum salão precisa de alteração de tabela para ganhar fundo.
+
+   Sem estas duas funções, cada tela teria que lembrar de onde vem qual, e a
+   que esquecesse gravaria uma coluna que não existe. */
+const NO_CFG = ['fundo'];
+function imagemDoSalao(sl, chave){
+  return NO_CFG.includes(chave) ? ((sl.cfg || {})[chave] || null)
+                                : (sl[chave] || null);
+}
+function gravarImagemSalao(sl, chave, valor){
+  if(!NO_CFG.includes(chave)){ sl[chave] = valor; return; }
+  // Objeto novo, nunca mutação: `cfg` guarda mais coisa com o tempo, e
+  // sobrescrever por atacado apagaria o que outra tela puser lá.
+  sl.cfg = Object.assign({}, sl.cfg, { [chave]: valor });
+}
+
 async function subirImagemSalao(chave, campo){
   const arquivo = campo.files && campo.files[0];
   if(!arquivo) return;
   campo.value = '';                       // deixa reescolher o mesmo arquivo
   try{
     const endereco = await Imagens.guardar(arquivo, chave, salaoAtual, chave);
-    acharSalao(salaoAtual)[chave] = endereco;
+    gravarImagemSalao(acharSalao(salaoAtual), chave, endereco);
     salvar(); pintar();
   }catch(e){
     alert(e.message);
@@ -2372,7 +2440,7 @@ async function subirImagemSalao(chave, campo){
 async function tirarImagemSalao(chave){
   if(!confirm('Remover esta imagem?')) return;
   const sl = acharSalao(salaoAtual);
-  sl[chave] = null;
+  gravarImagemSalao(sl, chave, null);
   salvar(); pintar();
   // Apagar do Storage é limpeza, não parte do salvamento: se falhar, a coluna
   // já está vazia e a imagem não aparece mais em lugar nenhum.
@@ -2877,9 +2945,23 @@ function desmontarAgenda(d){
 async function carregarTudo(){
   if(!NA_NUVEM) return carregar();
   try{
-    const d = montarAgenda(montarJornadas(sohMeusSaloes(await Dados.baixar(salaoAtual))));
-    _baixado = _copia(d);
-    return d;
+    const cru = sohMeusSaloes(await Dados.baixar(salaoAtual));
+
+    /* ── O RETRATO É NA FORMA DO BANCO, NÃO NA DA TELA ────────────────────
+       `_baixado` existe para uma coisa só: dizer o que MUDOU desde a última
+       leitura. Ele era guardado depois de montar — com `inicio` em minutos e
+       `data` como campo separado — e comparado, na hora de gravar, com um
+       `bd` já desmontado. Quer dizer: todo agendamento parecia diferente de
+       si mesmo em toda gravação, e saía um PATCH para cada um.
+
+       Guardado cru, os dois lados da comparação falam a mesma língua, e só
+       vai ao banco o que a pessoa mexeu de verdade.
+
+       A cópia é tirada DEPOIS do `sohMeusSaloes()` de propósito: se o
+       retrato tivesse salão que o `bd` não tem, a gravação leria isso como
+       "sumiu" e mandaria apagar. */
+    _baixado = _copia(cru);
+    return montarAgenda(montarJornadas(cru));
   }catch(e){
     console.error('[AgendaPro] não consegui ler o banco:', e);
     alert('Não consegui falar com o banco:\n\n' + e.message
@@ -2949,14 +3031,30 @@ function salvar(){
     // Grava no banco e só então atualiza o retrato. Se falhar, a pessoa
     // fica sabendo — tela dizendo "salvo" com banco vazio é o pior erro
     // possível num sistema de agenda.
-    // A jornada que a tela editou vira linha antes de subir. Sem esta linha,
-    // horário de trabalho nunca chegava ao banco: `jornada` é campo de tela e
-    // some no caminho.
-    desmontarJornadas(bd);
-    // A agenda também: `data` + minutos viram timestamptz antes de subir.
-    desmontarAgenda(bd);
-    Dados.subir(_baixado, bd)
-      .then(() => { _baixado = _copia(bd); })
+    /* ⚠ QUEM É DESMONTADO É A CÓPIA, NUNCA O `bd` DA TELA
+
+       Aqui estava `desmontarJornadas(bd)` e `desmontarAgenda(bd)`, direto no
+       objeto que a tela desenha. As duas funções mudam o formato NO LUGAR:
+       `inicio` deixa de ser minutos e vira instante ISO, `data` é APAGADA
+       (ela não existe no banco), a jornada vira linhas.
+
+       Ou seja, ao fim de todo salvamento a tela ficava segurando dados que
+       ela não sabe ler. O efeito, exatamente como foi relatado: abrir uma
+       comanda e apertar salvar, ou trocar de dia depois de salvar, e a
+       agenda aparecer vazia — a filtragem do dia procura `a.data`, que
+       acabou de ser apagada, e a hora do atendimento é um texto onde a tela
+       espera um número.
+
+       Nada estava errado no banco: era só a tela, com o dado no formato
+       errado, até alguém recarregar a página. Por isso "sumia e voltava".
+
+       A cópia resolve na raiz: o que vai ao banco é uma versão desmontada, e
+       o `bd` que a tela desenha continua intacto. */
+    const paraSubir = _copia(bd);
+    desmontarJornadas(paraSubir);
+    desmontarAgenda(paraSubir);
+    Dados.subir(_baixado, paraSubir)
+      .then(() => { _baixado = _copia(paraSubir); })
       .catch(async e => {
         console.error('[AgendaPro] falha ao gravar:', e);
         alert('NÃO consegui salvar no banco:\n\n' + limparRecusa(e.message)

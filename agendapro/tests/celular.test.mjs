@@ -47,6 +47,19 @@ const medir = () => p.evaluate(() => ({
     .map(e => e.tagName.toLowerCase() + ' @' + getComputedStyle(e).fontSize),
 }));
 
+/* ── NADA PODE COBRIR O BOTÃO DO MENU ─────────────────────────────────────
+   No celular a lateral é gaveta, e a gaveta abre por um botão só. Coberto,
+   não há segunda porta: a pessoa fica presa na aba em que estiver.
+
+   Aconteceu de verdade, e por um caminho que ninguém procuraria: o cartão de
+   foto montava a classe com o NOME DO CAMPO (`class="foto-previa fundo"`), e
+   já existia um `.fundo` global nesta página — o véu do modal,
+   `position:fixed; inset:0`. A prévia do campo novo virou uma camada fixa
+   cobrindo o canto de cima da tela.
+
+   A suíte pegou, mas só porque o clique seguinte falhou por timeout — trinta
+   segundos para dizer "algo está por cima". Esta pergunta responde na hora, e
+   diz o nome de quem está ali. */
 console.log('\nO app do salão, em 375px');
 await p.goto(BASE + 'app.html?demo=1');
 await p.waitForTimeout(900);
@@ -59,6 +72,18 @@ for(const aba of abas){
     await p.locator('.aba', { hasText: aba }).click();
     await p.waitForTimeout(450);
   }
+  // Antes de medir a aba: o botão que leva à PRÓXIMA continua alcançável?
+  const cobrindo = await p.evaluate(() => {
+    const b = document.querySelector('.menu-botao');
+    if(!b) return null;
+    const c = b.getBoundingClientRect();
+    const emCima = document.elementFromPoint(c.x + c.width/2, c.y + c.height/2);
+    return (emCima && (emCima === b || b.contains(emCima))) ? null
+         : (emCima ? (emCima.tagName + '.' + String(emCima.className)) : 'nada');
+  });
+  diz(cobrindo === null,
+    `${aba}: o botão do menu não está coberto por nada`, 'quem está ali: ' + cobrindo);
+
   const r = await medir();
   diz(r.vaza === 0, `${aba}: a página não rola para o lado`,
       `sobram ${r.vaza}px — quase sempre é min-width:auto em item flex`);

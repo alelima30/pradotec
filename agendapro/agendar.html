@@ -833,6 +833,9 @@ function bdDaVitrine(v){
       endereco: s.endereco, fuso: s.fuso,
       // A aparência que o salão escolheu no painel, em Meu salão.
       cor: s.cor, tema: s.tema, precoNaCapa: s.precoNaCapa === true,
+      // Ausente = ligado, a mesma regra da vitrine(): salão criado antes
+      // disto existir já nasce com o brilho, sem migração nenhuma.
+      fundo: s.fundo || null, brilho: s.brilho !== false,
       cfg: { diasLiberados: s.diasLiberados },
     }],
     servicos: (v.servicos || []).map(x => ({
@@ -2627,17 +2630,66 @@ function mexer(hex, p){
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+/* ── O FUNDO QUE O DONO ANEXOU ────────────────────────────────────────────
+   Duas camadas presas na tela: a foto e um véu da cor de fundo da página por
+   cima dela. O véu não é enfeite — sem ele, metade das fotos deixa o texto
+   ilegível, e a foto é do salão: não dá para prever se vem parede branca ou
+   madeira escura. Com véu, o contraste do texto continua o mesmo de sempre e
+   a foto vira atmosfera.
+
+   As camadas são criadas só quando há foto. Salão sem fundo não carrega nem
+   dois `<div>` a mais. */
+function aplicarFundo(url){
+  const tinha = document.getElementById('fundoImagem');
+  if(!url){
+    if(tinha) tinha.remove();
+    const veu = document.getElementById('fundoVeu');
+    if(veu) veu.remove();
+    document.body.classList.remove('tem-fundo');
+    return;
+  }
+  let foto = tinha;
+  if(!foto){
+    foto = document.createElement('div');
+    foto.id = 'fundoImagem'; foto.className = 'fundo-imagem';
+    const veu = document.createElement('div');
+    veu.id = 'fundoVeu'; veu.className = 'fundo-veu';
+    document.body.appendChild(foto);
+    document.body.appendChild(veu);
+  }
+  // Aspas simples no CSS e a URL entre elas: endereço do Storage traz `?v=`
+  // e outros caracteres que, soltos, quebram a propriedade inteira.
+  foto.style.backgroundImage = `url("${String(url).replace(/"/g, '%22')}")`;
+  document.body.classList.add('tem-fundo');
+}
+
 function aplicarAparencia(s){
   const raiz = document.documentElement;
 
-  if((s.tema || '') === 'escuro') raiz.setAttribute('data-tema', 'escuro');
+  /* Na nuvem a `vitrine()` entrega estas chaves soltas no salão; na
+     demonstração o salão é a linha crua, com tudo dentro de `cfg`. Ler os
+     dois lugares aqui é o que faz a mesma tela servir aos dois modos — e é
+     onde a prévia do painel e a página da cliente deixam de discordar. */
+  const c = s.cfg || {};
+  const tema  = s.tema  || c.tema  || '';
+  const fundo = s.fundo || c.fundo || null;
+  const brilho = (s.brilho !== undefined ? s.brilho : c.brilho) !== false;
+
+  if(tema === 'escuro') raiz.setAttribute('data-tema', 'escuro');
   else raiz.removeAttribute('data-tema');
+
+  aplicarFundo(fundo);
+  // O brilho do botão é escolha do salão. Vem ligado por padrão porque é o
+  // que o dono espera ao ver a prévia; quem achar demais desliga na tela de
+  // Aparência, e aí a classe some junto com a animação.
+  document.body.classList.toggle('sem-brilho', !brilho);
 
   // Sem cor escolhida, fica o roxo do AgendaPro — que é o que salão antigo,
   // criado antes disto existir, já tinha. Nada a migrar.
-  if(!corValida(s.cor)) return;
-  const cor = s.cor;
-  const escuro = (s.tema || '') === 'escuro';
+  const escolhida = s.cor || c.cor;
+  if(!corValida(escolhida)) return;
+  const cor = escolhida;
+  const escuro = tema === 'escuro';
   const [r, g, b] = rgbDe(cor);
 
   const p = (k, v) => raiz.style.setProperty(k, v);

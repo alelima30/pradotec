@@ -209,3 +209,126 @@ select t_falso('nem a de clientes',
   has_table_privilege('anon', 'public.clientes', 'select'));
 
 select t_ok('cliente: tudo conferido');
+
+-- ---------------------------------------------------------------------------
+-- N) MARCAR DE NOVO COM OUTRO NÚMERO
+--
+-- Veio de um print do celular, no meio de um agendamento preenchido:
+--
+--     Não consegui marcar.
+--     duplicate key value violates unique constraint "ux_cli_perfil"
+--
+-- A busca da ficha era só pelo telefone. Quem já tinha ficha no salão e
+-- marcava digitando um número diferente do que estava lá — trocou de chip,
+-- digitou o do marido, corrigiu o DDD — não era encontrado, caía no insert, e
+-- o insert batia na trava que existe para a mesma pessoa não ter duas fichas
+-- no mesmo salão.
+--
+-- Erro de banco em inglês na cara de quem só queria marcar horário, sem saída
+-- nenhuma: tentar de novo dava o mesmo. O salão perde a marcação e nem fica
+-- sabendo que perdeu.
+--
+-- A regra estava escrita TRÊS vezes (agendar() aqui, agendar() do 05 e
+-- entrar_na_fila()) e errada nas três. Agora é `ficha_do_cliente()`, uma só.
+-- ---------------------------------------------------------------------------
+insert into auth.users (id, email) values
+  ('cc000000-0000-0000-0000-0000000000cc', 'ju@teste.com')
+on conflict (id) do nothing;
+-- O telefone do PERFIL é E.164 (com o +55), por check no schema. O da FICHA
+-- do salão é só dígitos, normalizado por `so_digitos()`. São dois campos
+-- diferentes, com regras diferentes, e é de propósito.
+insert into public.perfis (id, nome, telefone) values
+  ('cc000000-0000-0000-0000-0000000000cc', 'Ju Barbosa', '+5551988776655')
+on conflict (id) do nothing;
+
+-- Ela marca logada, com o número dela. Nasce a ficha, com perfil.
+do $$ begin
+  perform set_config('request.jwt.claim.sub',
+                     'cc000000-0000-0000-0000-0000000000cc', true);
+  perform public.agendar(
+    '22222222-0000-0000-0000-000000000001'::uuid,
+    (select min(h) from public.horarios_livres(
+       '22222222-0000-0000-0000-000000000001'::uuid, dia_cliente() + 7,
+       array['33333333-0000-0000-0000-000000000001'::uuid]) h),
+    array['33333333-0000-0000-0000-000000000001'::uuid],
+    'Ju Barbosa', '51988776655');
+end $$;
+
+select t_igual('a primeira marcação criou UMA ficha para o perfil',
+  (select count(*) from public.clientes
+    where salao_id = '11111111-0000-0000-0000-000000000001'
+      and perfil_id = 'cc000000-0000-0000-0000-0000000000cc'), 1);
+
+-- E agora marca de novo, logada, digitando OUTRO número. Era aqui que caía.
+select t_texto('marcar com outro número não estoura a trava de ficha única',
+  erro_de($$
+    do $x$ begin
+      perform set_config('request.jwt.claim.sub',
+                         'cc000000-0000-0000-0000-0000000000cc', true);
+      perform public.agendar(
+        '22222222-0000-0000-0000-000000000001'::uuid,
+        (select min(h) from public.horarios_livres(
+           '22222222-0000-0000-0000-000000000001'::uuid, dia_cliente() + 8,
+           array['33333333-0000-0000-0000-000000000001'::uuid]) h),
+        array['33333333-0000-0000-0000-000000000001'::uuid],
+        'Ju Barbosa', '51977665544');
+    end $x$;
+  $$), null);
+
+select t_igual('e continua sendo UMA ficha, não duas',
+  (select count(*) from public.clientes
+    where salao_id = '11111111-0000-0000-0000-000000000001'
+      and perfil_id = 'cc000000-0000-0000-0000-0000000000cc'), 1);
+
+select t_texto('com o telefone novo, que é o que ela acabou de informar',
+  (select telefone from public.clientes
+    where salao_id = '11111111-0000-0000-0000-000000000001'
+      and perfil_id = 'cc000000-0000-0000-0000-0000000000cc'), '51977665544');
+
+select t_igual('e as duas marcações foram para a MESMA ficha',
+  (select count(distinct cliente_id) from public.agendamentos
+    where cliente_id in (select id from public.clientes
+                          where perfil_id = 'cc000000-0000-0000-0000-0000000000cc')), 1);
+
+-- O telefone de OUTRA pessoa não pode ser tomado: a outra trava, ux_cli_tel,
+-- derrubaria a marcação inteira — e a pessoa está aqui para marcar horário,
+-- não para arrumar cadastro.
+insert into public.clientes (id, salao_id, nome, telefone) values
+  ('cc000000-0000-0000-0000-0000000000dd',
+   '11111111-0000-0000-0000-000000000001', 'Outra Pessoa', '51955443322')
+on conflict (id) do nothing;
+
+-- Libera uma vaga: o freio de spam para em 3 marcações abertas, e ela já tem
+-- duas das de cima. Não é o que este bloco está medindo.
+update public.agendamentos set status = 'cancelado'
+ where cliente_id in (select id from public.clientes
+                       where perfil_id = 'cc000000-0000-0000-0000-0000000000cc');
+
+select t_texto('marcar com um número que já é de outra ficha não derruba nada',
+  erro_de($$
+    do $x$ begin
+      perform set_config('request.jwt.claim.sub',
+                         'cc000000-0000-0000-0000-0000000000cc', true);
+      perform public.agendar(
+        '22222222-0000-0000-0000-000000000001'::uuid,
+        (select min(h) from public.horarios_livres(
+           '22222222-0000-0000-0000-000000000001'::uuid, dia_cliente() + 9,
+           array['33333333-0000-0000-0000-000000000001'::uuid]) h),
+        array['33333333-0000-0000-0000-000000000001'::uuid],
+        'Ju Barbosa', '51955443322');
+    end $x$;
+  $$), null);
+
+select t_texto('e o número da outra pessoa continua sendo dela',
+  (select nome from public.clientes
+    where salao_id = '11111111-0000-0000-0000-000000000001'
+      and telefone = '51955443322'), 'Outra Pessoa');
+
+-- A função que faz tudo isso é interna. Solta, deixaria qualquer visitante
+-- criar e alterar ficha em QUALQUER salão — inclusive tomar um telefone.
+select t_falso('ficha_do_cliente() não é chamável de fora',
+  has_function_privilege('anon', 'public.ficha_do_cliente(uuid, text, text)', 'execute'));
+select t_falso('nem por quem tem conta',
+  has_function_privilege('authenticated', 'public.ficha_do_cliente(uuid, text, text)', 'execute'));
+
+select t_ok('ficha do cliente: uma só por pessoa, mesmo trocando de número');
