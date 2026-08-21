@@ -793,17 +793,77 @@ function diferenca(tabela, antes, agora){
   return d;
 }
 
+/* ── UMA TABELA, SEM DERRUBAR AS OUTRAS ───────────────────────────────────
+   Tabela que esta pessoa não alcança não é erro: é o RLS funcionando, e
+   seguir com lista vazia é o certo. Mas "não alcança" e "a pergunta estava
+   malfeita" chegavam com a mesma cara, e foi assim que quatro 400 passaram
+   anos parecendo permissão. Agora o segundo caso grita — porque é defeito
+   nosso, e some se ninguém olhar. `falhas` é preenchido por referência para
+   sobreviver ao `Promise.all` de baixo. */
+async function buscarTabela(t, filtro, falhas){
+  try{
+    return await Dados.lista(t, filtro);
+  }catch(e){
+    const cru = String(e.message || '');
+    if(/does not exist|malformed|invalid input|400/i.test(cru)){
+      console.error('[dados] pergunta malfeita para "' + t + '" — isto é '
+        + 'defeito do código, não permissão: ' + cru);
+      // E agora sobe até a tela. Este ramo é defeito NOSSO, e ele passou anos
+      // parecendo permissão justamente por morrer no console — que ninguém
+      // abre no celular, que é onde o salão trabalha.
+      falhas.push({ tabela: t, motivo: cru });
+    } else {
+      console.info('[dados] sem acesso a "' + t + '": ' + cru);
+    }
+    return [];
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABELA POR TABELA, UMA ATRÁS DA OUTRA — E ERA ESSE O BLANK
+
+   Até quinze requisições, cada uma esperando a anterior terminar para só
+   então começar. Numa rede de celular, com uns 150ms de ida e volta cada
+   uma, a soma vira dois ou três segundos de tela em branco antes do
+   primeiro pixel da agenda: exatamente o "demora, fica em branco e depois
+   carrega".
+
+   `perfis` e `vinculos` continuam vindo primeiro, sozinhos: é deles que sai
+   quem é a pessoa e a QUAIS salões ela pertence — e só sabendo isso dá para
+   decidir, com segurança, o filtro das outras treze. Essas treze, pedidas
+   juntas, levam o tempo da mais lenta, não a soma de todas.
+
+   Isto é seguro em paralelo por causa do trabalho já feito na renovação de
+   sessão: `comSessaoViva()` deduplica a renovação (`renovando`), então
+   quinze requisições simultâneas nunca disparam quinze renovações — no
+   máximo uma, e as outras catorze esperam ela. ═══════════════════════════════════════════════════════════════════════════ */
 async function baixar(salaoId){
   // Sem sessão não há o que buscar: cada tabela responderia 400 e o console
   // encheria de erro para dizer "você não está logado", que a tela já sabe.
+  const vazio = () => {
+    const v = {};
+    for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)) v[t] = [];
+    return v;
+  };
   if(LIGADO && !(sessao && sessao.token)){
-    const vazio = {};
-    for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)) vazio[t] = [];
-    vazio.semSessao = true;
-    return vazio;
+    const v = vazio(); v.semSessao = true;
+    return v;
   }
-  const bd = {};
+
   const falhas = [];
+  const [perfis, vinculos] = await Promise.all([
+    buscarTabela('perfis', {}, falhas),
+    buscarTabela('vinculos', {}, falhas),
+  ]);
+
+  // Pode ter morrido durante essas duas: a renovação foi tentada e o refresh
+  // também foi recusado. Sem esta saída, as treze requisições da fase
+  // seguinte sairiam todas sem token — e falhariam todas.
+  if(LIGADO && !(sessao && sessao.token)){
+    const v = vazio(); v.semSessao = true; v.sessaoExpirou = true;
+    return v;
+  }
+
   /* ── A CONTA DA PLATAFORMA NÃO BAIXA O SALÃO DOS OUTROS ──────────────────
      `is_super()` está em toda policy de leitura: quem administra o AgendaPro
      enxerga, pelo banco, TODO salão. É de propósito — sem isso não há como
@@ -820,87 +880,61 @@ async function baixar(salaoId){
      Então, depois de saber quem é a pessoa, as tabelas de salão só descem
      para os salões a que ela está de fato vinculada. Se não há nenhum — o
      caso da conta de plataforma pura — não desce nada. */
-  let sohDe = null;
-  for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)){
-    if(t === 'saloes' && sohDe === null){
-      const eu = sessao && sessao.usuarioId;
-      const souDaPlataforma = (bd.perfis || []).some(p => p.id === eu && p.superAdmin);
-      if(souDaPlataforma){
-        sohDe = (bd.vinculos || [])
-          .filter(v => v.perfilId === eu && v.status === 'ativo')
-          .map(v => v.salaoId);
-        if(!sohDe.length){
-          for(const r of TABELAS_SINCRONIZADAS) bd[r] = [];
-          bd.contaDaPlataforma = true;
-          return bd;
-        }
-      } else {
-        sohDe = [];   // dono comum: o RLS já entrega só o que é dele
-      }
+  const eu = sessao && sessao.usuarioId;
+  const souDaPlataforma = perfis.some(p => p.id === eu && p.superAdmin);
+  const sohDe = souDaPlataforma
+    ? vinculos.filter(v => v.perfilId === eu && v.status === 'ativo').map(v => v.salaoId)
+    : [];   // dono comum: o RLS já entrega só o que é dele
+
+  if(souDaPlataforma && !sohDe.length){
+    const bd = { perfis, vinculos };
+    for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)){
+      if(t !== 'perfis' && t !== 'vinculos') bd[t] = [];
     }
-
-    /* A sessão pode ter morrido no meio da descarga: a primeira tabela tenta,
-       leva 401, a renovação é recusada, e `sessao` some. Sem esta saída, as
-       catorze tabelas seguintes fariam catorze requisições sem token — todas
-       falhando — e o painel abriria vazio dizendo "nenhum salão nesta conta"
-       para quem só precisava entrar de novo. */
-    if(LIGADO && !(sessao && sessao.token)){
-      for(const r of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)) bd[r] = bd[r] || [];
-      bd.semSessao = true;
-      bd.sessaoExpirou = true;
-      return bd;
-    }
-    try{
-      /* ── QUEM PODE SER FILTRADA POR SALÃO ────────────────────────────────
-         Aqui havia uma lista escrita à mão — `['saloes','planos','perfis',
-         'vinculos']` — com as tabelas que não têm `salao_id`. A lista estava
-         incompleta, e faltavam quatro: `jornadas`, `servicos_profissionais`,
-         `comanda_itens` e `pagamentos`.
-
-         Nessas quatro o filtro saía como `salaoId=eq.…`, o PostgREST punha em
-         minúsculas, procurava a coluna `salaoid`, não achava e devolvia 400.
-         O `catch` logo abaixo engolia o 400 e devolvia lista vazia — então o
-         painel na nuvem abria sem jornada de trabalho (agenda sem horário
-         livre nenhum), sem o vínculo serviço↔profissional, e com o Caixa
-         zerado: item de comanda e pagamento são o histórico de dinheiro do
-         salão, e ele simplesmente não chegava na tela. Nenhum teste pegou
-         porque todos abrem o painel em `?demo=1`, e no navegador o campo se
-         chama `salaoId` mesmo.
-
-         Lista escrita à mão envelhece calada. O mapa COLUNAS já sabe quem tem
-         `salao_id` — e é conferido contra o schema de verdade pelo
-         colunas.test.js. Perguntando a ele, tabela nova entra certa sozinha.
-
-         `vinculos` fica de fora de propósito, mesmo tendo a coluna: é por ela
-         que se descobre a QUAIS salões a pessoa pertence. Filtrar pelo salão
-         atual esconderia os outros dela. */
-      const temSalao = t !== 'vinculos' && !!(COLUNAS[t] && COLUNAS[t].salaoId);
-      /* Sem salão escolhido ainda, a conta da plataforma usa o primeiro salão
-         dela — nunca "todos". Para o dono comum isto não muda nada: o RLS já
-         entrega só o que é dele, com filtro ou sem. */
-      const alvo = salaoId || (sohDe && sohDe.length ? sohDe[0] : null);
-      const filtro = (alvo && temSalao) ? { salaoId: alvo } : {};
-      bd[t] = await Dados.lista(t, filtro);
-    }catch(e){
-      /* Tabela que esta pessoa não alcança não é erro: é o RLS funcionando, e
-         seguir com lista vazia é o certo. Mas "não alcança" e "a pergunta
-         estava malfeita" chegavam aqui com a mesma cara, e foi assim que os
-         400 acima passaram anos parecendo permissão. Agora o segundo caso
-         grita — porque ele é defeito nosso, e some se ninguém olhar. */
-      const cru = String(e.message || '');
-      if(/does not exist|malformed|invalid input|400/i.test(cru)){
-        console.error('[dados] pergunta malfeita para "' + t + '" — isto é '
-          + 'defeito do código, não permissão: ' + cru);
-        /* E agora sobe para a tela. Este ramo é defeito NOSSO, e ele passou
-           anos parecendo permissão justamente por morrer no console — que
-           ninguém abre no celular, que é onde o salão trabalha. */
-        falhas.push({ tabela: t, motivo: cru });
-      } else {
-        console.info('[dados] sem acesso a "' + t + '": ' + cru);
-      }
-      bd[t] = [];
-    }
+    bd.contaDaPlataforma = true;
+    return bd;
   }
+
+  /* ── QUEM PODE SER FILTRADA POR SALÃO ────────────────────────────────────
+     Aqui havia uma lista escrita à mão — `['saloes','planos','perfis',
+     'vinculos']` — com as tabelas que não têm `salao_id`. A lista estava
+     incompleta, e faltavam quatro: `jornadas`, `servicos_profissionais`,
+     `comanda_itens` e `pagamentos`.
+
+     Nessas quatro o filtro saía como `salaoId=eq.…`, o PostgREST punha em
+     minúsculas, procurava a coluna `salaoid`, não achava e devolvia 400. O
+     `catch` engolia o 400 e devolvia lista vazia — então o painel na nuvem
+     abria sem jornada de trabalho, sem o vínculo serviço↔profissional, e
+     com o Caixa zerado. Nenhum teste pegou porque todos abrem o painel em
+     `?demo=1`, e no navegador o campo se chama `salaoId` mesmo.
+
+     Lista escrita à mão envelhece calada. O mapa COLUNAS já sabe quem tem
+     `salao_id` — e é conferido contra o schema de verdade pelo
+     colunas.test.js. Perguntando a ele, tabela nova entra certa sozinha.
+
+     `vinculos` já foi buscada acima, sem filtro de propósito: é por ela que
+     se descobre a QUAIS salões a pessoa pertence — filtrar pelo salão atual
+     esconderia os outros dela. */
+  const alvo = salaoId || (sohDe.length ? sohDe[0] : null);
+  const resto = TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)
+    .filter(t => t !== 'perfis' && t !== 'vinculos');
+
+  const respostas = await Promise.all(resto.map(t => {
+    const temSalao = !!(COLUNAS[t] && COLUNAS[t].salaoId);
+    const filtro = (alvo && temSalao) ? { salaoId: alvo } : {};
+    return buscarTabela(t, filtro, falhas);
+  }));
+
+  // A sessão também pode ter morrido DURANTE a fase paralela — mesma saída,
+  // com o que já veio de `perfis`/`vinculos` descartado: é tudo ou nada, para
+  // a tela nunca misturar um retrato pela metade com um "sua sessão venceu".
+  if(LIGADO && !(sessao && sessao.token)){
+    const v = vazio(); v.semSessao = true; v.sessaoExpirou = true;
+    return v;
+  }
+
+  const bd = { perfis, vinculos };
+  resto.forEach((t, i) => { bd[t] = respostas[i]; });
   if(falhas.length) bd.falhas = falhas;
   return bd;
 }

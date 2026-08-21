@@ -173,6 +173,31 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 .t-conc{background:rgba(124,58,237,.14);color:var(--roxo)}
 .t-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
 .vazio{text-align:center;padding:44px 20px;color:var(--txt3)}
+
+/* ── ENQUANTO O BANCO NÃO RESPONDE ────────────────────────────────────────
+   A tela ficava em branco até o último dado chegar, e aí aparecia tudo de
+   uma vez. Em branco, sem uma palavra, três segundos parecem trinta — e a
+   pessoa aperta de novo, ou fecha achando que travou.
+
+   Não é enfeite: é a diferença entre "está vindo" e "quebrou". Dura o tempo
+   que durar; se for rápido, ninguém chega a ler, e está ótimo assim. */
+.carregando{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; padding:80px 20px; color:var(--txt3); font-size:14.5px;
+}
+.carregando .roda{
+  width:26px; height:26px; border-radius:50%;
+  border:2.5px solid var(--borda); border-top-color:var(--acao);
+  animation:girar .7s linear infinite;
+}
+@keyframes girar{ to{ transform:rotate(360deg) } }
+/* Quem pediu menos movimento no sistema não leva um disco girando na cara. */
+@media (prefers-reduced-motion:reduce){
+  .carregando .roda{ animation-duration:2.4s }
+}
+/* Enquanto carrega, o esqueleto vazio da agenda fica fora do caminho: uma
+   grade sem nada com um "carregando" embaixo confunde mais que ajuda. */
+body.carregando-tudo .tela{ display:none }
 .vazio b{display:block;font-size:15px;color:var(--txt2);margin-bottom:4px}
 
 /* ── Indicadores ─────────────────────────────────────────────────────── */
@@ -2940,6 +2965,13 @@ function mostrarQuemEstaLogado(){
   }catch(e){}
 
   (async () => {
+    /* ⚠ Por cima, nunca no lugar. A primeira versão fazia
+       `.corpo.innerHTML = ...`, o que apaga TODAS as `<section class="tela">`
+       — e o `iniciar()` logo abaixo procura por elas. Ficava carregando para
+       sempre. O aviso é uma camada sobreposta, e some quando o trabalho
+       acaba (o `finally` garante que some até se der erro). */
+    if(NA_NUVEM) mostrarCarregando(true);
+    try{
     bd = await carregarTudo();
     // Só o modo nuvem desiste quando não vem nada: ali o null significa
     // "o banco não respondeu". No modo demonstração, null é o esperado na
@@ -2998,9 +3030,18 @@ function mostrarQuemEstaLogado(){
             + 'Crie o seu em <a class="link" href="criar.html">dois minutos</a>.');
         return;
       }
+      const antes = salaoAtual;
       if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
-      // O bd veio filtrado pelo primeiro salão; recarrega pelo escolhido.
-      bd = await carregarTudo();
+      /* ── A SEGUNDA LEITURA SÓ VALE SE ELA FOR DIFERENTE ────────────────
+         Aqui `carregarTudo()` era chamado SEMPRE de novo, dobrando o tempo
+         de abertura. E para quem tem um salão só — que é quase todo mundo
+         — a segunda leitura devolve exatamente o mesmo: a primeira já veio
+         sem filtro, e sem filtro o RLS entrega justamente o salão dela.
+
+         Com dois salões a releitura é necessária de verdade: a primeira
+         trouxe as linhas dos dois misturadas, e a tela precisa das de um. */
+      const precisaRecarregar = bd.saloes.length > 1 && salaoAtual !== antes;
+      if(precisaRecarregar) bd = await carregarTudo();
     } else {
       // Primeira visita: `carregar()` devolve null, e é a deixa para semear.
       if(!bd || !bd.saloes || !bd.saloes.length){
@@ -3011,7 +3052,23 @@ function mostrarQuemEstaLogado(){
     iniciar();
     registrarServiceWorker();
     arrumarRodape();
+    }finally{ mostrarCarregando(false); }
   })();
+
+  /* A camada de "carregando". Sobreposta ao conteúdo, nunca no lugar dele —
+     as `<section class="tela">` precisam continuar existindo para o
+     `iniciar()` encontrá-las. */
+  function mostrarCarregando(ligar){
+    const velho = document.getElementById('carregando');
+    document.body.classList.toggle('carregando-tudo', !!ligar);
+    if(!ligar){ if(velho) velho.remove(); return; }
+    if(velho) return;
+    const d = document.createElement('div');
+    d.id = 'carregando';
+    d.className = 'carregando';
+    d.innerHTML = '<div class="roda"></div><span>Carregando sua agenda…</span>';
+    document.querySelector('.corpo').appendChild(d);
+  }
 
   /* ── O RODAPÉ TEM QUE DIZER ONDE OS DADOS ESTÃO ─────────────────────────
      O texto que vem no HTML é o do modo demonstração: "dados no próprio
