@@ -682,7 +682,16 @@ function agora(){
   const d = new Date();
   return d.getHours()*60 + d.getMinutes();
 }
-function novoId(){ return 'x' + Math.random().toString(36).slice(2,10); }
+// Mesmo gerador do dados.js: uuid de verdade, que o Postgres aceita. Ver o
+// comentário longo lá — o formato curto de antes ("xxe7qkwou") era recusado
+// por toda coluna `id`, e nada criado pela tela chegava ao banco.
+function novoId(){
+  if(window.Dados && Dados.novoId) return Dados.novoId();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 /* ── Regras de disponibilidade ───────────────────────────────────────────
    Espelham a função `horarios_livres()` que vai para o banco. Aqui servem

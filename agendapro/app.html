@@ -548,7 +548,18 @@ function fimDoMes(dataIso){
   const [a, m] = dataIso.split('-').map(Number);
   return iso(new Date(a, m, 0));          // dia 0 do mês seguinte = último deste
 }
-function id(){ return 'x' + Math.random().toString(36).slice(2,10); }
+/* Um gerador só, no dados.js. Este aqui devolvia "xxe7qkwou", que o Postgres
+   recusa: as colunas `id` são uuid. Resultado — nada criado neste painel
+   chegava ao banco, e o aviso "o que está na tela ainda não foi gravado"
+   aparecia a cada cliente novo. O fallback existe para o caso de alguém abrir
+   esta tela sem o dados.js. */
+function id(){
+  if(window.Dados && Dados.novoId) return Dados.novoId();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 /* ── Regras de agenda ────────────────────────────────────────────────────
    Espelham o que o banco garante. Mantidas curtas de propósito: quanto mais

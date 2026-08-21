@@ -159,6 +159,45 @@ const tabelas = await q.evaluate(() => {
 verdade('as tabelas sem `salao_id` chegam na tela como lista, não como buraco',
   tabelas.jornadas && tabelas.pagamentos && tabelas.itens);
 
+/* ── CADASTRAR UM CLIENTE PELO PAINEL ──────────────────────────────────────
+   Este é o caminho mais comum que existe neste sistema: a recepção anota
+   alguém no balcão. E era o que estava quebrado na nuvem — a tela cunhava id
+   no formato "xxe7qkwou" e o Postgres respondia
+
+       clientes: invalid input syntax for type uuid: "xxe7qkwou"
+
+   Nada criado pelo painel chegava ao banco: cliente, serviço, agendamento,
+   comanda, profissional, jornada. Todos os testes do painel rodavam em
+   `?demo=1`, onde id é só texto no localStorage e qualquer coisa serve — pela
+   terceira vez, o defeito morava no modo que os testes não visitavam.
+
+   O `alert` do navegador é capturado: se a gravação falhar, ele aparece com a
+   mensagem crua do Postgres, e é isso que este teste tem que ver. */
+const avisos = [];
+q.on('dialog', d => { avisos.push(d.message()); d.accept(); });
+
+await q.click('a:has-text("Clientes"), button:has-text("Clientes")');
+await q.waitForTimeout(500);
+await q.click('button:has-text("+ Cliente")');
+await q.waitForTimeout(400);
+await q.fill('#kNome', 'Jucelia Barbosa');
+await q.fill('#kTel', '11981113251');
+await q.click('button:has-text("Salvar")');
+await q.waitForTimeout(2500);
+
+igual('gravar um cliente novo não devolve erro nenhum', avisos.join(' | '), '');
+verdade('e ele aparece na lista da tela',
+  (await q.textContent('body')).includes('Jucelia Barbosa'));
+
+/* A prova que importa: recarregar. O que existe só na memória some aqui, e
+   era exatamente esse o estado antes — a linha na tela, nada no banco. */
+await q.reload();
+await q.waitForTimeout(3000);
+await q.click('a:has-text("Clientes"), button:has-text("Clientes")');
+await q.waitForTimeout(800);
+verdade('e continua lá depois de recarregar, porque foi para o banco',
+  (await q.textContent('body')).includes('Jucelia Barbosa'));
+
 await nav.close();
 console.log('');
 if (falhou) { console.log(`✗ ${falhou} de ${passou + falhou} falharam.`); process.exit(1); }

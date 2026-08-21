@@ -44,15 +44,38 @@ function lerTabelas(texto){
       if(!linha) continue;
       // Pula o que não é definição de coluna
       if(/^(primary key|unique|check|constraint|foreign key|exclude)\b/i.test(linha)) continue;
-      const c = linha.match(/^([a-z_][a-z0-9_]*)\s+/i);
-      if(c) colunas.push(c[1]);
+      /* Nome e tipo. O tipo passou a importar quando um campo de data vazio
+         derrubou a gravação inteira: para o Postgres, `''` não é uma data.
+
+         O tipo é UMA palavra (mais um `(10,2)` opcional), e não "o resto da
+         linha": a primeira versão engolia `generated always as (...)` e
+         `primary key references public`, e inventava três colunas que não
+         existem. Analisador que erra o nome da coluna estraga o teste que
+         depende dele. */
+      const c = linha.match(
+        /^([a-z_][a-z0-9_]*)\s+((?:timestamp with time zone|time without time zone|double precision|[a-z]+)(?:\(\s*[\d,\s]*\))?)/i);
+      if(c) colunas.push({
+        nome: c[1],
+        tipo: c[2].trim().toLowerCase(),
+        // Coluna calculada pelo banco e chave primária nunca chegam em branco
+        // da tela, então não entram na conferência de "vazio vira null".
+        nulo: !/not null|primary key|generated always as/i.test(linha),
+      });
     }
     tabelas[nome] = colunas;
   }
   return tabelas;
 }
 
-const tabelas = lerTabelas(sql);
+// O resto do arquivo compara nomes; mantém a forma antiga para eles.
+function soNomes(tabelas){
+  const r = {};
+  for(const t of Object.keys(tabelas)) r[t] = tabelas[t].map(c => c.nome);
+  return r;
+}
+
+const tabelasComTipo = lerTabelas(sql);
+const tabelas = soNomes(tabelasComTipo);
 
 console.log('\nTabelas lidas do schema');
 dizer(Object.keys(tabelas).length >= 20,
@@ -118,6 +141,58 @@ console.log('\nCampos que são só da tela não vão para o banco');
   dizer(!('itens' in comanda) && !('pagamentos' in comanda) && !('numero' in comanda),
     'comandas: itens, pagamentos e numero ficam de fora');
   dizer(comanda.desconto === 0, 'mas desconto passa — e o zero não some');
+}
+
+/* ── CAMPO VAZIO EM COLUNA QUE NÃO É TEXTO ────────────────────────────────
+   Um <input> em branco devolve `''`, nunca null. Numa coluna de data, número
+   ou uuid, isso derruba a gravação inteira:
+
+       clientes: invalid input syntax for type date: ""
+
+   Apareceu ao cadastrar um cliente sem data de nascimento — campo opcional
+   impedindo o cadastro. O `paraBanco()` passou a traduzir `''` para null
+   nessas colunas, e esta seção existe para a lista dele não envelhecer: ela
+   sai do schema, não da memória de quem escreveu.
+   ──────────────────────────────────────────────────────────────────────── */
+console.log('\nColuna que não é texto: vazio da tela vira null');
+{
+  const ESCRITAS = D.TABELAS_SINCRONIZADAS.concat(['assinaturas']);
+  const TEXTO = /^(text|varchar|char|jsonb|json|bytea)/;
+
+  const faltando = [];
+  for(const t of ESCRITAS){
+    for(const c of (tabelasComTipo[t] || [])){
+      if(!c.nulo) continue;                     // obrigatória: erro é outro
+      if(TEXTO.test(c.tipo)) continue;          // em texto, '' é um valor
+      if(c.nome === 'id') continue;             // nunca vai vazio
+      if(!D.VAZIO_E_NULO.has(c.nome)) faltando.push(t + '.' + c.nome + ' (' + c.tipo + ')');
+    }
+  }
+  dizer(faltando.length === 0,
+    faltando.length ? 'faltam em VAZIO_E_NULO: ' + faltando.join(', ')
+                    : 'toda coluna anulável que não é texto está em VAZIO_E_NULO');
+
+  const cli = D.paraBanco('clientes', { nome:'Jucelia', nascimento:'', obs:'' });
+  dizer(cli.nascimento === null, 'nascimento em branco vira null');
+  dizer(cli.obs === '', 'mas observação em branco continua texto vazio — apagar é intenção');
+  const cli2 = D.paraBanco('clientes', { nascimento:'1990-05-02' });
+  dizer(cli2.nascimento === '1990-05-02', 'e a data preenchida passa intacta');
+}
+
+console.log('\nO identificador que a tela cunha serve para o banco');
+{
+  // Era 'x' + base36 — "xxe7qkwou" — e toda coluna id é uuid. Nada criado
+  // pelo painel chegava ao banco.
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const ids = new Set();
+  let todosValidos = true;
+  for(let i = 0; i < 500; i++){
+    const v = D.novoId();
+    if(!uuid.test(v)) todosValidos = false;
+    ids.add(v);
+  }
+  dizer(todosValidos, 'novoId() devolve uuid v4, que é o tipo da coluna');
+  dizer(ids.size === 500, 'e 500 seguidos saem todos diferentes');
 }
 
 console.log('\nCampo indefinido não vira null no banco');

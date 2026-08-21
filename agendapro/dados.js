@@ -82,6 +82,36 @@ const SO_DA_TELA = {
   assinaturas:  ['planoPretendido'],
 };
 
+/* ── CAMPO VAZIO NÃO É TEXTO VAZIO ────────────────────────────────────────
+   Um <input> nunca devolve null: quando ninguém digitou nada, ele devolve
+   `''`. Para uma coluna de texto tudo bem. Para data, número ou uuid, o
+   Postgres recusa a gravação inteira:
+
+       clientes: invalid input syntax for type date: ""
+
+   Foi o que apareceu ao cadastrar um cliente sem preencher a data de
+   nascimento — um campo opcional derrubando o cadastro todo. E não era um
+   caso isolado: são 18 colunas anuláveis de data, número e uuid que alguma
+   tela pode deixar em branco, cada uma esperando a vez.
+
+   Consertar formulário por formulário deixaria as outras 17 de pé. Aqui a
+   regra é uma só, no ponto por onde tudo passa: nestas colunas, "em branco"
+   quer dizer null.
+
+   Coluna de TEXTO fica de fora de propósito. Lá `''` e null são coisas
+   diferentes — apagar a observação de um cliente é uma intenção legítima, e
+   virar null quebraria as que são NOT NULL.
+
+   A lista sai do schema de verdade, e o tests/colunas.test.js confere que ela
+   continua completa: coluna nova desse tipo entra aqui ou reprova lá. */
+const VAZIO_E_NULO = new Set([
+  'nascimento', 'perfil_id', 'profissional_id', 'produto_id', 'servico_id',
+  'agendamento_id', 'criado_por', 'aberta_por', 'fechada_em', 'avisado_em',
+  'comissao_pct', 'comissao_valor', 'total', 'duracao_min', 'preco',
+  'trial_ate', 'vence_em', 'indicado_por', 'cliente_id', 'sinal_exigido',
+  'sinal_pago', 'nascimento_dia',
+]);
+
 function paraBanco(tabela, obj){
   const mapa = COLUNAS[tabela] || {};
   const fora = SO_DA_TELA[tabela] || [];
@@ -89,7 +119,8 @@ function paraBanco(tabela, obj){
   for(const k of Object.keys(obj)){
     if(fora.includes(k)) continue;
     if(obj[k] === undefined) continue;
-    saida[mapa[k] || k] = obj[k];
+    const coluna = mapa[k] || k;
+    saida[coluna] = (obj[k] === '' && VAZIO_E_NULO.has(coluna)) ? null : obj[k];
   }
   return saida;
 }
@@ -343,7 +374,54 @@ function gravarDemo(d){
   try{ localStorage.setItem(CHAVE_DEMO, JSON.stringify(d)); }
   catch(e){ console.error('[dados] não consegui gravar:', e); throw e; }
 }
-function novoId(){ return 'x' + Math.random().toString(36).slice(2,10); }
+/* ── IDENTIFICADOR NOVO, VÁLIDO NOS DOIS MUNDOS ───────────────────────────
+   Isto era `'x' + Math.random().toString(36).slice(2,10)` — algo como
+   "xxe7qkwou". No navegador funciona: é só uma chave de objeto. No Postgres,
+   não: as colunas `id` são `uuid`, e o que voltava era
+
+       clientes: invalid input syntax for type uuid: "xxe7qkwou"
+
+   Quer dizer que NADA criado pelo painel — cliente, serviço, agendamento,
+   comanda, profissional, jornada — conseguia ser gravado no banco. A tela
+   mostrava a linha, o `subir()` era recusado, e o aviso dizia a verdade que
+   ninguém quer ler: "o que está na tela ainda não foi gravado".
+
+   Nenhum teste pegou porque todos abrem o painel em `?demo=1`, e lá o id vive
+   no localStorage, onde qualquer texto serve. É a terceira vez que o defeito
+   mora exatamente no modo que os testes não visitavam.
+
+   UUID de verdade resolve dos dois lados: o Postgres aceita, e para o
+   localStorage continua sendo só um texto único. Não dá para deixar o banco
+   gerar (`gen_random_uuid()`), porque a tela usa o id no mesmo instante em
+   que cria a linha — `clienteId: cli.id` acontece antes de qualquer viagem
+   até o servidor.
+   ──────────────────────────────────────────────────────────────────────── */
+function novoId(){
+  // Caminho normal em https e em localhost.
+  try{
+    if(typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  }catch(e){}
+
+  // `crypto.randomUUID` exige contexto seguro, e as cópias avulsas de dist/
+  // abrem em file://. Aqui o mesmo formato, montado à mão.
+  try{
+    if(typeof crypto !== 'undefined' && crypto.getRandomValues){
+      const b = crypto.getRandomValues(new Uint8Array(16));
+      b[6] = (b[6] & 0x0f) | 0x40;        // versão 4
+      b[8] = (b[8] & 0x3f) | 0x80;        // variante RFC 4122
+      const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+      return h.slice(0,8) + '-' + h.slice(8,12) + '-' + h.slice(12,16)
+           + '-' + h.slice(16,20) + '-' + h.slice(20);
+    }
+  }catch(e){}
+
+  // Último recurso, para navegador antigo. Colide muito menos do que os oito
+  // caracteres de antes, e continua sendo um uuid válido para o Postgres.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 const Demo = {
   modo: 'demo',
@@ -602,6 +680,12 @@ Dados.apagarImagem = apagarImagem;
    super_admin, encontra tudo certo, e perde a tarde procurando o que não
    está quebrado. */
 Dados.sessaoAtual = () => (sessao && sessao.token) ? sessao : null;
+
+/* As telas cunham id antes de gravar, e o formato tem que ser o mesmo em
+   todas — foi por elas terem cada uma a sua cópia que o painel ficou meses
+   mandando "xxe7qkwou" para uma coluna uuid. Uma implementação só, aqui. */
+Dados.novoId = novoId;
+Dados.VAZIO_E_NULO = VAZIO_E_NULO;   // conferido contra o schema pelo colunas.test.js
 
 Dados.ligado = LIGADO;
 Dados.ambiente = cfg.ambiente || (LIGADO ? 'nuvem' : 'demonstração');
