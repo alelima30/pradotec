@@ -298,6 +298,16 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   <nav class="lat-nav" id="abas" aria-label="Seções do sistema"></nav>
 
   <div class="lat-pe">
+    <!-- Quem está usando o sistema agora. Numa tela que a recepção, a dona e
+         quem atende dividem no mesmo computador, "sair" sem dizer de quem é a
+         sessão é o começo de alguém lançar comanda na conta da colega. -->
+    <div class="lat-quem" id="latQuem" style="display:none">
+      <span class="lat-quem-ini" id="latQuemIni"></span>
+      <span class="lat-quem-txt">
+        <b id="latQuemNome"></b>
+        <small id="latQuemPapel"></small>
+      </span>
+    </div>
     <button class="lat-acao" id="btInstalar" style="display:none" onclick="instalarApp()">
       <span data-ico="baixo"></span>Instalar aplicativo</button>
     <button class="lat-acao" onclick="trocarTema()" id="btTema">
@@ -918,7 +928,10 @@ function pintarServicos(){
   alvo.innerHTML = `<table class="tabela"><thead><tr>
       <th>Serviço</th><th>Categoria</th><th>Duração</th><th>Preço</th><th>Comissão</th><th></th>
     </tr></thead><tbody>` + lista.map(s => `<tr>
-      <td><b>${s.nome}</b>${s.ativo ? '' : ' <span class="tag t-canc">inativo</span>'}</td>
+      <td><span class="sv-mini">${s.foto
+          ? `<img src="${s.foto}" alt="" loading="lazy">`
+          : `<span data-ico="tesoura"></span>`}</span
+        ><b>${s.nome}</b>${s.ativo ? '' : ' <span class="tag t-canc">inativo</span>'}</td>
       <td>${s.categoria || '—'}</td>
       <td>${s.duracaoMin} min</td>
       <td>${real(s.preco)}</td>
@@ -936,10 +949,15 @@ function pintarEquipe(){
     return;
   }
   alvo.innerHTML = lista.map(p => {
-    const dias = [1,2,3,4,5,6,0].filter(d => (p.jornada[d]||[]).length)
+    // `p.jornada` pode não existir — foi por ler `p.jornada[d]` de um objeto
+    // sem jornada que esta aba inteira quebrava na nuvem.
+    const j = p.jornada || {};
+    const dias = [1,2,3,4,5,6,0].filter(d => (j[d]||[]).length)
       .map(d => DIAS[d].slice(0,3)).join(', ') || 'sem jornada';
     return `<div class="card">
-      <h3><span class="pnt" style="background:${p.cor}"></span>${p.nome}
+      <h3><span class="eq-rosto" style="background:${p.cor}">${
+        p.foto ? `<img src="${p.foto}" alt="">`
+               : (p.nome || '?').trim().charAt(0).toUpperCase()}</span>${p.nome}
         ${p.ativo ? '' : '<span class="tag t-canc">inativo</span>'}</h3>
       <p>Comissão de ${p.comissaoPct}% · ${dias}</p>
       <div class="card-acoes">
@@ -1602,11 +1620,40 @@ function abrirServico(sid){
   ]);
 }
 
-function salvarServico(sid){
+async function salvarServico(sid){
   const nome = (document.getElementById('sNome').value || '').trim();
   const dur = parseInt(document.getElementById('sDur').value, 10);
   if(nome.length < 2){ alert('Informe o nome do serviço.'); return; }
   if(!dur || dur <= 0){ alert('A duração precisa ser maior que zero.'); return; }
+
+  const alvoId = sid || id();
+  let foto = document.getElementById('sFoto').value || null;
+
+  /* ── A FOTO SOBE ANTES, PARA HAVER UMA GRAVAÇÃO SÓ ─────────────────────
+     Antes eram duas: uma imediata, com a foto ainda como `data:` (uns 200 KB
+     de texto indo para uma coluna), e outra quando o envio terminava, para
+     trocar pelo endereço. As duas partiam do MESMO retrato do banco, então as
+     duas achavam que o serviço era novo — e a segunda esbarrava em chave
+     duplicada. Cadastrar dois serviços com foto, um atrás do outro, era a
+     receita para uma das fotos não aparecer.
+
+     Subindo primeiro, existe um estado só: ou a foto virou endereço e o
+     serviço é gravado com ele, ou o envio falhou e nada é gravado. O id é
+     cunhado aqui em cima justamente para dar nome ao arquivo antes disso. */
+  if(foto && foto.startsWith('data:')){
+    const bt = document.querySelector('.modal .btn-p');
+    const rotulo = bt && bt.textContent;
+    if(bt){ bt.disabled = true; bt.textContent = 'Enviando a foto…'; }
+    try{
+      foto = await Imagens.publicar(foto, salaoAtual, 'servico-' + alvoId);
+    }catch(e){
+      alert('Não consegui enviar a foto:\n\n' + e.message
+          + '\n\nO serviço NÃO foi salvo. Tente de novo, ou salve sem foto.');
+      if(bt){ bt.disabled = false; bt.textContent = rotulo; }
+      return;
+    }
+    if(bt){ bt.disabled = false; bt.textContent = rotulo; }
+  }
 
   const comTxt = document.getElementById('sCom').value;
   const dados = {
@@ -1615,21 +1662,11 @@ function salvarServico(sid){
     intervaloMin: parseInt(document.getElementById('sInt').value, 10) || 0,
     preco: parseFloat(document.getElementById('sPreco').value) || 0,
     comissaoPct: comTxt === '' ? null : parseFloat(comTxt),
-    foto: document.getElementById('sFoto').value || null,
+    foto,
     ativo: document.getElementById('sAtivo').checked,
   };
-  const alvoId = sid || id();
   if(sid) Object.assign(acharServico(sid), dados);
   else bd.servicos.push({id:alvoId, salaoId:salaoAtual, ...dados});
-
-  // A foto só vira arquivo agora, porque só agora existe um id para dar nome
-  // a ela. Se o envio falhar, o serviço não fica salvo pela metade: avisa e
-  // segue com a foto guardada como está.
-  if(dados.foto && dados.foto.startsWith('data:')){
-    Imagens.publicar(dados.foto, salaoAtual, 'servico-' + alvoId)
-      .then(endereco => { acharServico(alvoId).foto = endereco; salvar(); pintar(); })
-      .catch(e => alert('O serviço foi salvo, mas a foto não subiu: ' + e.message));
-  }
 
   salvar(); fecharModal(); pintar();
 }
@@ -1678,6 +1715,30 @@ function abrirProf(pid){
   }).join('');
 
   abrirModal(p ? 'Editar profissional' : 'Novo profissional', `
+    <!-- A FOTO DE QUEM ATENDE. Não é enfeite: na hora de escolher "com quem",
+         rosto decide mais que nome. Quem já foi atendido pela Bia reconhece a
+         Bia; o nome sozinho obriga a lembrar. A coluna profissionais.foto já
+         existia esperando.
+         (Sem crase neste comentário: ele mora dentro de um template literal,
+         e uma crase aqui fecha a string no meio do HTML.) -->
+    <div class="foto-linha" style="margin-bottom:16px">
+      <div class="foto-previa pessoa" id="previaProf">
+        ${p && p.foto ? `<img src="${p.foto}" alt="">`
+                      : `<span data-ico="pessoa"></span>`}
+      </div>
+      <div class="foto-txt">
+        <b>Foto</b>
+        <p>Aparece para o cliente na hora de escolher com quem quer ser
+           atendido. Rosto de perto funciona melhor que corpo inteiro.</p>
+        <div class="foto-acoes">
+          <label class="btn btn-peq">Escolher
+            <input type="file" accept="image/*" hidden
+                   onchange="escolherFotoProf(this)"></label>
+          <button class="btn btn-peq" onclick="limparFotoProf()">Remover</button>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="qFoto" value="${p && p.foto ? p.foto : ''}">
     <div class="campo"><label>Nome</label>
       <input id="qNome" value="${p ? p.nome : ''}" placeholder="Nome de quem atende"></div>
     <div class="dupla">
@@ -1704,9 +1765,50 @@ function abrirProf(pid){
   ]);
 }
 
-function salvarProf(pid){
+async function escolherFotoProf(campo){
+  const arquivo = campo.files && campo.files[0];
+  if(!arquivo) return;
+  campo.value = '';
+  try{
+    // A mesma medida da foto de serviço: 600px de lado já é mais do que o
+    // maior lugar onde ela aparece, e o arquivo fica leve para o 3G da
+    // cliente.
+    const r = await Imagens.reduzir(arquivo, 'servico');
+    document.getElementById('qFoto').value = r.dataUrl;
+    document.getElementById('previaProf').innerHTML = '<img src="' + r.dataUrl + '" alt="">';
+  }catch(e){ alert(e.message); }
+}
+
+function limparFotoProf(){
+  document.getElementById('qFoto').value = '';
+  const p = document.getElementById('previaProf');
+  p.innerHTML = '<span data-ico="pessoa"></span>';
+  if(window.aplicarIcones) aplicarIcones();
+}
+
+async function salvarProf(pid){
   const nome = (document.getElementById('qNome').value || '').trim();
   if(nome.length < 2){ alert('Informe o nome.'); return; }
+
+  const alvoId = pid || id();
+  let foto = document.getElementById('qFoto').value || null;
+
+  // Sobe a foto ANTES de gravar, pelo mesmo motivo do serviço: duas gravações
+  // partindo do mesmo retrato do banco competem, e uma delas se perde.
+  if(foto && foto.startsWith('data:')){
+    const bt = document.querySelector('.modal .btn-p');
+    const rotulo = bt && bt.textContent;
+    if(bt){ bt.disabled = true; bt.textContent = 'Enviando a foto…'; }
+    try{
+      foto = await Imagens.publicar(foto, salaoAtual, 'prof-' + alvoId);
+    }catch(e){
+      alert('Não consegui enviar a foto:\n\n' + e.message
+          + '\n\nNada foi salvo. Tente de novo, ou salve sem foto.');
+      if(bt){ bt.disabled = false; bt.textContent = rotulo; }
+      return;
+    }
+    if(bt){ bt.disabled = false; bt.textContent = rotulo; }
+  }
 
   const jornada = {};
   for(const d of [0,1,2,3,4,5,6]){
@@ -1725,10 +1827,11 @@ function salvarProf(pid){
     comissaoPct: parseFloat(document.getElementById('qCom').value) || 0,
     cor: document.getElementById('qCor').value,
     ativo: document.getElementById('qAtivo').checked,
+    foto,
     jornada,
   };
   if(pid) Object.assign(acharProf(pid), dados);
-  else bd.profissionais.push({id:id(), salaoId:salaoAtual, ...dados});
+  else bd.profissionais.push({id:alvoId, salaoId:salaoAtual, ...dados});
   salvar(); fecharModal(); pintar();
 }
 
@@ -1900,6 +2003,22 @@ function pintarSalao(){
           </select></div>
       </div>
 
+      <!-- ATÉ QUANDO A AGENDA FICA ABERTA. Não é preferência de tela: é regra
+           de negócio, e o banco a aplica — dias_liberados() limita o que
+           horarios_livres() oferece, então mexer aqui muda o que a cliente
+           enxerga no calendário.
+
+           Por que se limita: quem marca para daqui a seis meses quase sempre
+           falta, e agenda aberta até o infinito tira do dono a liberdade de
+           mudar jornada, preço ou equipe sem desmarcar gente.
+           (Sem crase: este comentário mora dentro de um template literal.) -->
+      <div class="linha-fina" style="margin:18px 0"></div>
+      <h3 class="secao">Agenda aberta por quantos dias</h3>
+      <p class="secao-sub">A cliente só consegue marcar dentro desta janela.
+        Ela anda sozinha: liberado 30, amanhã abre mais um dia no fim.</p>
+      <div class="regua" id="reguaDias" style="justify-content:flex-start"></div>
+      <p class="secao-sub" id="explicaDias" style="margin-top:9px"></p>
+
       <div class="card-acoes">
         <button class="btn btn-p" onclick="salvarCadastroSalao()">Salvar dados</button>
         <span id="salvouSalao" class="salvou"></span>
@@ -1925,12 +2044,73 @@ function pintarSalao(){
       (${Math.round(Imagens.TETO_NAVEGADOR / 1024 / 1024)} MB para o sistema
       inteiro). ${estadoDoEspaco()} Ligado no Supabase, vão para o servidor e
       esse limite deixa de existir.</div>`}`;
+
+  // Depois do innerHTML: os botões da janela só existem agora.
+  pintarJanelaAgenda();
 }
 
 function estadoDoEspaco(){
   const usado = Imagens.ocupadoNoNavegador();
   const pct = Math.round(usado / Imagens.TETO_NAVEGADOR * 100);
   return 'Você usou cerca de ' + pct + '%.';
+}
+
+/* ── A JANELA DA AGENDA ───────────────────────────────────────────────────
+   O valor vive em `saloes.cfg.diasLiberados` (jsonb), e é o mesmo que a
+   função `dias_liberados()` lê no banco — ela também aplica um teto de 365 e
+   um piso de 1, então tela e banco não podem discordar.
+
+   Escolhas prontas em vez de um campo livre: o dono não quer digitar um
+   número, quer decidir entre "uma semana" e "um mês". Quem precisar de outro
+   valor tem o "Outro" no fim.
+   ──────────────────────────────────────────────────────────────────────── */
+const JANELAS = [
+  [7,  'uma semana',  'Bom para quem muda a escala toda semana.'],
+  [15, 'duas semanas','Meio-termo: dá previsibilidade sem prender a agenda.'],
+  [30, 'um mês',      'O mais comum. A cliente marca o próximo antes de sair.'],
+  [60, 'dois meses',  'Para quem tem agenda concorrida e cliente fiel.'],
+];
+let diasEscolhidos = null;
+// De qual salão é o valor em cache. Sem isto, trocar de estabelecimento no
+// seletor manteria na tela a janela do salão anterior — e salvar gravaria o
+// número errado no salão errado.
+let diasDoSalao = null;
+
+function pintarJanelaAgenda(){
+  const alvo = document.getElementById('reguaDias');
+  if(!alvo) return;
+  const sl = acharSalao(salaoAtual) || {};
+  if(diasEscolhidos === null || diasDoSalao !== salaoAtual){
+    const n = sl.cfg && Number(sl.cfg.diasLiberados);
+    diasEscolhidos = Number.isFinite(n) && n > 0 ? n : 30;
+    diasDoSalao = salaoAtual;
+  }
+  const conhecido = JANELAS.some(j => j[0] === diasEscolhidos);
+  alvo.innerHTML = JANELAS.map(([n, rot]) =>
+    `<button type="button" class="${n === diasEscolhidos ? 'on' : ''}"
+             onclick="escolherJanela(${n})">${n} dias</button>`).join('')
+    + `<button type="button" class="${conhecido ? '' : 'on'}"
+               onclick="escolherJanelaOutro()">Outro${
+                 conhecido ? '' : ': ' + diasEscolhidos}</button>`;
+  const achado = JANELAS.find(j => j[0] === diasEscolhidos);
+  document.getElementById('explicaDias').textContent = achado
+    ? achado[1].charAt(0).toUpperCase() + achado[1].slice(1) + ' — ' + achado[2]
+    : 'A agenda fica aberta por ' + diasEscolhidos + ' dias.';
+}
+
+function escolherJanela(n){ diasEscolhidos = n; pintarJanelaAgenda(); }
+
+function escolherJanelaOutro(){
+  const r = prompt('A agenda fica aberta por quantos dias?', diasEscolhidos);
+  if(r === null) return;
+  const n = parseInt(r, 10);
+  // O mesmo teto do banco. Aceitar 5000 aqui só adiaria a recusa para depois.
+  if(!Number.isFinite(n) || n < 1 || n > 365){
+    alert('Escolha um número de 1 a 365.');
+    return;
+  }
+  diasEscolhidos = n;
+  pintarJanelaAgenda();
 }
 
 function salvarCadastroSalao(){
@@ -1952,6 +2132,9 @@ function salvarCadastroSalao(){
     uf:          v('cUf'),
     cep:         v('cCep').replace(/\D/g, ''),
   };
+  // `cfg` é jsonb e guarda mais coisa com o tempo; sobrescrever o objeto
+  // inteiro apagaria o que outra tela tiver posto lá.
+  sl.cfg = Object.assign({}, sl.cfg, { diasLiberados: diasEscolhidos || 30 });
   salvar();
 
   // `iniciar()` ANTES da confirmação, não depois: ele redesenha o painel
@@ -2216,10 +2399,109 @@ const NA_NUVEM = !!(window.Dados && window.Dados.ligado);
 let _baixado = null;                                  // retrato do banco
 const _copia = o => JSON.parse(JSON.stringify(o));
 
+/* ── SALÃO MEU É AQUELE EM QUE EU TENHO VÍNCULO ───────────────────────────
+   `bd.saloes` traz o que o RLS deixa esta conta LER — e para a conta de
+   plataforma isso é a plataforma inteira. O painel pegava `bd.saloes[0]`, e o
+   administrador entrava direto na agenda, na clientela e no caixa de um salão
+   CLIENTE, escolhido por ordem de cadastro, com permissão de editar tudo
+   achando que era a casa dele.
+
+   Ler é o poder que essa conta precisa ter, e o painel da plataforma é onde
+   ela lê. "O meu salão" é outra pergunta, e quem responde é `vinculos`: onde
+   EU sou dono ou funcionário. Sem vínculo não é meu, por mais que eu consiga
+   enxergar.
+
+   O filtro mora aqui, e não na partida, porque a partida carrega DUAS vezes —
+   uma para descobrir o salão e outra já com ele escolhido. Na primeira versão
+   eu filtrei só na partida, e a segunda carga trazia a plataforma inteira de
+   volta para o seletor de estabelecimento.
+   ──────────────────────────────────────────────────────────────────────── */
+function sohMeusSaloes(d){
+  if(!d || d.semSessao) return d;
+  const eu = (Dados.sessaoAtual() || {}).usuarioId;
+  if(!eu) return d;
+  const meus = (d.vinculos || []).filter(v => v.perfilId === eu).map(v => v.salaoId);
+  const souDaPlataforma = (d.perfis || []).some(p => p.id === eu && p.superAdmin);
+  // Sem vínculo nenhum: só zera se for conta de plataforma, que é quem
+  // enxerga salão dos outros. Dono comum sem vínculo já não veria nada.
+  if(meus.length) d.saloes = (d.saloes || []).filter(s => meus.includes(s.id));
+  else if(souDaPlataforma) d.saloes = [];
+  return d;
+}
+
+/* ── A JORNADA VAI E VOLTA EM DOIS FORMATOS ───────────────────────────────
+   A tela pensa em `p.jornada = {1:[[540,1140]], ...}` — dia da semana e
+   minutos desde a meia-noite. O banco guarda uma LINHA por faixa na tabela
+   `jornadas`, com horas de verdade ('09:00:00').
+
+   Faltavam as duas traduções, e o estrago era em três lugares ao mesmo tempo:
+
+     · a aba Equipe QUEBRAVA — `p.jornada[d]` de um objeto sem jornada;
+     · a agenda abria sem horário de trabalho, porque `jornadaDe()` não
+       achava nada;
+     · e horário de trabalho não tinha como ser salvo: `jornada` está em
+       SO_DA_TELA, então ele era removido antes de subir e nunca virava linha.
+
+   Esse terceiro era o mais caro: sem jornada no banco, `horarios_livres()`
+   não devolve nada, e o link que a cliente abre fica sem um horário sequer.
+   O dono configura a semana inteira, salva, e a agenda dele continua vazia
+   para o mundo.
+   ──────────────────────────────────────────────────────────────────────── */
+const horaParaMin = h => {
+  const [hh, mm] = String(h || '0:0').split(':').map(Number);
+  return (hh || 0) * 60 + (mm || 0);
+};
+const minParaHora = m =>
+  String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0') + ':00';
+
+function montarJornadas(d){
+  if(!d || !d.profissionais) return d;
+  const porProf = {};
+  for(const j of (d.jornadas || [])){
+    const p = (porProf[j.profissionalId] = porProf[j.profissionalId] || {});
+    (p[Number(j.diaSemana)] = p[Number(j.diaSemana)] || [])
+      .push([horaParaMin(j.inicio), horaParaMin(j.fim)]);
+  }
+  for(const p of d.profissionais){
+    const meu = porProf[p.id] || {};
+    // Duas faixas no mesmo dia é o almoço no meio; a ordem importa para o
+    // desenho da agenda.
+    for(const dia of Object.keys(meu)) meu[dia].sort((a, b) => a[0] - b[0]);
+    p.jornada = meu;
+  }
+  return d;
+}
+
+function desmontarJornadas(d){
+  if(!d || !d.profissionais) return;
+  // Reaproveita o id da linha que já existe para a mesma faixa. Sem isso,
+  // cada gravação apagaria e recriaria a semana inteira — barulho no banco e
+  // uma janela em que o profissional fica sem jornada nenhuma.
+  const antigas = new Map();
+  for(const j of ((_baixado && _baixado.jornadas) || [])){
+    antigas.set([j.profissionalId, j.diaSemana, horaParaMin(j.inicio),
+                 horaParaMin(j.fim)].join('|'), j.id);
+  }
+  const linhas = [];
+  for(const p of d.profissionais){
+    for(const dia of Object.keys(p.jornada || {})){
+      for(const faixa of (p.jornada[dia] || [])){
+        const chave = [p.id, Number(dia), faixa[0], faixa[1]].join('|');
+        linhas.push({
+          id: antigas.get(chave) || Dados.novoId(),
+          profissionalId: p.id, diaSemana: Number(dia),
+          inicio: minParaHora(faixa[0]), fim: minParaHora(faixa[1]),
+        });
+      }
+    }
+  }
+  d.jornadas = linhas;
+}
+
 async function carregarTudo(){
   if(!NA_NUVEM) return carregar();
   try{
-    const d = await Dados.baixar(salaoAtual);
+    const d = montarJornadas(sohMeusSaloes(await Dados.baixar(salaoAtual)));
     _baixado = _copia(d);
     return d;
   }catch(e){
@@ -2237,17 +2519,66 @@ async function carregarTudo(){
    chamada de upsert, e `carregar()` vira select — o resto da página nem fica
    sabendo.
    =========================================================================== */
+/* ── UMA AÇÃO, UM RECADO ──────────────────────────────────────────────────
+   O `subir()` tenta todas as tabelas e junta tudo que falhou. Recusado o
+   segundo profissional pela cota do plano, as seis faixas de jornada dele
+   também são recusadas — não têm em quem se apoiar — e o aviso chegava assim:
+
+     profissionais: O plano Teste grátis permite 1 profissional(is)... |
+     jornadas: new row violates row-level security policy for table
+     "jornadas" | jornadas: new row violates... (mais cinco vezes)
+
+   Tudo verdade, e ilegível. Pior: a frase que a pessoa PODE resolver fica
+   soterrada por seis que ela não pode.
+
+   Três limpezas: fora o nome da tabela, fora as repetidas, e a recusa de
+   política só aparece quando é a única coisa que houve — nos outros casos ela
+   é consequência da linha pai que já foi explicada acima.
+   ──────────────────────────────────────────────────────────────────────── */
+function limparRecusa(msg){
+  const partes = String(msg || '').split(' | ')
+    .map(p => p.replace(/^\w+(?: \(apagar\))?:\s*/, '').trim())
+    .filter(Boolean);
+  const unicas = [...new Set(partes)];
+  const explicadas = unicas.filter(p => !/row-level security/i.test(p));
+
+  const mostrar = explicadas.length ? explicadas : unicas.map(() =>
+    'O banco não autorizou esta gravação para a sua conta. Se você acabou de '
+    + 'trocar de salão, entre de novo.');
+
+  return mostrar.slice(0, 3).join('\n\n')
+       + (mostrar.length > 3 ? '\n\n(e mais ' + (mostrar.length - 3) + ')' : '');
+}
+
 function salvar(){
   if(NA_NUVEM){
     // Grava no banco e só então atualiza o retrato. Se falhar, a pessoa
     // fica sabendo — tela dizendo "salvo" com banco vazio é o pior erro
     // possível num sistema de agenda.
+    // A jornada que a tela editou vira linha antes de subir. Sem esta linha,
+    // horário de trabalho nunca chegava ao banco: `jornada` é campo de tela e
+    // some no caminho.
+    desmontarJornadas(bd);
     Dados.subir(_baixado, bd)
       .then(() => { _baixado = _copia(bd); })
-      .catch(e => {
+      .catch(async e => {
         console.error('[AgendaPro] falha ao gravar:', e);
-        alert('NÃO consegui salvar no banco:\n\n' + e.message
+        alert('NÃO consegui salvar no banco:\n\n' + limparRecusa(e.message)
             + '\n\nO que está na tela ainda não foi gravado.');
+
+        /* ── A LINHA RECUSADA NÃO PODE FICAR ────────────────────────────
+           Sem isto, o que o banco recusou continuava na memória da tela — e
+           como `_baixado` só é atualizado no sucesso, a PRÓXIMA gravação
+           tentava tudo de novo. Quer dizer: recusado o segundo profissional
+           por causa da cota do plano, criar um serviço mostrava o aviso da
+           cota, marcar um cliente mostrava o aviso da cota, e assim por
+           diante — um erro de ontem interrompendo o trabalho de hoje.
+
+           Recarregar do banco devolve a tela ao que de fato existe. O que
+           foi recusado some, e a próxima gravação parte de um retrato
+           verdadeiro. */
+        const novo = await carregarTudo();
+        if(novo){ bd = novo; pintar(); }
       });
     return;
   }
@@ -2367,7 +2698,43 @@ function iniciar(){
   pintarDataTopo();
   rotularTema();
   montarAbas();
+  mostrarQuemEstaLogado();
   pintar();
+}
+
+/* ── QUEM ESTÁ USANDO O SISTEMA AGORA ─────────────────────────────────────
+   O papel sai do VÍNCULO, não de um palpite: `vinculos.papel` é o que o RLS
+   consulta para decidir o que essa pessoa pode fazer. Escrever "dona" na tela
+   para quem o banco trata como recepcionista seria a tela discordando das
+   permissões — e a pessoa descobriria a diferença ao clicar em algo e levar
+   um erro.
+
+   No modo demonstração não há login, então a linha some em vez de inventar
+   um nome. */
+function mostrarQuemEstaLogado(){
+  const caixa = document.getElementById('latQuem');
+  if(!caixa) return;
+
+  const eu = NA_NUVEM ? (Dados.sessaoAtual() || {}).usuarioId : null;
+  const perfil = eu && (bd.perfis || []).find(p => p.id === eu);
+  if(!perfil){ caixa.style.display = 'none'; return; }
+
+  const vinculo = (bd.vinculos || []).find(v =>
+    v.perfilId === eu && v.salaoId === salaoAtual);
+  // Os cinco valores que a CHECK de `vinculos.papel` aceita. Inventar um sexto
+  // aqui daria "Sem papel definido" para gente que tem papel.
+  const PAPEL = { dono:'Dono', admin:'Administra', recepcao:'Recepção',
+                  profissional:'Atende', cliente:'Cliente' };
+
+  const nome = perfil.nome || (perfil.email || '').split('@')[0];
+  caixa.style.display = '';
+  document.getElementById('latQuemIni').textContent =
+    nome.trim().charAt(0).toUpperCase();
+  document.getElementById('latQuemNome').textContent = nome;
+  document.getElementById('latQuemNome').title = perfil.email || nome;
+  document.getElementById('latQuemPapel').textContent =
+    perfil.superAdmin ? 'Plataforma'
+                      : (PAPEL[vinculo && vinculo.papel] || 'Sem papel definido');
 }
 
 (function(){
@@ -2384,17 +2751,29 @@ function iniciar(){
     if(NA_NUVEM && !bd) return;
     if(NA_NUVEM){
       if(bd.semSessao){
-        document.querySelector('.corpo').innerHTML =
-          '<div class="vazio"><b>Entre para ver sua agenda</b>'
+        semSalao(
+          '<b>Entre para ver sua agenda</b>'
           + 'Ainda não tem conta? <a class="link" href="criar.html">'
-          + 'Crie a sua em 2 minutos</a>.</div>';
+          + 'Crie a sua em 2 minutos</a>.');
         document.getElementById('abas').innerHTML = '';
         return;
       }
       if(!bd.saloes || !bd.saloes.length){
-        document.querySelector('.corpo').innerHTML =
-          '<div class="vazio"><b>Nenhum salão nesta conta</b>'
-          + 'Crie o seu em <a class="link" href="criar.html">criar.html</a>.</div>';
+        /* ── A CONTA DA PLATAFORMA CAI AQUI ─────────────────────────────
+           Quem administra o AgendaPro não tem salão — não deve mesmo ter.
+           Só que esta tela dizia a ele "crie o seu em criar.html", sem uma
+           palavra sobre o painel da plataforma, que é justamente o lugar
+           dessa conta. Mandar o administrador criar um salão é mandá-lo
+           para o lugar errado com instrução clara, que é a pior
+           combinação. */
+        const meu = (bd.perfis || []).find(p => p.superAdmin);
+        semSalao(meu
+          ? '<b>Esta é a sua conta de plataforma</b>'
+            + 'Ela administra o AgendaPro e não tem salão próprio — está certo '
+            + 'assim. O painel dela é o <a class="link" href="admin.html">'
+            + 'admin.html</a>.'
+          : '<b>Nenhum salão nesta conta</b>'
+            + 'Crie o seu em <a class="link" href="criar.html">dois minutos</a>.');
         return;
       }
       if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
@@ -2409,11 +2788,37 @@ function iniciar(){
     }
     iniciar();
     registrarServiceWorker();
-    const rod = document.querySelector('.rodape');
-    if(rod) rod.innerHTML = NA_NUVEM
-      ? 'AgendaPro · ligado ao banco (' + Dados.ambiente + ')'
-      : rod.innerHTML;
+    arrumarRodape();
   })();
+
+  /* ── O RODAPÉ TEM QUE DIZER ONDE OS DADOS ESTÃO ─────────────────────────
+     O texto que vem no HTML é o do modo demonstração: "dados no próprio
+     navegador (localStorage). Nada é enviado para servidor nenhum."
+
+     Isso era corrigido na última linha da partida — depois de `iniciar()`. Só
+     que os dois caminhos de conta sem salão dão `return` bem antes, e a tela
+     ficava ligada ao banco de produção AFIRMANDO que nada sai do navegador.
+     Numa tela onde a pessoa vai digitar telefone e histórico de cliente, essa
+     é a frase errada para se estar errado.
+
+     Agora quem arruma é uma função, chamada nos três caminhos. */
+  function arrumarRodape(){
+    const rod = document.querySelector('.rodape');
+    if(rod && NA_NUVEM){
+      rod.innerHTML = 'AgendaPro · ligado ao banco (' + Dados.ambiente + ')';
+    }
+    // "Recomeçar demonstração" apaga e recria os dados de exemplo. Ligado ao
+    // banco ele não tem o que fazer, e o nome sozinho já assusta quem tem
+    // clientes de verdade cadastrados.
+    const bt = document.querySelector('.lat-acao[onclick="recomecar()"]');
+    if(bt && NA_NUVEM) bt.style.display = 'none';
+  }
+
+  // Tela sem salão: mostra o recado e ainda assim deixa o rodapé honesto.
+  function semSalao(html){
+    document.querySelector('.corpo').innerHTML = '<div class="vazio">' + html + '</div>';
+    arrumarRodape();
+  }
 })();
 </script>
 </body>

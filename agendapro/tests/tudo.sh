@@ -77,6 +77,10 @@ rodar() {
   fi
 }
 
+# Primeiro de todos, e de propósito: erro de sintaxe derruba a tela inteira,
+# e sem esta linha ele aparecia de raspão noutra suíte, apontando outro
+# arquivo. Custa menos de um segundo.
+rodar "sintaxe"           node "$AQUI/sintaxe.test.js"
 rodar "banco (SQL)"        bash "$AQUI/rodar.sh"
 rodar "colunas"            node "$AQUI/colunas.test.js"
 rodar "nuvem"              node "$AQUI/nuvem.test.mjs"
@@ -91,7 +95,7 @@ rodar "plataforma"         node "$AQUI/plataforma.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 11 suítes."
+  echo "✓ Tudo passou — as 12 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

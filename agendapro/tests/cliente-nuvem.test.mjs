@@ -231,6 +231,97 @@ const naMao = await fetch(BASE + '/rest/v1/rpc/agendar', {
 verdade('e quem tentar marcar em cima dele na mão é recusado pelo banco',
   !naMao.ok);
 
+secao('A vitrine: o que a casa faz, sem tabela de preços');
+
+/* ── POR QUE A CAPA NÃO MOSTRA PREÇO ──────────────────────────────────────
+   Antes a capa era um cardápio: cada serviço com foto, duração e valor. Quem
+   abre o link vindo do WhatsApp ainda não decidiu nada — está olhando a casa,
+   não comparando preço — e a primeira tela cheia de números convida a
+   comparar em vez de convidar a marcar.
+
+   O valor aparece no passo seguinte, quando a pessoa já clicou em "Agendar
+   horário" e está escolhendo. Lá o preço é informação útil; aqui era
+   obstáculo.
+
+   As duas fotos deste caso têm proporções DIFERENTES de propósito — uma em
+   pé, uma deitada. É o que chega do celular do salão, e é o que fazia o
+   `object-fit:cover` cortar justamente o cabelo que a foto queria mostrar.
+   ──────────────────────────────────────────────────────────────────────── */
+
+// PNGs de verdade, gerados aqui: 60×100 (retrato) e 100×60 (paisagem).
+const RETRATO = 'iVBORw0KGgoAAAANSUhEUgAAADwAAABkCAIAAABVQ8S/AAAAcklEQVR4nO3OAQkAIBAAMSMazGD'
+  + 'GMob3MFiArbPvOOv7QDpMWlo6QFpaOkBaWjpAWlo6QFpaOkBaWjpAWlo6QFpaOkBaWjpAWlo6QFpaOkBaWjpA'
+  + 'Wlo6QFpaOkBaWjpAWlo6QFpaOkBaWjpAWlo6YGT6AWRydfuw5RwjAAAAAElFTkSuQmCC';
+const PAISAGEM = 'iVBORw0KGgoAAAANSUhEUgAAAGQAAAA8CAIAAAAfXYiZAAAAe0lEQVR4nO3QQQkAIADAQCMax0y'
+  + 'mtIK+hnCwAOPG3EuXjfzgo2DBgpUHCxasPFiwYOXBggUrDxYsWHmwYMHKgwULVh4sWLDyYMGClQcLFqw8WLBg'
+  + '5cGCBSsPFixYebBgwcqDBQtWHixYsPJgwYKVBwsWrDxYsGDlwXroAHs74dAivMmTAAAAAElFTkSuQmCC';
+
+async function novoServico(pag, nome, preco, b64){
+  await pag.click('button:has-text("+ Serviço")'); await pag.waitForTimeout(500);
+  await pag.fill('#sNome', nome);
+  await pag.fill('#sPreco', String(preco));
+  await pag.setInputFiles('#modalCorpo input[type=file]',
+    { name: 'f.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') });
+  await pag.waitForTimeout(1000);
+  await pag.click('#modalPe button:has-text("Salvar")');
+  await pag.waitForTimeout(2200);
+}
+
+/* O painel do dono num contexto SEU: `ctx` é o celular da cliente, 430px de
+   largura, e ali a lateral do painel fica fora da tela. Teste que clica no
+   que não cabe falha por cenário errado, não por defeito. */
+const ctxPainel = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+const painel = await ctxPainel.newPage();
+const avisosPainel = [];
+painel.on('dialog', dg => { avisosPainel.push(dg.message().replace(/\s+/g,' ')); dg.accept(); });
+await painel.goto(BASE + '/entrar.html'); await painel.waitForTimeout(3600);
+await painel.fill('#email', `dona-${marca}@teste.com`);
+await painel.fill('#senha', 'salaoteste123');
+await painel.click('#btEntrar'); await painel.waitForTimeout(3500);
+await painel.click('a:has-text("Serviços"), button:has-text("Serviços")');
+await painel.waitForTimeout(700);
+
+await novoServico(painel, 'Escova modelada', 70, RETRATO);
+await novoServico(painel, 'Hidratação', 120, PAISAGEM);
+/* DOIS serviços com foto, um atrás do outro. Era exatamente isto que perdia
+   uma das fotos: cada gravação disparava duas idas ao banco a partir do mesmo
+   retrato, e a segunda esbarrava em chave duplicada. */
+igual('cadastrar dois serviços com foto seguidos não dá erro',
+  avisosPainel.join(' | '), '');
+
+const cli = await ctx.newPage();
+const errosCli = [];
+cli.on('pageerror', e => errosCli.push(e.message));
+cli.on('console', m => { if (m.type() === 'error') errosCli.push(m.text()); });
+await cli.goto(BASE + '/agendar.html?salao=' + SLUG);
+await cli.waitForTimeout(1800);
+
+igual('as DUAS fotos chegam ao slide da capa',
+  await cli.evaluate(() => document.querySelectorAll('#capaSlides .slide').length), 2);
+verdade('a capa lista os serviços pelo nome',
+  (await cli.textContent('#capaServicos')).includes('Escova modelada'));
+verdade('e NÃO mostra preço nenhum',
+  !/R\$/.test(await cli.evaluate(() => document.getElementById('p-capa').innerText)));
+igual('a foto aparece inteira, sem corte',
+  await cli.evaluate(() => {
+    const i = document.querySelector('.slide img');
+    return i && getComputedStyle(i).objectFit;
+  }), 'contain');
+
+// O slide anda sozinho. 4 s é o intervalo; 5 dá folga para a máquina lenta.
+await cli.waitForTimeout(5000);
+verdade('e o slide troca sozinho',
+  await cli.evaluate(() =>
+    [...document.querySelectorAll('.slide')].findIndex(s => s.classList.contains('on')) > 0));
+
+await cli.click('#btPrincipal'); await cli.waitForTimeout(700);
+igual('só ao escolher o serviço aparecem as fotos, uma por serviço',
+  await cli.evaluate(() => document.querySelectorAll('#listaServicos .sv-foto img').length), 2);
+const precos = await cli.evaluate(() =>
+  [...document.querySelectorAll('#listaServicos .vv')].map(v => v.textContent.trim()));
+verdade('e aí sim os valores', precos.some(v => v.includes('70')) && precos.some(v => v.includes('120')));
+igual('sem erro de JavaScript na vitrine', errosCli.length, 0);
+
 secao('Um banco que ainda não recebeu a função nova');
 
 /* `horarios_livres_periodo()` é mais nova que o resto do schema. Um projeto

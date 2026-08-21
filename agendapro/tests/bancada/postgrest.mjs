@@ -19,6 +19,10 @@ const TIPOS = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; char
 // token → id do usuário. O Supabase usa JWT assinado; aqui basta o mapa,
 // porque quem confere de verdade é o RLS a partir de request.jwt.claim.sub.
 const sessoes = new Map();
+
+// As imagens enviadas, em memória. O processo é descartável; ninguém precisa
+// delas depois que o teste termina.
+const arquivos = new Map();
 let seq = 0;
 
 const json = (res, code, corpo) => {
@@ -148,6 +152,46 @@ const http_ = http.createServer(async (req, res) => {
         sessoes.delete(a); return json(res, 204, {});
       }
       return json(res, 404, { message: 'auth: ' + acao });
+    }
+
+    /* ── STORAGE ────────────────────────────────────────────────────────
+       O Supabase guarda imagem noutro serviço, com outro caminho e corpo
+       binário. Sem um arremedo dele aqui, TODA foto — logo, capa, serviço,
+       profissional — ficava fora de teste no modo nuvem: a bancada respondia
+       404 e o teste só sabia dizer "não consegui enviar".
+
+       É o mesmo buraco que já custou caro três vezes nesta semana: o modo em
+       que o defeito mora ser justamente o que os testes não visitam.
+
+       Guarda na memória, não em disco: o processo é descartável e ninguém
+       precisa da foto depois que o teste termina.
+
+       O caminho `<salao_id>/<arquivo>` é a convenção de que a policy do balde
+       depende. Aqui não há policy — mas o teste que confere se um salão
+       alcança a pasta do outro é de banco, em 04_imagens.sql, não daqui. */
+    if(u.pathname.startsWith('/storage/v1/object/')){
+      const chave = decodeURIComponent(
+        u.pathname.replace('/storage/v1/object/', '')
+                  .replace(/^public\//, ''));
+
+      if(req.method === 'POST' || req.method === 'PUT'){
+        const pedacos = [];
+        for await (const p of req) pedacos.push(p);
+        arquivos.set(chave, { tipo: req.headers['content-type'] || 'image/jpeg',
+                              dados: Buffer.concat(pedacos) });
+        return json(res, 200, { Key: chave });
+      }
+      if(req.method === 'GET'){
+        const a = arquivos.get(chave);
+        if(!a) return json(res, 404, { message: 'nao achei ' + chave });
+        res.writeHead(200, { 'Content-Type': a.tipo,
+                             'Access-Control-Allow-Origin': '*' });
+        return res.end(a.dados);
+      }
+      if(req.method === 'DELETE'){
+        arquivos.delete(chave);
+        return json(res, 200, {});
+      }
     }
 
     // ── REST ──

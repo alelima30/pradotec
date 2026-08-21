@@ -331,6 +331,9 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
       <div id="capaMarca"></div>
       <div id="capaAviso"></div>
       <div id="capaFoto"></div>
+      <!-- As fotos dos serviços passando. Vem ANTES dos nomes: é a imagem que
+           faz a pessoa parar de rolar, e o nome que ela lê em seguida. -->
+      <div id="capaSlides" class="slide-caixa"></div>
       <div class="cat">O que oferecemos</div>
       <div id="capaServicos"></div>
       <div class="cat" id="rotuloEquipe">Quem atende</div>
@@ -1116,38 +1119,29 @@ function desenharCapa(){
          loading="lazy"></div>`
     : '';
 
+  /* ── A VITRINE: O QUE A CASA FAZ, SEM TABELA DE PREÇOS ──────────────────
+     Antes a capa era um cardápio: cada serviço com foto, duração e valor.
+     Vendia errado. Quem abre o link vindo do WhatsApp ainda não decidiu
+     nada — está olhando a casa, não comparando preço — e a primeira tela
+     cheia de números convida a comparar em vez de convidar a marcar.
+
+     Agora a capa mostra O QUE SE FAZ ali: os nomes, e as fotos passando num
+     slide. O valor aparece no passo seguinte, quando a pessoa já clicou em
+     "Agendar horário" e está escolhendo — que é onde o preço é informação
+     útil, e não obstáculo.
+     ──────────────────────────────────────────────────────────────────── */
   const svs = servicosDoSalao();
   const porCat = {};
   for(const s of svs){ (porCat[s.categoria || 'Serviços'] ||= []).push(s); }
 
-  // Grade de dois em vez de lista: com foto, o card precisa de largura, e é
-  // assim que a categoria inteira apresenta serviço. Sem foto nenhuma, a
-  // grade vira lista sozinha — um card alto e vazio seria pior que uma linha.
-  const temFoto = svs.some(x => x.foto);
   document.getElementById('capaServicos').innerHTML =
     Object.entries(porCat).map(([cat, lista]) => `
       <div class="cat" style="margin-top:12px">${cat}</div>
-      <div class="${temFoto ? 'grade-servicos' : ''}">
-      ${lista.map((s, i) => temFoto ? `
-        <div class="card-servico${i === lista.length - 1 && lista.length % 2 ? ' largo' : ''}">
-          <div class="cs-foto">
-            ${s.foto ? `<img src="${s.foto}" alt="" loading="lazy">`
-                     : `<span data-ico="tesoura"></span>`}
-          </div>
-          <div class="cs-txt">
-            <b>${s.nome}</b>
-            <div class="cs-rodape">
-              <span class="vv">${real(s.preco)}</span>
-              <span class="cs-min">${s.duracaoMin} min</span>
-            </div>
-          </div>
-        </div>` : `
-        <div class="opcao" style="cursor:default">
-          <span class="txt"><span class="tt">${s.nome}</span>
-            <span class="dd">${s.duracaoMin} min</span></span>
-          <span class="vv">${real(s.preco)}</span>
-        </div>`).join('')}
-      </div>`).join('');
+      <div class="fitas">${lista.map(s =>
+        `<span class="fita-servico">${s.nome}</span>`).join('')}</div>
+    `).join('');
+
+  montarSlides(svs);
 
   document.getElementById('rotuloEquipe').textContent = voc('atende');
   document.getElementById('capaEquipe').innerHTML = profsDoSalao().map(p => `
@@ -1163,6 +1157,74 @@ function desenharCapa(){
   document.getElementById('capaAviso').innerHTML = meus.length
     ? `<div class="recado ok">Você tem ${meus.length} horário(s) marcado(s) aqui.
        <button class="link" onclick="irPara('meus')">Ver</button></div>` : '';
+}
+
+/* ── O SLIDE DA CAPA ──────────────────────────────────────────────────────
+   As fotos que o salão cadastrou nos serviços, passando sozinhas. É o que a
+   vitrine de uma loja faz: mostra o trabalho, não a tabela.
+
+   Três decisões que não são estética:
+
+   · a foto aparece INTEIRA, sobre uma cópia borrada dela mesma no fundo.
+     `object-fit:cover` cortava — foto de celular é retrato, o espaço é
+     paisagem, e o corte comia justamente o cabelo que a foto queria mostrar.
+     `contain` sozinho deixaria duas tarjas vazias; a cópia borrada preenche,
+     e é o recurso que todo aplicativo de foto usa para mídia fora de
+     proporção;
+
+   · o cronômetro é UM só, guardado em `slideTimer`, e é desligado antes de
+     começar outro. Sem isso, cada volta ao desenho da capa deixaria mais um
+     rodando, e depois de cinco idas e vindas as fotos passariam voando;
+
+   · com "menos movimento" ligado no aparelho, não passa sozinho. Quem pediu
+     para o sistema parar de se mexer tem motivo, e às vezes o motivo é
+     enjoo ou epilepsia fotossensível.
+   ──────────────────────────────────────────────────────────────────────── */
+let slideTimer = null;
+let slideAtual = 0;
+
+function montarSlides(servicos){
+  const caixa = document.getElementById('capaSlides');
+  if(!caixa) return;
+
+  if(slideTimer){ clearInterval(slideTimer); slideTimer = null; }
+
+  const comFoto = (servicos || []).filter(s => s.foto);
+  if(!comFoto.length){ caixa.innerHTML = ''; caixa.style.display = 'none'; return; }
+
+  caixa.style.display = '';
+  slideAtual = 0;
+  caixa.innerHTML = `
+    <div class="slides" id="slidesPista">
+      ${comFoto.map((s, i) => `
+        <figure class="slide${i === 0 ? ' on' : ''}">
+          <span class="slide-fundo" style="background-image:url('${s.foto}')"></span>
+          <img src="${s.foto}" alt="${s.nome}" loading="lazy">
+          <figcaption>${s.nome}</figcaption>
+        </figure>`).join('')}
+    </div>
+    ${comFoto.length > 1 ? `<div class="slide-pontos" id="slidePontos">
+      ${comFoto.map((_, i) =>
+        `<button class="${i === 0 ? 'on' : ''}" aria-label="Foto ${i+1}"
+                 onclick="irSlide(${i})"></button>`).join('')}
+    </div>` : ''}`;
+
+  const parado = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(comFoto.length > 1 && !parado){
+    slideTimer = setInterval(() => irSlide(slideAtual + 1), 4000);
+  }
+}
+
+function irSlide(n){
+  const pista = document.getElementById('slidesPista');
+  if(!pista) return;
+  const fotos = pista.querySelectorAll('.slide');
+  if(!fotos.length) return;
+  slideAtual = ((n % fotos.length) + fotos.length) % fotos.length;
+  fotos.forEach((f, i) => f.classList.toggle('on', i === slideAtual));
+  const pontos = document.querySelectorAll('#slidePontos button');
+  pontos.forEach((b, i) => b.classList.toggle('on', i === slideAtual));
 }
 
 function resumoJornada(p){
@@ -1251,8 +1313,17 @@ function desenharServicos(){
       <div class="cat">${cat}</div>
       ${lista.map(s => {
         const sel = escolha.servicos.includes(s.id);
-        return `<button class="opcao ${sel?'sel':''}" onclick="alternarServico('${s.id}')">
+        /* AQUI é onde a foto e o preço aparecem — não na capa. A pessoa já
+           clicou em "Agendar horário", já decidiu que quer ser atendida
+           nesta casa, e agora precisa comparar: o que é cada coisa, quanto
+           custa, quanto demora. Foto ao lado do nome porque "corte
+           navalhado" não diz nada e a imagem diz. */
+        return `<button class="opcao com-foto ${sel?'sel':''}"
+                        onclick="alternarServico('${s.id}')">
           <span class="marca">${sel ? ico('ok') : ''}</span>
+          <span class="sv-foto">${s.foto
+            ? `<img src="${s.foto}" alt="" loading="lazy">`
+            : `<span data-ico="tesoura"></span>`}</span>
           <span class="txt"><span class="tt">${s.nome}${
             ehCombo(s) ? '<span class="selo-combo">COMBO</span>' : ''}</span>
             <span class="dd">${s.duracaoMin} min</span></span>
@@ -1315,7 +1386,8 @@ function desenharProfs(){
     const sel = escolha.profissionalId === p.id;
     const pl = primeiroLivre(p);
     html += `<button class="opcao ${sel?'sel':''}" onclick="escolherProf('${p.id}')">
-      <span class="ic" style="background:${p.cor}">${p.nome[0]}</span>
+      <span class="ic" style="background:${p.cor}">${
+        p.foto ? `<img src="${p.foto}" alt="">` : p.nome[0]}</span>
       <span class="txt"><span class="tt">${p.nome}</span>
         <span class="dd">${pl ? 'Livre ' + dataLonga(pl.data) + ' às ' + hm(pl.min)
                              : 'sem horário nos próximos 15 dias'}</span></span>

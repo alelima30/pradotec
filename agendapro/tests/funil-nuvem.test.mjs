@@ -198,6 +198,82 @@ await q.waitForTimeout(800);
 verdade('e continua lá depois de recarregar, porque foi para o banco',
   (await q.textContent('body')).includes('Jucelia Barbosa'));
 
+/* ── A JORNADA DE TRABALHO ────────────────────────────────────────────────
+   Três defeitos moravam aqui ao mesmo tempo, todos por falta da tradução
+   entre `p.jornada` (o mapa da tela) e a tabela `jornadas` (uma linha por
+   faixa):
+
+     · a aba Equipe QUEBRAVA, lendo `p.jornada[d]` de quem não tinha jornada
+       — e uma aba que quebra parece uma aba que não existe, que foi como
+       este pedaço "sumiu";
+     · a agenda do dono abria sem horário de trabalho nenhum;
+     · e a jornada não tinha como ser salva, porque `jornada` é campo de tela
+       e era removido antes de subir.
+
+   O terceiro é o que custa dinheiro: sem linha em `jornadas`, a função
+   `horarios_livres()` não devolve nada, e o link que a cliente abre fica sem
+   um horário sequer. O dono configura a semana, salva, e continua invisível.
+   ──────────────────────────────────────────────────────────────────────── */
+await q.click('a:has-text("Equipe"), button:has-text("Equipe")');
+await q.waitForTimeout(700);
+igual('a aba Equipe abre sem quebrar', q.erros.length, 0);
+verdade('e mostra quem atende', (await q.textContent('body')).includes(NOME.split(' ')[0]));
+
+await q.click('#listaEquipe button:has-text("Editar")');
+await q.waitForTimeout(500);
+// Terça (2): entra 08:00, sai 12:00; volta 14:00, sai 18:00 — com almoço.
+await q.fill('#j2a', '08:00'); await q.fill('#j2b', '12:00');
+await q.fill('#j2c', '14:00'); await q.fill('#j2d', '18:00');
+await q.click('button:has-text("Salvar")');
+await q.waitForTimeout(2500);
+igual('salvar a jornada não devolve erro', avisos.join(' | '), '');
+
+await q.reload();
+await q.waitForTimeout(3000);
+await q.click('a:has-text("Equipe"), button:has-text("Equipe")');
+await q.waitForTimeout(700);
+await q.click('#listaEquipe button:has-text("Editar")');
+await q.waitForTimeout(600);
+igual('a hora de entrar na terça voltou do banco', await q.inputValue('#j2a'), '08:00');
+igual('e a de sair também',                        await q.inputValue('#j2b'), '12:00');
+igual('o almoço no meio não se perde — volta às 14:00', await q.inputValue('#j2c'), '14:00');
+igual('e a saída da tarde',                        await q.inputValue('#j2d'), '18:00');
+
+/* ── A FOTO DE QUEM ATENDE ────────────────────────────────────────────────
+   Imagem é o único pedaço do sistema que não passa pelo PostgREST: outro
+   serviço, outro caminho, corpo binário. A bancada não tinha nada disso, e
+   por isso TODA foto — logo, capa, serviço, profissional — vivia fora de
+   teste no modo nuvem. Agora ela tem um arremedo do Storage, e este caso
+   passa por ele de ponta a ponta: escolher, reduzir, enviar, gravar o
+   endereço, recarregar e continuar lá. */
+const PNG_4x4 = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAHElEQVQI12P4'
+              + '//8/AzYEEwAAKzQD/6Ac0AAAAABJRU5ErkJggg==';
+await q.setInputFiles('#modalCorpo input[type=file]',
+  { name: 'rosto.png', mimeType: 'image/png', buffer: Buffer.from(PNG_4x4, 'base64') });
+await q.waitForTimeout(1200);
+verdade('a foto escolhida aparece na prévia antes de salvar',
+  await q.evaluate(() => !!document.querySelector('#previaProf img')));
+
+await q.click('#modalPe button:has-text("Salvar")');
+await q.waitForTimeout(3000);
+igual('salvar com foto não devolve erro', avisos.join(' | '), '');
+
+await q.reload();
+await q.waitForTimeout(3000);
+await q.click('a:has-text("Equipe"), button:has-text("Equipe")');
+await q.waitForTimeout(800);
+const rosto = await q.evaluate(() => {
+  const img = document.querySelector('#listaEquipe .eq-rosto img');
+  return img ? img.getAttribute('src') : null;
+});
+verdade('e continua lá depois de recarregar', !!rosto);
+/* O endereço tem que ser do servidor, não um `data:` de 200 KB. Uma base64
+   gravada na coluna funciona na tela do dono e faz a página da cliente
+   carregar um texto gigante por profissional — no 3G dela, isso é a
+   diferença entre abrir e desistir. */
+verdade('e é um endereço do servidor, não a imagem inteira dentro da coluna',
+  rosto && !rosto.startsWith('data:'));
+
 await nav.close();
 console.log('');
 if (falhou) { console.log(`✗ ${falhou} de ${passou + falhou} falharam.`); process.exit(1); }

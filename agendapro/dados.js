@@ -516,10 +516,17 @@ function mesmaCoisa(a, b){
 }
 
 // O que mudou de `antes` para `agora`, campo a campo.
-function diferenca(antes, agora){
+function diferenca(tabela, antes, agora){
+  const soDaTela = SO_DA_TELA[tabela] || [];
   const d = {};
   for(const k of Object.keys(agora)){
     if(k === 'id') continue;
+    /* Campo que só existe na tela não pode DECIDIR uma gravação. A jornada de
+       um profissional mora aqui como `p.jornada` e no banco como linhas da
+       tabela `jornadas`; mudá-la marcava o profissional como "diferente", e o
+       update que saía disso ficava vazio depois de o `paraBanco()` remover o
+       campo — um PATCH sem nada para mudar, recusado pelo servidor. */
+    if(soDaTela.includes(k)) continue;
     if(!mesmaCoisa(antes[k], agora[k])) d[k] = agora[k];
   }
   return d;
@@ -593,7 +600,7 @@ async function subir(antes, agora){
         if(!velhas.has(id)){
           await Dados.inserir(t, linha);
         } else {
-          const d = diferenca(velhas.get(id), linha);
+          const d = diferenca(t, velhas.get(id), linha);
           if(Object.keys(d).length) await Dados.atualizar(t, id, d);
         }
       }catch(e){ problemas.push(t + ': ' + e.message); }

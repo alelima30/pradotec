@@ -287,6 +287,28 @@
 
 /* ── O pé da lateral ─────────────────────────────────────────────────── */
 .lat-pe{ padding:12px; border-top:1px solid var(--lat-borda) }
+
+/* Quem está usando o sistema agora. A recepção, a dona e quem atende dividem
+   o mesmo computador — sem esta linha, "Sair" é um botão que ninguém sabe de
+   quem, e comanda lançada na conta da colega é questão de tempo. */
+.lat-quem{
+  display:flex; align-items:center; gap:9px;
+  padding:9px 10px; margin-bottom:9px; border-radius:var(--r-sm);
+  background:rgba(255,255,255,.05);
+}
+.lat-quem-ini{
+  width:28px; height:28px; flex:none; border-radius:50%;
+  display:grid; place-items:center;
+  background:var(--acao); color:var(--acao-txt);
+  font-size:12px; font-weight:640; letter-spacing:-.01em;
+}
+.lat-quem-txt{ min-width:0; line-height:1.25 }
+.lat-quem-txt b{
+  display:block; font-size:13px; font-weight:560; color:var(--lat-txt);
+  /* Nome comprido não pode empurrar a lateral nem quebrar em duas linhas. */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.lat-quem-txt small{ font-size:11px; color:var(--lat-txt3) }
 .lat-acao{
   display:flex; align-items:center; gap:9px; width:100%;
   padding:8px 10px; margin-bottom:3px; border-radius:var(--r-sm);
@@ -748,6 +770,92 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
 }
 .capa-foto img{ width:100%; height:100%; object-fit:cover; display:block }
 
+/* ── A VITRINE DA CAPA ────────────────────────────────────────────────────
+   As fotos dos serviços passando, e os nomes em fitas — sem preço. O valor é
+   assunto do passo seguinte, quando a pessoa já está escolhendo.
+
+   A FOTO APARECE INTEIRA. `object-fit:cover` cortava: foto de celular é
+   retrato, o espaço é paisagem, e o corte comia justamente o cabelo que a
+   foto queria mostrar. `contain` sozinho deixaria duas tarjas vazias, então
+   o fundo é uma cópia BORRADA da mesma imagem — o recurso que todo
+   aplicativo de foto usa para mídia fora de proporção, e que aqui resolve
+   sem pedir ao dono do salão que recorte nada.
+   ──────────────────────────────────────────────────────────────────────── */
+.slide-caixa{ margin:2px 0 18px }
+.slides{
+  position:relative; border-radius:var(--r); overflow:hidden;
+  border:1px solid var(--borda); background:var(--painel2);
+  aspect-ratio:4 / 3;
+}
+.slide{
+  position:absolute; inset:0; margin:0;
+  opacity:0; transition:opacity .6s ease; pointer-events:none;
+}
+.slide.on{ opacity:1 }
+.slide-fundo{
+  position:absolute; inset:-24px;          /* sangra para o borrão não vazar */
+  background-size:cover; background-position:center;
+  filter:blur(22px) saturate(1.25) brightness(.72);
+}
+.slide img{
+  position:relative; width:100%; height:100%;
+  object-fit:contain; display:block;
+}
+.slide figcaption{
+  position:absolute; left:0; right:0; bottom:0; padding:22px 14px 11px;
+  color:#fff; font-size:14px; font-weight:560; letter-spacing:-.01em;
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  background:linear-gradient(to top, rgba(0,0,0,.55), transparent);
+}
+/* O PONTINHO É PEQUENO; O ALVO DE TOQUE, NÃO.
+   A primeira versão tinha botões de 7px — o desenho certo e o alvo errado. O
+   teste de celular reprovou, e com razão: dedo não acerta 7px, e quem erra
+   troca de foto sem querer ou não troca nenhuma. O ponto continua discreto,
+   desenhado no ::after; quem tem 40px é a área invisível ao redor. */
+.slide-pontos{ display:flex; justify-content:center; margin-top:3px }
+.slide-pontos button{
+  width:40px; height:40px; padding:0; border:none; background:none;
+  display:grid; place-items:center; cursor:pointer;
+}
+.slide-pontos button::after{
+  content:''; width:7px; height:7px; border-radius:50%;
+  background:var(--borda-forte); transition:.2s;
+}
+.slide-pontos button.on::after{ background:var(--acao); width:20px; border-radius:4px }
+
+/* Os nomes do que a casa faz. Fita, e não linha de tabela: lista com valor à
+   direita é cardápio, e cardápio convida a comparar preço antes de a pessoa
+   ter decidido que quer ser atendida ali. */
+/* A miniatura na hora de escolher o serviço. Aqui `cover` é o certo: a caixa
+   é quadrada e pequena, e o que importa é reconhecer, não examinar. A foto
+   inteira, sem corte, é o papel do slide da capa. */
+.opcao .sv-foto{
+  width:46px; height:46px; flex:none; border-radius:10px; overflow:hidden;
+  display:grid; place-items:center;
+  background:var(--painel2); border:1px solid var(--borda); color:var(--txt3);
+}
+.opcao .sv-foto img{ width:100%; height:100%; object-fit:cover; display:block }
+.opcao .sv-foto .ic-svg{ width:18px; height:18px }
+.opcao.com-foto{ gap:11px }
+
+/* A miniatura na tabela do painel. O dono precisa VER qual serviço tem foto e
+   qual não tem — sem isso ele descobre pela tela da cliente, que é tarde. */
+.sv-mini{
+  width:30px; height:30px; flex:none; border-radius:7px; overflow:hidden;
+  display:inline-grid; place-items:center; vertical-align:-9px;
+  margin-right:9px;
+  background:var(--painel2); border:1px solid var(--borda); color:var(--txt3);
+}
+.sv-mini img{ width:100%; height:100%; object-fit:cover; display:block }
+.sv-mini .ic-svg{ width:14px; height:14px }
+
+.fitas{ display:flex; flex-wrap:wrap; gap:7px; margin-top:4px }
+.fita-servico{
+  display:inline-block; padding:7px 13px; border-radius:99px;
+  border:1px solid var(--borda); background:var(--painel);
+  font-size:13.5px; font-weight:520; color:var(--txt);
+}
+
 .grade-servicos{
   display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:11px;
 }
@@ -822,6 +930,15 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
 }
 .foto-previa img{ width:100%; height:100%; object-fit:cover; display:block }
 .foto-previa.logo{ width:76px; height:76px }
+/* Rosto é redondo em todo lugar do sistema: é como o olho distingue "pessoa"
+   de "coisa" sem ler nada. */
+.foto-previa.pessoa{ width:76px; height:76px; border-radius:50% }
+.eq-rosto{
+  width:26px; height:26px; flex:none; border-radius:50%; overflow:hidden;
+  display:inline-grid; place-items:center; vertical-align:-7px;
+  margin-right:8px; color:#fff; font-size:11px; font-weight:640;
+}
+.eq-rosto img{ width:100%; height:100%; object-fit:cover; display:block }
 .foto-previa.capa{ width:132px; aspect-ratio:3 / 2 }
 .foto-previa.servico{ width:104px; aspect-ratio:4 / 3 }
 .foto-previa .ic-svg{ width:22px; height:22px }
