@@ -804,7 +804,41 @@ async function baixar(salaoId){
   }
   const bd = {};
   const falhas = [];
+  /* ── A CONTA DA PLATAFORMA NÃO BAIXA O SALÃO DOS OUTROS ──────────────────
+     `is_super()` está em toda policy de leitura: quem administra o AgendaPro
+     enxerga, pelo banco, TODO salão. É de propósito — sem isso não há como
+     dar suporte nem cobrar. Mas sem filtro nenhum, a primeira leitura do
+     painel arrastava para dentro do navegador dele a lista de clientes de
+     todos os salões, com telefone e observação, de uma vez só. Medido numa
+     base de teste: 27 salões e 15 clientes que não são dele.
+
+     Isso não é acesso a mais — o acesso ele tem de qualquer jeito. É
+     exposição à toa: dado que ninguém pediu, num aparelho, para uma tela que
+     nem vai mostrá-lo (o `sohMeusSaloes()` do app.html descarta tudo logo em
+     seguida, e o painel dele é o admin.html, que passa por RPC).
+
+     Então, depois de saber quem é a pessoa, as tabelas de salão só descem
+     para os salões a que ela está de fato vinculada. Se não há nenhum — o
+     caso da conta de plataforma pura — não desce nada. */
+  let sohDe = null;
   for(const t of TABELAS_SO_LEITURA.concat(TABELAS_SINCRONIZADAS)){
+    if(t === 'saloes' && sohDe === null){
+      const eu = sessao && sessao.usuarioId;
+      const souDaPlataforma = (bd.perfis || []).some(p => p.id === eu && p.superAdmin);
+      if(souDaPlataforma){
+        sohDe = (bd.vinculos || [])
+          .filter(v => v.perfilId === eu && v.status === 'ativo')
+          .map(v => v.salaoId);
+        if(!sohDe.length){
+          for(const r of TABELAS_SINCRONIZADAS) bd[r] = [];
+          bd.contaDaPlataforma = true;
+          return bd;
+        }
+      } else {
+        sohDe = [];   // dono comum: o RLS já entrega só o que é dele
+      }
+    }
+
     /* A sessão pode ter morrido no meio da descarga: a primeira tabela tenta,
        leva 401, a renovação é recusada, e `sessao` some. Sem esta saída, as
        catorze tabelas seguintes fariam catorze requisições sem token — todas
@@ -841,7 +875,11 @@ async function baixar(salaoId){
          que se descobre a QUAIS salões a pessoa pertence. Filtrar pelo salão
          atual esconderia os outros dela. */
       const temSalao = t !== 'vinculos' && !!(COLUNAS[t] && COLUNAS[t].salaoId);
-      const filtro = (salaoId && temSalao) ? { salaoId } : {};
+      /* Sem salão escolhido ainda, a conta da plataforma usa o primeiro salão
+         dela — nunca "todos". Para o dono comum isto não muda nada: o RLS já
+         entrega só o que é dele, com filtro ou sem. */
+      const alvo = salaoId || (sohDe && sohDe.length ? sohDe[0] : null);
+      const filtro = (alvo && temSalao) ? { salaoId: alvo } : {};
       bd[t] = await Dados.lista(t, filtro);
     }catch(e){
       /* Tabela que esta pessoa não alcança não é erro: é o RLS funcionando, e

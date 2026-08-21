@@ -32,6 +32,20 @@ const diz = (bom, msg, extra) => bom
 // mesmo lugar.
 const nav = await chromium.launch({ executablePath: CHROMIUM });
 
+/* O `dados.js` fora do navegador, com a sessão de alguém na mão. Serve para
+   perguntar o que o painel BAIXARIA, sem depender do que a tela desenha —
+   o que desce para o navegador é o que importa aqui, não o que aparece. */
+function novaAba(sessao){
+  const g = { 'agendapro.sessao': JSON.stringify(sessao) };
+  const j = { AGENDAPRO:{ url:BANCADA, chave:'chave-de-teste', ambiente:'bancada' },
+    localStorage:{ getItem:k=>(k in g?g[k]:null), setItem:(k,v)=>{g[k]=String(v)},
+                   removeItem:k=>{delete g[k]} } };
+  new Function('window','console','fetch','localStorage',
+    fs.readFileSync(path.join(RAIZ,'..','dados.js'),'utf8'))(
+    j, { info(){}, error(){}, log(){} }, fetch, j.localStorage);
+  return j.Dados;
+}
+
 async function abrir(sessao){
   const ctx = await nav.newContext({ viewport:{ width:1280, height:900 } });
   await ctx.addInitScript(([base, s]) => {
@@ -90,6 +104,33 @@ console.log('\nQuem é');
   diz((await p.textContent('.selo')).includes('PLATAFORMA'),
     'a tela se identifica como a que enxerga todos os salões');
   await p.context().close();
+
+  /* ── O PAINEL DO SALÃO NÃO BAIXA O SALÃO DOS OUTROS ────────────────────
+     `is_super()` está em toda policy de leitura, então esta conta ALCANÇA,
+     pelo banco, o salão de todo mundo — é de propósito, sem isso não há
+     suporte nem cobrança. O que não pode é o app.html arrastar isso para
+     dentro do navegador sem ninguém pedir: numa base de teste eram 27
+     salões e 15 clientes de terceiros, com telefone e observação, baixados
+     na abertura para uma tela que descarta tudo em seguida.
+
+     Acesso ela tem; exposição à toa, não. O painel dela é o admin.html, que
+     passa por RPC — o app.html não precisa de uma linha sequer. */
+  const bd = await fetch(BANCADA + "/rest/v1/clientes?select=id", {
+    headers: { apikey:'k', Authorization: 'Bearer ' + c.sessao.token } })
+    .then(r => r.json());
+  diz(Array.isArray(bd) && bd.length > 0,
+    'pelo banco, a conta da plataforma alcança cliente de outro salão (de propósito)',
+    'vieram ' + (Array.isArray(bd) ? bd.length : '?'));
+
+  const janela = novaAba(c.sessao);
+  const trazido = await janela.baixar();
+  diz(trazido.contaDaPlataforma === true,
+    'mas o baixar() do painel para na conta de plataforma, sem puxar nada');
+  diz((trazido.clientes || []).length === 0,
+    'nenhum cliente de terceiro desce para o navegador dela',
+    'vieram ' + (trazido.clientes || []).length);
+  diz((trazido.saloes || []).length === 0,
+    'nem a lista de salões dos outros', 'vieram ' + (trazido.saloes || []).length);
 }
 
 console.log('\nSem banco configurado');
