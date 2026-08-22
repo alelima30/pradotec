@@ -570,6 +570,25 @@ function minDe(hhmm){
   const [h,m] = String(hhmm).split(':').map(Number);
   return (h||0)*60 + (m||0);
 }
+/* ── Texto de gente, dentro de HTML ───────────────────────────────────────
+   Todo nome, observação ou endereço aqui foi digitado por alguém — e um
+   deles não precisa nem ter conta: `agendar()` é liberada para `anon`, então
+   QUALQUER pessoa marca um horário com o nome que quiser, e esse nome
+   aparece na agenda do dono.
+
+   Sem esta função, um nome como `<img src=x onerror=...>` deixava de ser
+   texto e virava código rodando na sessão do dono — com acesso à agenda, à
+   lista de clientes e ao faturamento do salão. Não é hipótese: está
+   reproduzido em tests/seguranca.test.mjs.
+
+   A regra, então: nada que uma pessoa tenha digitado entra em `innerHTML`
+   sem passar por aqui. A aspa simples também sai, para atributo entre aspas
+   simples. Onde já existe `textContent`, ele continua sendo o melhor
+   caminho — não precisa desta função porque não interpreta HTML. */
+const escapar = t => String(t == null ? '' : t)
+  .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',
+                              '"':'&quot;',"'":'&#39;'}[c]));
+
 function real(v){
   return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 }
@@ -833,7 +852,7 @@ function pintarAgenda(){
       ? j.map(x => hm(x[0]) + '–' + hm(x[1])).join(' · ')
       : 'folga';
     html += `<div class="col-h${semVaga.has(p.id) ? ' sem-vaga' : ''}">
-      <div class="nm"><span class="pnt" style="background:${p.cor}"></span>${p.nome}</div>
+      <div class="nm"><span class="pnt" style="background:${escapar(p.cor)}"></span>${escapar(p.nome)}</div>
       <div class="fn">${semVaga.has(p.id) ? 'fora do plano' : fx}</div></div>`;
   }
 
@@ -869,7 +888,7 @@ function pintarAgenda(){
     for(const b of bd.bloqueios.filter(b => b.salaoId === salaoAtual && b.data === diaAtual
                                          && (b.profissionalId === p.id || b.profissionalId === null))){
       html += `<div class="bloqueio" style="top:${y(b.inicio)}px;height:${y(b.fim)-y(b.inicio)}px">
-                 ${b.motivo || 'Bloqueado'}</div>`;
+                 ${escapar(b.motivo || 'Bloqueado')}</div>`;
     }
 
     // Atendimentos
@@ -880,10 +899,10 @@ function pintarAgenda(){
       // continua no `title` e no detalhe.
       const curto = alt < 42 ? ' curto' : '';
       html += `<div class="ag ${a.status}${curto}" style="top:${y(a.inicio)}px;height:${alt}px;
-                    background:${p.cor}" title="${hm(a.inicio)} · ${nomeCliente(a.clienteId)} · ${rotuloServicos(a)}"
+                    background:${p.cor}" title="${hm(a.inicio)} · ${escapar(nomeCliente(a.clienteId))} · ${escapar(rotuloServicos(a))}"
                     onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
-                 <b>${hm(a.inicio)} ${nomeCliente(a.clienteId)}</b>
-                 <span>${rotuloServicos(a)}</span></div>`;
+                 <b>${hm(a.inicio)} ${escapar(nomeCliente(a.clienteId))}</b>
+                 <span>${escapar(rotuloServicos(a))}</span></div>`;
     }
     html += '</div>';
   }
@@ -941,8 +960,8 @@ function pintarClientes(){
         .sort((a,b) => b.data.localeCompare(a.data));
       const ult = dele[0] ? porExtenso(dele[0].data).split(', ')[1] : '—';
       return `<tr>
-        <td><b>${c.nome}</b>${c.obs ? `<br><span style="font-size:12px;color:var(--txt2)">${c.obs}</span>` : ''}</td>
-        <td>${c.telefone || '—'}</td><td>${ult}</td><td>${dele.length}</td>
+        <td><b>${escapar(c.nome)}</b>${c.obs ? `<br><span style="font-size:12px;color:var(--txt2)">${escapar(c.obs)}</span>` : ''}</td>
+        <td>${escapar(c.telefone || '—')}</td><td>${ult}</td><td>${dele.length}</td>
         <td style="text-align:right"><button class="btn btn-peq" onclick="abrirCliente('${c.id}')">Editar</button></td>
       </tr>`;
     }).join('') + '</tbody></table>';
@@ -960,10 +979,10 @@ function pintarServicos(){
       <th>Serviço</th><th>Categoria</th><th>Duração</th><th>Preço</th><th>Comissão</th><th></th>
     </tr></thead><tbody>` + lista.map(s => `<tr>
       <td><span class="sv-mini">${s.foto
-          ? `<img src="${s.foto}" alt="" loading="lazy">`
+          ? `<img src="${escapar(s.foto)}" alt="" loading="lazy">`
           : `<span data-ico="tesoura"></span>`}</span
-        ><b>${s.nome}</b>${s.ativo ? '' : ' <span class="tag t-canc">inativo</span>'}</td>
-      <td>${s.categoria || '—'}</td>
+        ><b>${escapar(s.nome)}</b>${s.ativo ? '' : ' <span class="tag t-canc">inativo</span>'}</td>
+      <td>${escapar(s.categoria || '—')}</td>
       <td>${s.duracaoMin} min</td>
       <td>${real(s.preco)}</td>
       <td>${s.comissaoPct != null ? s.comissaoPct + '%' : '<span style="color:var(--txt3)">do profissional</span>'}</td>
@@ -986,9 +1005,9 @@ function pintarEquipe(){
     const dias = [1,2,3,4,5,6,0].filter(d => (j[d]||[]).length)
       .map(d => DIAS[d].slice(0,3)).join(', ') || 'sem jornada';
     return `<div class="card">
-      <h3><span class="eq-rosto" style="background:${p.cor}">${
-        p.foto ? `<img src="${p.foto}" alt="">`
-               : (p.nome || '?').trim().charAt(0).toUpperCase()}</span>${p.nome}
+      <h3><span class="eq-rosto" style="background:${escapar(p.cor)}">${
+        p.foto ? `<img src="${escapar(p.foto)}" alt="">`
+               : escapar((p.nome || '?').trim().charAt(0).toUpperCase())}</span>${escapar(p.nome)}
         ${p.ativo ? '' : '<span class="tag t-canc">inativo</span>'}</h3>
       <p>Comissão de ${p.comissaoPct}% · ${dias}</p>
       <div class="card-acoes">
@@ -1039,8 +1058,8 @@ function pintarCaixa(){
           ? c.pagamentos.map(p => p.forma).join(', ')
           : '<span class="tag t-pend">em aberto</span>';
         return `<tr>
-          <td><b>${c.numero}</b></td>
-          <td>${nomeCliente(c.clienteId)}</td>
+          <td><b>${escapar(c.numero)}</b></td>
+          <td>${escapar(nomeCliente(c.clienteId))}</td>
           <td>${c.itens.length}</td>
           <td><b>${real(t)}</b></td>
           <td>${formas}</td>
@@ -1056,7 +1075,7 @@ function pintarCaixa(){
     : `<table class="tabela"><thead><tr><th>Profissional</th><th>Vendeu</th><th>Comissão</th></tr></thead><tbody>`
       + chaves.map(k => {
           const p = acharProf(k);
-          return `<tr><td><span class="pnt" style="background:${p?p.cor:'#999'}"></span>${p?p.nome:'—'}</td>
+          return `<tr><td><span class="pnt" style="background:${escapar(p?p.cor:'#999')}"></span>${escapar(p?p.nome:'—')}</td>
             <td>${real(porProf[k].venda)}</td><td><b>${real(porProf[k].com)}</b></td></tr>`;
         }).join('') + '</tbody></table>';
 }
@@ -1077,12 +1096,12 @@ function prepararPublico(){
   const sv = document.getElementById('pubServico');
   const svAntes = sv.value;
   sv.innerHTML = servsAtivos().map(x =>
-    `<option value="${x.id}">${x.nome} · ${x.duracaoMin} min · ${real(x.preco)}</option>`).join('');
+    `<option value="${x.id}">${escapar(x.nome)} · ${x.duracaoMin} min · ${real(x.preco)}</option>`).join('');
   if(svAntes && servsAtivos().some(x => x.id === svAntes)) sv.value = svAntes;
 
   const pf = document.getElementById('pubProf');
   const pfAntes = pf.value;
-  pf.innerHTML = profsAtivos().map(x => `<option value="${x.id}">${x.nome}</option>`).join('');
+  pf.innerHTML = profsAtivos().map(x => `<option value="${x.id}">${escapar(x.nome)}</option>`).join('');
   if(pfAntes && profsAtivos().some(x => x.id === pfAntes)) pf.value = pfAntes;
 
   const dt = document.getElementById('pubData');
@@ -1126,13 +1145,13 @@ function pintarPublico(){
     const proximos = proximosDiasComVaga(profId, data, s.duracaoMin + (s.intervaloMin||0), 3);
     alvo.innerHTML = '';
     if(proximos.length){
-      nota.innerHTML = `<b>${porExtenso(data)} está cheio com ${acharProf(profId).nome}.</b><br>`
+      nota.innerHTML = `<b>${porExtenso(data)} está cheio com ${escapar(acharProf(profId).nome)}.</b><br>`
         + 'Próximos dias com horário: '
         + proximos.map(d => `<button class="btn btn-peq" style="margin:4px 4px 0 0"
              onclick="document.getElementById('pubData').value='${d.data}';pintarPublico()">
              ${porExtenso(d.data).split(', ')[1]} · ${d.qtd} vagas</button>`).join('');
     } else {
-      nota.innerHTML = `<b>Sem horário livre nos próximos dias com ${acharProf(profId).nome}.</b><br>`
+      nota.innerHTML = `<b>Sem horário livre nos próximos dias com ${escapar(acharProf(profId).nome)}.</b><br>`
         + 'Tente outro profissional.';
     }
     return;
@@ -1145,7 +1164,7 @@ function pintarPublico(){
   const p = acharProf(profId);
   const ocupados = agendaDoDia(data).filter(a => a.profissionalId === profId
                                               && ATIVOS.includes(a.status)).length;
-  nota.innerHTML = `${livres.length} horários livres com ${p.nome}. `
+  nota.innerHTML = `${livres.length} horários livres com ${escapar(p.nome)}. `
     + `Há ${ocupados} atendimento(s) marcado(s) nesse dia — e a cliente não vê `
     + `nenhum deles, só os buracos entre eles.`;
 }
@@ -1158,7 +1177,7 @@ function marcarPeloPublico(profId, servId, data, min){
     <div class="aviso info">No app de verdade, aqui a cliente já está identificada
       pelo telefone que ela validou com o código do WhatsApp.</div>
     <div class="campo"><label>Serviço</label>
-      <input value="${s.nome} · ${hm(min)}–${hm(min+s.duracaoMin)}" disabled></div>
+      <input value="${escapar(s.nome)} · ${hm(min)}–${hm(min+s.duracaoMin)}" disabled></div>
     <div class="campo"><label>Seu nome</label>
       <input id="pNome" placeholder="Como quer ser chamada"></div>
     <div class="campo"><label>Seu WhatsApp</label>
@@ -1232,9 +1251,9 @@ function abrirNovo(profId, min){
   if(fora){
     const p = planoEfetivo();
     abrirModal(fora.nome + ' está fora do seu plano', `
-      <div class="aviso atencao"><b>O plano ${p ? p.nome : 'atual'} cobre
+      <div class="aviso atencao"><b>O plano ${escapar(p ? p.nome : 'atual')} cobre
       ${limiteDoSalao()} profissional(is) na agenda.</b><br>
-      A ficha e o histórico de ${fora.nome} continuam guardados, mas a agenda
+      A ficha e o histórico de ${escapar(fora.nome)} continuam guardados, mas a agenda
       dele(a) não recebe horário novo enquanto o plano não crescer.</div>
       <p>Você pode assinar um plano maior, ou desativar outra pessoa em
       <b>Equipe</b> para abrir a vaga.</p>`,
@@ -1247,7 +1266,7 @@ function abrirNovo(profId, min){
     <div class="campo"><label>Cliente</label>
       <select id="fCliente">
         <option value="">— novo cliente —</option>
-        ${clis.map(c => `<option value="${c.id}">${c.nome}${c.telefone?' · '+c.telefone:''}</option>`).join('')}
+        ${clis.map(c => `<option value="${c.id}">${escapar(c.nome)}${escapar(c.telefone?' · '+c.telefone:'')}</option>`).join('')}
       </select></div>
     <div id="blocoNovo">
       <div class="dupla">
@@ -1257,13 +1276,13 @@ function abrirNovo(profId, min){
     </div>
     <div class="campo"><label>Profissional</label>
       <select id="fProf" onchange="recalcularFim()">
-        ${profs.map(p => `<option value="${p.id}"${p.id===profId?' selected':''}>${p.nome}</option>`).join('')}
+        ${profs.map(p => `<option value="${p.id}"${p.id===profId?' selected':''}>${escapar(p.nome)}</option>`).join('')}
       </select></div>
     <div class="campo"><label>Serviços</label>
       <div class="lista-serv">${servs.map(s => `
         <label class="serv-op">
           <input type="checkbox" value="${s.id}" onchange="recalcularFim()">
-          <span class="i"><span class="n">${s.nome}</span>
+          <span class="i"><span class="n">${escapar(s.nome)}</span>
             <span class="d">${s.duracaoMin} min · ${real(s.preco)}</span></span>
         </label>`).join('')}</div></div>
     <div class="dupla">
@@ -1315,12 +1334,12 @@ function recalcularFim(){
   let html = `<div class="aviso ok">${hm(ini)} às ${hm(fim)} · ${dur} min · ${real(preco)}</div>`;
   if(bate){
     html += `<div class="aviso"><b>Choca com outro atendimento.</b><br>
-      ${prof.nome} já tem ${nomeCliente(bate.clienteId)} das ${hm(bate.inicio)} às ${hm(bate.fim)}.
+      ${escapar(prof.nome)} já tem ${escapar(nomeCliente(bate.clienteId))} das ${hm(bate.inicio)} às ${hm(bate.fim)}.
       O banco recusaria este agendamento.</div>`;
   } else if(bloq){
-    html += `<div class="aviso"><b>Horário bloqueado</b> na agenda de ${prof.nome}.</div>`;
+    html += `<div class="aviso"><b>Horário bloqueado</b> na agenda de ${escapar(prof.nome)}.</div>`;
   } else if(foraJornada){
-    html += `<div class="aviso"><b>Fora da jornada de ${prof.nome}.</b><br>
+    html += `<div class="aviso"><b>Fora da jornada de ${escapar(prof.nome)}.</b><br>
       Dá para marcar assim mesmo (encaixe), mas confira com ela.</div>`;
   }
   aviso.innerHTML = html;
@@ -1395,15 +1414,15 @@ function abrirDetalhe(agId){
       ${a.origem === 'online' ? '<span class="tag t-conc" style="margin-left:5px">veio pelo link</span>' : ''}
     </div>
     <table class="tabela" style="box-shadow:none"><tbody>
-      <tr><td style="color:var(--txt2);width:110px">Cliente</td><td><b>${c ? c.nome : '—'}</b>
-        ${c && c.telefone ? `<br><span style="font-size:13px;color:var(--txt2)">${c.telefone}</span>` : ''}</td></tr>
+      <tr><td style="color:var(--txt2);width:110px">Cliente</td><td><b>${escapar(c ? c.nome : '—')}</b>
+        ${c && c.telefone ? `<br><span style="font-size:13px;color:var(--txt2)">${escapar(c.telefone)}</span>` : ''}</td></tr>
       <tr><td style="color:var(--txt2)">Quando</td><td>${porExtenso(a.data)}<br>
         <b>${hm(a.inicio)} às ${hm(a.fim)}</b> · ${a.fim - a.inicio} min</td></tr>
       <tr><td style="color:var(--txt2)">Profissional</td>
-        <td><span class="pnt" style="background:${p?p.cor:'#999'}"></span>${p ? p.nome : '—'}</td></tr>
+        <td><span class="pnt" style="background:${escapar(p?p.cor:'#999')}"></span>${escapar(p ? p.nome : '—')}</td></tr>
       <tr><td style="color:var(--txt2)">Serviços</td><td>${rotuloServicos(a)}<br>
         <b>${real(totalDe(a))}</b></td></tr>
-      ${a.obs ? `<tr><td style="color:var(--txt2)">Obs.</td><td>${a.obs}</td></tr>` : ''}
+      ${a.obs ? `<tr><td style="color:var(--txt2)">Obs.</td><td>${escapar(a.obs)}</td></tr>` : ''}
     </tbody></table>
     <div class="campo" style="margin-top:14px">
       <label>Mudar status</label>
@@ -1477,8 +1496,8 @@ function abrirComanda(comId){
         const p = acharProf(i.profissionalId);
         const t = i.qtd*i.precoUnit;
         return `<tr>
-          <td>${i.descricao}${i.qtd > 1 ? ` <span style="color:var(--txt2)">×${i.qtd}</span>` : ''}</td>
-          <td style="font-size:13px">${p ? p.nome : '—'}</td>
+          <td>${escapar(i.descricao)}${i.qtd > 1 ? ` <span style="color:var(--txt2)">×${i.qtd}</span>` : ''}</td>
+          <td style="font-size:13px">${escapar(p ? p.nome : '—')}</td>
           <td style="text-align:right">${real(t)}</td>
           <td style="text-align:right;color:var(--txt2)">${real(Math.round(t*(i.comissaoPct||0))/100)}</td>
           <td style="text-align:right"><button class="btn btn-peq"
@@ -1492,13 +1511,13 @@ function abrirComanda(comId){
       <div class="campo"><label>Somar item</label>
         <select id="cItem">
           <optgroup label="Serviços">${servsAtivos().map(s =>
-            `<option value="s:${s.id}">${s.nome} · ${real(s.preco)}</option>`).join('')}</optgroup>
+            `<option value="s:${s.id}">${escapar(s.nome)} · ${real(s.preco)}</option>`).join('')}</optgroup>
           <optgroup label="Produtos">${doSalao(bd.produtos).map(p =>
-            `<option value="p:${p.id}">${p.nome} · ${real(p.preco)}</option>`).join('')}</optgroup>
+            `<option value="p:${p.id}">${escapar(p.nome)} · ${real(p.preco)}</option>`).join('')}</optgroup>
         </select></div>
       <div class="campo"><label>Quem executou</label>
         <select id="cProf">${profsAtivos().map(p =>
-          `<option value="${p.id}">${p.nome}</option>`).join('')}</select></div>
+          `<option value="${p.id}">${escapar(p.nome)}</option>`).join('')}</select></div>
     </div>
     <button class="btn btn-peq" onclick="somarItem('${c.id}')">+ Somar à comanda</button>
 
@@ -1576,15 +1595,15 @@ function abrirCliente(cid){
   const c = cid ? acharCliente(cid) : null;
   abrirModal(c ? 'Editar cliente' : 'Novo cliente', `
     <div class="campo"><label>Nome</label>
-      <input id="kNome" value="${c ? c.nome : ''}" placeholder="Nome completo"></div>
+      <input id="kNome" value="${escapar(c ? c.nome : '')}" placeholder="Nome completo"></div>
     <div class="dupla">
       <div class="campo"><label>WhatsApp</label>
-        <input id="kTel" value="${c ? (c.telefone||'') : ''}" placeholder="(11) 99999-9999"></div>
+        <input id="kTel" value="${escapar(c ? (c.telefone||'') : '')}" placeholder="(11) 99999-9999"></div>
       <div class="campo"><label>Nascimento</label>
         <input type="date" id="kNasc" value="${c ? (c.nascimento||'') : ''}"></div>
     </div>
     <div class="campo"><label>Observações e alergias</label>
-      <textarea id="kObs" rows="3" placeholder="Fórmula da cor, preferências, alergias">${c ? (c.obs||'') : ''}</textarea></div>
+      <textarea id="kObs" rows="3" placeholder="Fórmula da cor, preferências, alergias">${escapar(c ? (c.obs||'') : '')}</textarea></div>
   `, [
     ['Cancelar','fecharModal()',''],
     ['Salvar', `salvarCliente(${c ? `'${c.id}'` : 'null'})`, 'btn-p'],
@@ -1610,7 +1629,7 @@ function abrirServico(sid){
   abrirModal(s ? 'Editar serviço' : 'Novo serviço', `
     <div class="foto-linha" style="margin-bottom:16px">
       <div class="foto-previa servico" id="previaServico">
-        ${s && s.foto ? `<img src="${s.foto}" alt="">`
+        ${s && s.foto ? `<img src="${escapar(s.foto)}" alt="">`
                       : `<span data-ico="tesoura"></span>`}
       </div>
       <div class="foto-txt">
@@ -1627,10 +1646,10 @@ function abrirServico(sid){
     </div>
     <input type="hidden" id="sFoto" value="${s && s.foto ? s.foto : ''}">
     <div class="campo"><label>Nome</label>
-      <input id="sNome" value="${s ? s.nome : ''}" placeholder="Corte feminino"></div>
+      <input id="sNome" value="${escapar(s ? s.nome : '')}" placeholder="Corte feminino"></div>
     <div class="dupla">
       <div class="campo"><label>Categoria</label>
-        <input id="sCat" value="${s ? (s.categoria||'') : ''}" placeholder="Cabelo"></div>
+        <input id="sCat" value="${escapar(s ? (s.categoria||'') : '')}" placeholder="Cabelo"></div>
       <div class="campo"><label>Duração (min)</label>
         <input type="number" id="sDur" value="${s ? s.duracaoMin : 60}" min="5" step="5"></div>
     </div>
@@ -1757,7 +1776,7 @@ function abrirProf(pid){
          e uma crase aqui fecha a string no meio do HTML.) -->
     <div class="foto-linha" style="margin-bottom:16px">
       <div class="foto-previa pessoa" id="previaProf">
-        ${p && p.foto ? `<img src="${p.foto}" alt="">`
+        ${p && p.foto ? `<img src="${escapar(p.foto)}" alt="">`
                       : `<span data-ico="pessoa"></span>`}
       </div>
       <div class="foto-txt">
@@ -1774,7 +1793,7 @@ function abrirProf(pid){
     </div>
     <input type="hidden" id="qFoto" value="${p && p.foto ? p.foto : ''}">
     <div class="campo"><label>Nome</label>
-      <input id="qNome" value="${p ? p.nome : ''}" placeholder="Nome de quem atende"></div>
+      <input id="qNome" value="${escapar(p ? p.nome : '')}" placeholder="Nome de quem atende"></div>
     <div class="dupla">
       <div class="campo"><label>Comissão padrão (%)</label>
         <input type="number" id="qCom" value="${p ? p.comissaoPct : 40}" min="0" max="100"></div>
@@ -1965,11 +1984,11 @@ function pintarSalao(){
     <div class="foto-linha">
       <div class="foto-previa fp-${chave}">
         ${imagemDoSalao(sl, chave)
-          ? `<img src="${imagemDoSalao(sl, chave)}" alt="">`
+          ? `<img src="${escapar(imagemDoSalao(sl, chave))}" alt="">`
           : `<span data-ico="${chave === 'logo' ? 'predio' : 'casa'}"></span>`}
       </div>
       <div class="foto-txt">
-        <b>${titulo}</b>
+        <b>${escapar(titulo)}</b>
         <p>${explica}</p>
         <p class="fmt">${formato}</p>
         <div class="foto-acoes">
@@ -1995,7 +2014,7 @@ function pintarSalao(){
 
       <div class="dupla">
         <div class="campo"><label for="cNome">Nome</label>
-          <input id="cNome" value="${sl.nome || ''}" placeholder="Studio Bella"></div>
+          <input id="cNome" value="${escapar(sl.nome || '')}" placeholder="Studio Bella"></div>
         <div class="campo"><label for="cTipo">Tipo de negócio</label>
           <select id="cTipo">
             ${['salao','barbearia','estetica','manicure','clinica','tatuagem','pet','outro']
@@ -2011,7 +2030,7 @@ function pintarSalao(){
 
       <div class="dupla">
         <div class="campo"><label for="cTel">Telefone</label>
-          <input id="cTel" value="${sl.telefone || ''}" placeholder="(11) 3333-4444"></div>
+          <input id="cTel" value="${escapar(sl.telefone || '')}" placeholder="(11) 3333-4444"></div>
         <div class="campo"><label for="cZap">WhatsApp</label>
           <input id="cZap" value="${sl.whatsapp || ''}" placeholder="(11) 99999-8888">
           <span class="ajuda">É por onde sai a confirmação do cliente.</span></div>
@@ -2019,7 +2038,7 @@ function pintarSalao(){
 
       <div class="campo">
         <label>CPF ou CNPJ</label>
-        <input value="${doc ? Endereco.documento(doc.documento) : '—'}" disabled>
+        <input value="${escapar(doc ? Endereco.documento(doc.documento) : '—')}" disabled>
         <span class="ajuda">Trocar o documento do contrato é assunto de
           suporte, não de tela — é ele que identifica quem assina a
           assinatura.</span>
@@ -2028,22 +2047,22 @@ function pintarSalao(){
       <h3 class="secao" style="margin-top:22px">Endereço</h3>
       <div class="tripla">
         <div class="campo" style="grid-column:span 2"><label for="cRua">Logradouro</label>
-          <input id="cRua" value="${end.logradouro}" placeholder="Rua das Flores"></div>
+          <input id="cRua" value="${escapar(end.logradouro)}" placeholder="Rua das Flores"></div>
         <div class="campo"><label for="cNum">Número</label>
-          <input id="cNum" value="${end.numero}" placeholder="210"></div>
+          <input id="cNum" value="${escapar(end.numero)}" placeholder="210"></div>
       </div>
       <div class="tripla">
         <div class="campo"><label for="cCompl">Complemento</label>
-          <input id="cCompl" value="${end.complemento}" placeholder="Sala 2"></div>
+          <input id="cCompl" value="${escapar(end.complemento)}" placeholder="Sala 2"></div>
         <div class="campo"><label for="cBairro">Bairro</label>
-          <input id="cBairro" value="${end.bairro}" placeholder="Centro"></div>
+          <input id="cBairro" value="${escapar(end.bairro)}" placeholder="Centro"></div>
         <div class="campo"><label for="cCep">CEP</label>
           <input id="cCep" value="${Endereco.mascaraCep(end.cep)}" placeholder="13300-000"
                  inputmode="numeric" oninput="this.value=Endereco.mascaraCep(this.value)"></div>
       </div>
       <div class="tripla">
         <div class="campo" style="grid-column:span 2"><label for="cCidade">Cidade</label>
-          <input id="cCidade" value="${end.cidade}" placeholder="Itu"></div>
+          <input id="cCidade" value="${escapar(end.cidade)}" placeholder="Itu"></div>
         <div class="campo"><label for="cUf">UF</label>
           <select id="cUf">
             <option value="">—</option>
@@ -2266,7 +2285,7 @@ function pintarAparencia(){
 
   paleta.innerHTML = CORES.map(([hex, nome]) =>
     `<button type="button" class="cor ${hex.toLowerCase() === aparencia.cor.toLowerCase() ? 'on' : ''}"
-             style="--amostra:${hex}" title="${nome}" aria-label="${nome}"
+             style="--amostra:${hex}" title="${escapar(nome)}" aria-label="${escapar(nome)}"
              onclick="escolherCor('${hex}')"></button>`).join('');
   document.getElementById('corLivre').value = aparencia.cor;
 
@@ -2349,8 +2368,8 @@ function previaDoSlide(sl){
   const m = itens[0];
   return `<div class="fone-slide">
     ${m.tipo === 'video'
-      ? `<video src="${m.url}" muted playsinline preload="metadata"></video>`
-      : `<img src="${m.url}" alt="">`}
+      ? `<video src="${escapar(m.url)}" muted playsinline preload="metadata"></video>`
+      : `<img src="${escapar(m.url)}" alt="">`}
     ${itens.length > 1 ? `<span class="fone-slide-n">1 de ${itens.length}</span>` : ''}
   </div>`;
 }
@@ -2369,7 +2388,7 @@ function pintarPreviaFone(){
 
   alvo.innerHTML =
     `<div class="fone ${escuro ? 'fone-escuro' : ''}"
-          style="--marca:${aparencia.cor};--marca-txt:${letraSobre(aparencia.cor)}">
+          style="--marca:${escapar(aparencia.cor)};--marca-txt:${letraSobre(aparencia.cor)}">
        ${imagemDoSalao(sl, 'fundo')
          ? `<div class="fone-fundo" style="background-image:url('${imagemDoSalao(sl, 'fundo')}');
                   --veu:${aparencia.veu / 100}"></div>`
@@ -2377,9 +2396,9 @@ function pintarPreviaFone(){
        ${sl.capa ? `<div class="fone-capa" style="background-image:url('${sl.capa}');
                           --foco:${aparencia.capaFoco}%"></div>` : ''}
        <div class="fone-topo" data-letra="${aparencia.letra}">
-         ${sl.logo ? `<img src="${sl.logo}" alt="">`
-                   : `<div class="fone-selo">${(sl.nome || 'A').charAt(0)}</div>`}
-         <b>${sl.nome || 'Seu salão'}</b>
+         ${sl.logo ? `<img src="${escapar(sl.logo)}" alt="">`
+                   : `<div class="fone-selo">${escapar((sl.nome || 'A').charAt(0))}</div>`}
+         <b>${escapar(sl.nome || 'Seu salão')}</b>
          ${(() => {
             const e = Endereco.completo(sl.endereco);
             return e.length
@@ -2400,9 +2419,9 @@ function pintarPreviaFone(){
          <div class="fone-rot">Nossos serviços</div>
          ${svs.length ? svs.map(s => `
            <div class="fone-sv">
-             <div class="fone-sv-foto"${s.foto ? ` style="background-image:url('${s.foto}')"` : ''}></div>
+             <div class="fone-sv-foto"${s.foto ? ` style="background-image:url('${escapar(s.foto)}')"` : ''}></div>
              <div class="fone-sv-txt">
-               <b>${s.nome}</b>
+               <b>${escapar(s.nome)}</b>
                ${aparencia.precoNaCapa
                  ? `<span class="fone-preco">${real(s.preco || 0)}</span>` : ''}
              </div>
@@ -2412,9 +2431,9 @@ function pintarPreviaFone(){
        ${eq.length ? `<div class="fone-svs">
          <div class="fone-rot">Quem atende</div>
          ${eq.map(x => `<div class="fone-sv">
-            <div class="fone-eq"${x.foto ? ` style="background-image:url('${x.foto}')"` : ''}>${
-              x.foto ? '' : (x.nome || '?').charAt(0).toUpperCase()}</div>
-            <div class="fone-sv-txt"><b>${x.apelido || x.nome}</b></div>
+            <div class="fone-eq"${x.foto ? ` style="background-image:url('${escapar(x.foto)}')"` : ''}>${
+              x.foto ? '' : escapar((x.nome || '?').charAt(0).toUpperCase())}</div>
+            <div class="fone-sv-txt"><b>${escapar(x.apelido || x.nome)}</b></div>
           </div>`).join('')}
        </div>` : ''}
      </div>
@@ -2588,9 +2607,9 @@ function galeriaDoSalao(sl){
       ${g.map((m, i) => `
         <figure class="gal-item">
           ${m.tipo === 'video'
-            ? `<video src="${m.url}" muted playsinline preload="metadata"></video>
+            ? `<video src="${escapar(m.url)}" muted playsinline preload="metadata"></video>
                <span class="gal-tag">vídeo</span>`
-            : `<img src="${m.url}" alt="" loading="lazy">`}
+            : `<img src="${escapar(m.url)}" alt="" loading="lazy">`}
           ${i === 0 ? '<span class="gal-primeiro">1ª a aparecer</span>' : ''}
           <div class="gal-acoes">
             <button title="Mover para trás" aria-label="Mover para trás"
@@ -2823,11 +2842,11 @@ function pintarPlano(){
     <div class="card">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div>
-          <h3 style="font-size:18px">${p ? p.nome : 'Sem plano'}</h3>
+          <h3 style="font-size:18px">${escapar(p ? p.nome : 'Sem plano')}</h3>
           <p>${a && a.status === 'trial' && !caiu
               ? `Teste grátis — faltam ${dias} dia(s)`
               : caiu && a.status === 'trial' ? 'O teste grátis terminou'
-              : caiu ? `A assinatura ${contratado.nome} não está em vigor`
+              : caiu ? `A assinatura ${escapar(contratado.nome)} não está em vigor`
               : a && a.status === 'ativa' ? 'Assinatura ativa'
               : 'Plano sem custo, sem prazo'}</p>
         </div>
@@ -2845,7 +2864,7 @@ function pintarPlano(){
         assine um plano. Em ${mesPorExtenso(somarDias(fimDoMes(diaAtual), 1))} o
         contador zera.</div>` : ''}
       ${fora.length ? `<div class="aviso atencao" style="margin-top:13px;margin-bottom:0">
-        <b>${fora.map(x => x.nome).join(', ')} ${fora.length > 1 ? 'estão' : 'está'}
+        <b>${escapar(fora.map(x => x.nome).join(', '))} ${fora.length > 1 ? 'estão' : 'está'}
         fora do seu plano.</b><br>
         ${fora.length > 1 ? 'Elas continuam' : 'A agenda dele(a) continua'} no
         sistema e o histórico está guardado, mas
@@ -2886,14 +2905,14 @@ function pintarPlano(){
     <div class="card" style="margin-top:14px">
       <div style="font-size:12px;font-weight:800;color:var(--roxo);letter-spacing:.05em">
         PLANO RECOMENDADO</div>
-      <h3 style="font-size:20px;margin-top:4px">${recomendado.nome}</h3>
+      <h3 style="font-size:20px;margin-top:4px">${escapar(recomendado.nome)}</h3>
       <div style="font-size:26px;font-weight:800;margin:6px 0">
         ${real(recomendado.precoMes)}<span style="font-size:14px;font-weight:600;
         color:var(--txt2)"> /mês</span></div>
       <p>Até ${recomendado.maxProfissionais} profissional(is) na agenda.</p>
       <div class="card-acoes">
         <button class="btn btn-p" onclick="assinar('${recomendado.codigo}')">
-          Assinar ${recomendado.nome}</button>
+          Assinar ${escapar(recomendado.nome)}</button>
       </div>
       <p style="font-size:12px;color:var(--txt3);margin-top:10px">
         Nesta demonstração o botão troca o plano na hora. No sistema de
@@ -3451,7 +3470,7 @@ function registrarServiceWorker(){
 /* ── Partida ─────────────────────────────────────────────────────────── */
 function iniciar(){
   const sel = document.getElementById('selSalao');
-  sel.innerHTML = bd.saloes.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+  sel.innerHTML = bd.saloes.map(s => `<option value="${s.id}">${escapar(s.nome)}</option>`).join('');
   sel.value = salaoAtual;
   const s = acharSalao(salaoAtual);
   document.getElementById('mTipo').textContent = (s.tipo || 'salão');

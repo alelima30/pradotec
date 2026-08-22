@@ -730,6 +730,25 @@ function diaDaSemana(dataIso){
 function hm(min){
   return String(Math.floor(min/60)).padStart(2,'0') + ':' + String(min%60).padStart(2,'0');
 }
+/* ── Texto de gente, dentro de HTML ───────────────────────────────────────
+   Todo nome, observação ou endereço aqui foi digitado por alguém — e um
+   deles não precisa nem ter conta: `agendar()` é liberada para `anon`, então
+   QUALQUER pessoa marca um horário com o nome que quiser, e esse nome
+   aparece na agenda do dono.
+
+   Sem esta função, um nome como `<img src=x onerror=...>` deixava de ser
+   texto e virava código rodando na sessão do dono — com acesso à agenda, à
+   lista de clientes e ao faturamento do salão. Não é hipótese: está
+   reproduzido em tests/seguranca.test.mjs.
+
+   A regra, então: nada que uma pessoa tenha digitado entra em `innerHTML`
+   sem passar por aqui. A aspa simples também sai, para atributo entre aspas
+   simples. Onde já existe `textContent`, ele continua sendo o melhor
+   caminho — não precisa desta função porque não interpreta HTML. */
+const escapar = t => String(t == null ? '' : t)
+  .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',
+                              '"':'&quot;',"'":'&#39;'}[c]));
+
 function real(v){ return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function dataCurta(dataIso){
   const [a,m,d] = dataIso.split('-').map(Number);
@@ -923,7 +942,7 @@ async function abrirSalaoDaNuvem(slug){
     // encontrado" é mais honesto do que mostrar uma lista de outros salões.
     return falhar(
       `<div class="recado erro"><b>Salão não encontrado.</b><br>
-       O endereço <code>?salao=${slug}</code> não corresponde a nenhum salão ativo.</div>`);
+       O endereço <code>?salao=${escapar(slug)}</code> não corresponde a nenhum salão ativo.</div>`);
   }
   clearTimeout(acender);
   bd = bdDaVitrine(v);
@@ -1163,10 +1182,10 @@ function desenhar(){
 function desenharSaloes(){
   document.getElementById('listaSaloes').innerHTML = bd.saloes.map(s => `
     <button class="opcao" onclick="entrarNoSalao('${s.slug}')">
-      <span class="ic">${(s.nome||'?').trim().charAt(0).toUpperCase()}</span>
-      <span class="txt"><span class="tt">${s.nome}</span>
+      <span class="ic">${escapar((s.nome||'?').trim().charAt(0).toUpperCase())}</span>
+      <span class="txt"><span class="tt">${escapar(s.nome)}</span>
         <span class="dd">${Endereco.linha(s.endereco)}</span>
-        <span class="dd" style="color:var(--txt3)">?salao=${s.slug}</span></span>
+        <span class="dd" style="color:var(--txt3)">?salao=${escapar(s.slug)}</span></span>
       <span style="color:var(--txt3);font-size:20px">&rsaquo;</span>
     </button>`).join('');
 }
@@ -1216,13 +1235,13 @@ function desenharCapa(){
     ${temFoto ? `<div class="hero-foto"
                    style="background-image:url('${salao.capa}');--foco:${
                      Number.isFinite(foco) ? foco : 50}%"
-                   role="img" aria-label="Foto de ${salao.nome}"></div>` : ''}
+                   role="img" aria-label="Foto de ${escapar(salao.nome)}"></div>` : ''}
     <div class="marca-salao${temFoto ? ' com-foto' : ''}" data-letra="${letra}">
       <div class="marca-selo">
-        ${salao.logo ? `<img src="${salao.logo}" alt="">`
-                     : (salao.nome || '?').trim().charAt(0).toUpperCase()}
+        ${salao.logo ? `<img src="${escapar(salao.logo)}" alt="">`
+                     : escapar((salao.nome || '?').trim().charAt(0).toUpperCase())}
       </div>
-      <h2>${salao.nome}</h2>
+      <h2>${escapar(salao.nome)}</h2>
       ${end.length
         ? `<div class="marca-end">
              <div class="rua">${end[0]}</div>
@@ -1276,9 +1295,9 @@ function desenharCapa(){
         <button class="sv-cartao${s.foto ? '' : ' sem-foto'}"
                 onclick="irPara('servico')">
           ${s.foto ? `<span class="sv-cartao-foto"
-                        style="background-image:url('${s.foto}')"></span>` : ''}
+                        style="background-image:url('${escapar(s.foto)}')"></span>` : ''}
           <span class="sv-cartao-txt">
-            <b>${s.nome}</b>
+            <b>${escapar(s.nome)}</b>
             <span class="sv-cartao-linha">
               ${comPreco ? `<span class="sv-cartao-preco">${real(s.preco)}</span>` : ''}
               <span class="sv-cartao-dur">${s.duracaoMin} min</span>
@@ -1291,9 +1310,9 @@ function desenharCapa(){
   document.getElementById('rotuloEquipe').textContent = voc('atende');
   document.getElementById('capaEquipe').innerHTML = profsDoSalao().map(p => `
     <div class="opcao" style="cursor:default">
-      <span class="ic" style="background:${p.cor}">${
-        p.foto ? `<img src="${p.foto}" alt="">` : p.nome[0]}</span>
-      <span class="txt"><span class="tt">${p.nome}</span>
+      <span class="ic" style="background:${escapar(p.cor)}">${
+        p.foto ? `<img src="${escapar(p.foto)}" alt="">` : escapar(p.nome[0])}</span>
+      <span class="txt"><span class="tt">${escapar(p.nome)}</span>
         <span class="dd">${resumoJornada(p)}</span></span>
     </div>`).join('');
 
@@ -1363,11 +1382,11 @@ function montarSlides(servicos){
       ${itens.map((m, i) => `
         <figure class="slide${i === 0 ? ' on' : ''}">
           ${m.tipo === 'video'
-            ? `<video src="${m.url}" muted loop playsinline preload="metadata"
+            ? `<video src="${escapar(m.url)}" muted loop playsinline preload="metadata"
                       ${i === 0 ? 'autoplay' : ''}></video>`
-            : `<span class="slide-fundo" style="background-image:url('${m.url}')"></span>
-               <img src="${m.url}" alt="${m.legenda || ''}" loading="lazy">`}
-          ${m.legenda ? `<figcaption>${m.legenda}</figcaption>` : ''}
+            : `<span class="slide-fundo" style="background-image:url('${escapar(m.url)}')"></span>
+               <img src="${escapar(m.url)}" alt="${escapar(m.legenda || '')}" loading="lazy">`}
+          ${m.legenda ? `<figcaption>${escapar(m.legenda)}</figcaption>` : ''}
         </figure>`).join('')}
     </div>
     ${itens.length > 1 ? `<div class="slide-pontos" id="slidePontos">
@@ -1471,7 +1490,7 @@ function desenharServicos(){
   if(!todos.length){
     const zap = (salao.whatsapp || salao.telefone || '').replace(/\D/g,'');
     alvo.innerHTML = '<div class="nada"><b>Este salão ainda não publicou os '
-      + 'serviços</b>A agenda online abre assim que ' + salao.nome + ' terminar '
+      + 'serviços</b>A agenda online abre assim que ' + escapar(salao.nome) + ' terminar '
       + 'de cadastrar o que faz.'
       + (zap ? ` <a href="https://wa.me/${zap.length > 11 ? zap : '55' + zap}"
                    target="_blank" rel="noopener">Falar no WhatsApp</a>` : '')
@@ -1502,9 +1521,9 @@ function desenharServicos(){
                         onclick="alternarServico('${s.id}')">
           <span class="marca">${sel ? ico('ok') : ''}</span>
           <span class="sv-foto">${s.foto
-            ? `<img src="${s.foto}" alt="" loading="lazy">`
+            ? `<img src="${escapar(s.foto)}" alt="" loading="lazy">`
             : `<span data-ico="tesoura"></span>`}</span>
-          <span class="txt"><span class="tt">${s.nome}${
+          <span class="txt"><span class="tt">${escapar(s.nome)}${
             ehCombo(s) ? '<span class="selo-combo">COMBO</span>' : ''}</span>
             <span class="dd">${s.duracaoMin} min</span></span>
           <span class="vv">${real(s.preco)}</span>
@@ -1566,9 +1585,9 @@ function desenharProfs(){
     const sel = escolha.profissionalId === p.id;
     const pl = primeiroLivre(p);
     html += `<button class="opcao ${sel?'sel':''}" onclick="escolherProf('${p.id}')">
-      <span class="ic" style="background:${p.cor}">${
-        p.foto ? `<img src="${p.foto}" alt="">` : p.nome[0]}</span>
-      <span class="txt"><span class="tt">${p.nome}</span>
+      <span class="ic" style="background:${escapar(p.cor)}">${
+        p.foto ? `<img src="${escapar(p.foto)}" alt="">` : escapar(p.nome[0])}</span>
+      <span class="txt"><span class="tt">${escapar(p.nome)}</span>
         <span class="dd">${pl ? 'Livre ' + dataLonga(pl.data) + ' às ' + hm(pl.min)
                              : 'sem horário nos próximos 15 dias'}</span></span>
       <span class="marca">${sel ? ico('ok') : ''}</span>
@@ -1618,7 +1637,7 @@ function desenharQuando(){
       document.getElementById('cardProximo').innerHTML = '';
       document.getElementById('listaHoras').innerHTML = vagasErro === 'FALTA_INSTALAR'
         ? '<div class="nada"><b>A agenda online deste salão ainda não foi ligada.</b>'
-          + 'Fale com ' + salao.nome + ' — em geral é coisa de minutos.'
+          + 'Fale com ' + escapar(salao.nome) + ' — em geral é coisa de minutos.'
           + '<small style="display:block;margin-top:10px;opacity:.7">Para o dono: '
           + 'falta rodar <code>supabase/00_tudo.sql</code> no SQL Editor do '
           + 'Supabase. A função <code>horarios_livres_periodo()</code> não está '
@@ -1709,7 +1728,7 @@ function desenharQuando(){
 
   document.getElementById('listaHoras').innerHTML = turnos
     .filter(([,lista]) => lista.length)
-    .map(([nome, lista]) => `<div class="turno">${nome}</div>
+    .map(([nome, lista]) => `<div class="turno">${escapar(nome)}</div>
       <div class="horas">${lista.map(h =>
         `<button class="hora ${escolha.inicio===h?'sel':''}"
                  onclick="escolherHora(${h})">${hm(h)}</button>`).join('')}</div>`)
@@ -1775,7 +1794,7 @@ function abrirModalFila(){
   const dur = duracaoNaAgenda();
   irPara('fila');
   document.getElementById('resumoFila').innerHTML = `
-    <div class="l"><span>Serviço</span><b>${nomesEscolhidos()}</b></div>
+    <div class="l"><span>Serviço</span><b>${escapar(nomesEscolhidos())}</b></div>
     <div class="l"><span>Duração</span><b>${dur} min</b></div>
     <div class="l"><span>Profissional</span><b>${
       escolha.profissionalId === '*' ? 'qualquer um'
@@ -1917,14 +1936,14 @@ function desenharDados(){
   }
 
   document.getElementById('reconhecido').innerHTML = (sessao && sessao.nome)
-    ? `<div class="recado">Este aparelho lembra de <b>${sessao.nome}</b>.
+    ? `<div class="recado">Este aparelho lembra de <b>${escapar(sessao.nome)}</b>.
         Se não for você, é só trocar os campos abaixo.</div>` : '';
 
-  const resumo = `${nomesEscolhidos()} · ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}`;
+  const resumo = `${escapar(nomesEscolhidos())} · ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}`;
   document.getElementById('avisoDados').innerHTML =
     `<div class="recado ok">${resumo}${
       escolha.para === 'ambos' ? '<br>Dois atendimentos seguidos.' :
-      escolha.para === 'filho' ? '<br>Atendimento para ' + (escolha.filhoNome || 'seu filho') + '.' : ''}</div>`;
+      escolha.para === 'filho' ? '<br>Atendimento para ' + escapar(escolha.filhoNome || 'seu filho') + '.' : ''}</div>`;
 }
 
 function salvarDados(){
@@ -1956,7 +1975,7 @@ function desenharTelefone(){
   const el = document.getElementById('fTelefone');
   if(sessao) el.value = sessao.telefone || '';
   document.getElementById('avisoTel').innerHTML = `
-    <div class="recado">Escolhido: <b>${nomesEscolhidos()}</b><br>
+    <div class="recado">Escolhido: <b>${escapar(nomesEscolhidos())}</b><br>
       ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}</div>`;
   setTimeout(() => el.focus(), 120);
 }
@@ -1996,7 +2015,7 @@ function desenharCodigo(){
     setTimeout(() => document.getElementById('d0').focus(), 150);
   }
   document.getElementById('subCodigo').innerHTML =
-    'Enviamos um código de 6 dígitos para <b>' + otp.telefone + '</b>.';
+    'Enviamos um código de 6 dígitos para <b>' + escapar(otp.telefone) + '</b>.';
 }
 
 function codigoDigitado(){
@@ -2013,9 +2032,9 @@ function desenharConfirmar(){
     : acharProf(escolha.profissionalId);
 
   document.getElementById('resumoFinal').innerHTML = `
-    <div class="l"><span>Salão</span><b>${salao.nome}</b></div>
-    <div class="l"><span>Serviço</span><b>${nomesEscolhidos()}</b></div>
-    <div class="l"><span>Profissional</span><b>${p ? p.nome : '—'}</b></div>
+    <div class="l"><span>Salão</span><b>${escapar(salao.nome)}</b></div>
+    <div class="l"><span>Serviço</span><b>${escapar(nomesEscolhidos())}</b></div>
+    <div class="l"><span>Profissional</span><b>${escapar(p ? p.nome : '—')}</b></div>
     <div class="l"><span>Quando</span><b>${dataLonga(escolha.data)}<br>
       ${hm(escolha.inicio)} às ${hm(escolha.inicio + duracaoEscolhida())}</b></div>
     <div class="l"><span>Duração</span><b>${duracaoEscolhida()} min</b></div>
@@ -2085,10 +2104,10 @@ async function desenharMeusDaNuvem(alvo){
   const cartao = a => `
     <div class="item ${a.podeMexer ? '' : 'passado'}">
       <div class="item-topo">
-        <div><h3>${(a.servicos || []).join(' + ') || 'Atendimento'}${
-          a.atendido ? ` <span class="selo-combo">${a.atendido}</span>` : ''}</h3>
+        <div><h3>${escapar((a.servicos || []).join(' + ') || 'Atendimento')}${
+          a.atendido ? ` <span class="selo-combo">${escapar(a.atendido)}</span>` : ''}</h3>
           <div class="q">${quando(a.inicio)}</div>
-          <div class="q">com ${a.profissional} · ${real(Number(a.valor) || 0)}</div></div>
+          <div class="q">com ${escapar(a.profissional)} · ${real(Number(a.valor) || 0)}</div></div>
         <span class="selo-st ${classe[a.status] || ''}">${rotulo[a.status] || a.status}</span>
       </div>
       ${a.podeMexer ? `<div class="acoes">
@@ -2126,7 +2145,7 @@ async function desenharMeusDaNuvem(alvo){
   if(emCima.length){
     alvo.innerHTML += '<div class="recado" style="margin-top:12px">'
       + 'Para desmarcar com menos de 2 horas de antecedência, fale com '
-      + salao.nome + ' — a cadeira já não dá tempo de ser oferecida a outra '
+      + escapar(salao.nome) + ' — a cadeira já não dá tempo de ser oferecida a outra '
       + 'pessoa.</div>';
   }
 }
@@ -2195,10 +2214,10 @@ function desenharMeus(){
       const total = (a.servicos||[]).reduce((s,x) => s + (x.preco||0), 0);
       return `<div class="item ${passado?'passado':''}">
         <div class="item-topo">
-          <div><h3>${svs || 'Atendimento'}${
-            a.atendidoNome ? ` <span class="selo-combo">${a.atendidoNome}</span>` : ''}</h3>
+          <div><h3>${escapar(svs || 'Atendimento')}${
+            a.atendidoNome ? ` <span class="selo-combo">${escapar(a.atendidoNome)}</span>` : ''}</h3>
             <div class="q">${dataLonga(a.data)} · ${hm(a.inicio)}</div>
-            <div class="q">${p ? 'com ' + p.nome : ''} · ${real(total)}</div></div>
+            <div class="q">${escapar(p ? 'com ' + p.nome : '')} · ${real(total)}</div></div>
           <span class="selo-st ${classe[a.status]}">${rotulo[a.status]}</span>
         </div>
         ${!passado ? `<div class="acoes">
@@ -2220,8 +2239,8 @@ function desenharMeus(){
   document.getElementById('outrosSaloes').innerHTML = outros.length ? `
     <div class="cat">Você também é cliente de</div>
     ${outros.map(s => `<button class="opcao" onclick="entrarNoSalao('${s.slug}')">
-        <span class="ic">${(s.nome||'?').trim().charAt(0).toUpperCase()}</span>
-        <span class="txt"><span class="tt">${s.nome}</span>
+        <span class="ic">${escapar((s.nome||'?').trim().charAt(0).toUpperCase())}</span>
+        <span class="txt"><span class="tt">${escapar(s.nome)}</span>
           <span class="dd">mesmo login, histórico separado</span></span>
         <span style="color:var(--txt3);font-size:20px">&rsaquo;</span>
       </button>`).join('')}
@@ -2314,7 +2333,7 @@ function mostrarBolhaZap(){
     <div class="simul">Só na demonstração o código aparece aqui. Em produção
       ele chega no WhatsApp e o navegador nunca o conhece.</div>
     <div class="zap">
-      <div class="de">${salao.nome} · WhatsApp</div>
+      <div class="de">${escapar(salao.nome)} · WhatsApp</div>
       Seu código de acesso é <b>${otp.codigo}</b><br>
       Vale por 5 minutos. Não compartilhe com ninguém.
       <div class="hr">${h} &#10003;&#10003;</div>
@@ -2472,7 +2491,7 @@ function confirmarAgendamento(){
    cliente não tem como notar por qual dos dois ela passou, que é o objetivo. */
 function mostrarPronto(prof, unit, filho){
   document.getElementById('prontoTexto').innerHTML =
-    `${dataLonga(escolha.data)} às <b>${hm(escolha.inicio)}</b>, com ${prof.nome}.`
+    `${dataLonga(escolha.data)} às <b>${hm(escolha.inicio)}</b>, com ${escapar(prof.nome)}.`
     + (escolha.para === 'ambos'
         ? `<br>Dois horários seguidos: você às ${hm(escolha.inicio)} e `
           + `${filho || 'seu filho'} às ${hm(escolha.inicio + unit)}.`
@@ -2485,11 +2504,11 @@ function mostrarPronto(prof, unit, filho){
     <div class="simul">Neste ponto sai a confirmação no WhatsApp, e um lembrete
       no dia anterior — é o que derruba a falta pela metade.</div>
     <div class="zap">
-      <div class="de">${salao.nome} · WhatsApp</div>
-      Oi ${sessao.nome.split(' ')[0]}! Seu horário está confirmado:<br><br>
-      <b style="font-size:15px;letter-spacing:0">${nomesEscolhidos()}</b><br>
+      <div class="de">${escapar(salao.nome)} · WhatsApp</div>
+      Oi ${escapar(sessao.nome.split(' ')[0])}! Seu horário está confirmado:<br><br>
+      <b style="font-size:15px;letter-spacing:0">${escapar(nomesEscolhidos())}</b><br>
       ${dataLonga(escolha.data)} às ${hm(escolha.inicio)}<br>
-      com ${prof.nome}<br><br>
+      com ${escapar(prof.nome)}<br><br>
       ${Endereco.linha(salao.endereco)}
       <div class="hr">${h} &#10003;&#10003;</div>
     </div>`;
@@ -2636,7 +2655,7 @@ function entrarNoSalao(slug){
   if(!s){
     document.getElementById('listaSaloes').innerHTML =
       `<div class="recado erro"><b>Salão não encontrado.</b><br>
-       O endereço <code>?salao=${slug}</code> não corresponde a nenhum salão ativo.</div>`;
+       O endereço <code>?salao=${escapar(slug)}</code> não corresponde a nenhum salão ativo.</div>`;
     return;
   }
   salao = s;
@@ -2666,7 +2685,7 @@ function entrarNoSalao(slug){
   av.removeAttribute('data-ico');
   if(s.logo){
     av.classList.add('com-logo');
-    av.innerHTML = `<img src="${s.logo}" alt="${s.nome || ''}">`;
+    av.innerHTML = `<img src="${escapar(s.logo)}" alt="${escapar(s.nome || '')}">`;
   } else {
     av.classList.remove('com-logo');
     av.textContent = (s.nome || '?').trim().charAt(0).toUpperCase();
