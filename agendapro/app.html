@@ -2075,8 +2075,12 @@ function pintarSalao(){
 
     <div class="card">
       <h3 class="secao">Aparência do link do cliente</h3>
-      <p class="secao-sub">A cara da página que a cliente abre. Escolha aqui e
-        veja na prévia ao lado.</p>
+      <p class="secao-sub">A cara da página que a cliente abre. Mexa aqui e
+        veja na prévia ao lado — ela acompanha a rolagem, então dá para
+        comparar cada escolha sem perder o celular de vista.</p>
+
+      <div class="ap-grade">
+      <div class="ap-controles">
 
       <div class="rot" style="margin-bottom:8px">Cor da marca</div>
       <div class="cores" id="paletaCores"></div>
@@ -2126,7 +2130,15 @@ function pintarSalao(){
         tempos em tempos. Quem pediu ao celular para reduzir animações não vê
         o movimento — o acabamento fica de qualquer forma.</p>
 
-      <div class="previa-fone" id="previaFone"></div>
+      </div><!-- /ap-controles -->
+
+      <!-- A prévia gruda: rolando a lista de escolhas, o celular acompanha.
+           Sem isso, mexer no último controle é mexer às cegas — a prévia já
+           saiu da tela. -->
+      <div class="ap-previa">
+        <div class="previa-fone" id="previaFone"></div>
+      </div>
+      </div><!-- /ap-grade -->
 
       <div class="card-acoes">
         <button class="btn btn-p" onclick="salvarAparencia()">Salvar aparência</button>
@@ -2352,6 +2364,8 @@ function pintarPreviaFone(){
   const sl = acharSalao(salaoAtual) || {};
   const escuro = aparencia.tema === 'escuro';
   const svs = (bd.servicos || []).filter(s => s.ativo !== false).slice(0, 2);
+  const eq = (bd.profissionais || [])
+    .filter(x => x.salaoId === salaoAtual && x.ativo !== false).slice(0, 2);
 
   alvo.innerHTML =
     `<div class="fone ${escuro ? 'fone-escuro' : ''}"
@@ -2366,11 +2380,24 @@ function pintarPreviaFone(){
          ${sl.logo ? `<img src="${sl.logo}" alt="">`
                    : `<div class="fone-selo">${(sl.nome || 'A').charAt(0)}</div>`}
          <b>${sl.nome || 'Seu salão'}</b>
-         <span>${(Endereco.completo(sl.endereco)[0]) || 'Agende seu horário'}</span>
+         ${(() => {
+            const e = Endereco.completo(sl.endereco);
+            return e.length
+              ? `<span>${e[0]}</span>${e[1] ? `<i>${e[1]}</i>` : ''}`
+              : '<span>Agende seu horário</span>';
+          })()}
+       </div>
+       <!-- A ORDEM AQUI É A DA PÁGINA DE VERDADE: marca, botão, slide,
+            serviços, equipe. Estava com o slide antes do botão, e prévia que
+            embaralha a ordem engana justamente sobre o que a cliente vê
+            primeiro — que é a coisa que mais importa nesta tela. -->
+       <div class="fone-boas">
+         <b class="fone-boas-t">Bem-vindo!</b>
+         <div class="fone-cta ${aparencia.brilho ? 'com-brilho' : ''}">Agendar horário</div>
        </div>
        ${previaDoSlide(sl)}
-       <div class="fone-cta ${aparencia.brilho ? 'com-brilho' : ''}">Agendar horário</div>
        <div class="fone-svs">
+         <div class="fone-rot">Nossos serviços</div>
          ${svs.length ? svs.map(s => `
            <div class="fone-sv">
              <div class="fone-sv-foto"${s.foto ? ` style="background-image:url('${s.foto}')"` : ''}></div>
@@ -2382,6 +2409,14 @@ function pintarPreviaFone(){
            </div>`).join('')
          : '<p class="fone-nada">Cadastre serviços para vê-los aqui.</p>'}
        </div>
+       ${eq.length ? `<div class="fone-svs">
+         <div class="fone-rot">Quem atende</div>
+         ${eq.map(x => `<div class="fone-sv">
+            <div class="fone-eq"${x.foto ? ` style="background-image:url('${x.foto}')"` : ''}>${
+              x.foto ? '' : (x.nome || '?').charAt(0).toUpperCase()}</div>
+            <div class="fone-sv-txt"><b>${x.apelido || x.nome}</b></div>
+          </div>`).join('')}
+       </div>` : ''}
      </div>
      <p class="secao-sub" style="text-align:center;margin-top:8px">
        Prévia — é assim que a cliente vê</p>`;

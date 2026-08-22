@@ -434,6 +434,85 @@ igual('sem erro de JavaScript', mc.erros.length ? mc.erros.join(' | ') : 0, 0);
 await mc.close();
 
 /* ══════════════════════════════════════════════════════════════════════════
+   A PRÉVIA, NO PAINEL DO DONO
+
+   Ela ficava no fim da lista de escolhas. Quem mexia no último controle já
+   tinha a prévia fora da tela — escolhia às cegas, e a única coisa que a tela
+   existe para mostrar não estava à vista na hora de decidir.
+
+   Agora é coluna própria, grudada, com o celular inteiro: fundo, capa, logo,
+   nome, endereço, botão, slide, serviços e equipe. E na ORDEM da página de
+   verdade — prévia que embaralha a ordem engana justamente sobre o que a
+   cliente vê primeiro.
+   ══════════════════════════════════════════════════════════════════════════ */
+secao('A prévia em Meu salão');
+{
+  /* O salão desta bancada perdeu a capa lá atrás, na seção "sem foto". A
+     prévia só vale se o salão tiver o que ela promete mostrar — então aqui
+     ele volta a ter capa E fundo, que é o pedido: ver a página inteira. */
+  await d.atualizar('saloes', salaoId, { capa: FOTO, logo: LOGO,
+    cfg:{ cor:'#C8A33C', tema:'escuro', fundo: PAREDE, precoNaCapa:true } });
+
+  const painel = await ctx.newPage();
+  const errosP = [];
+  painel.on('pageerror', e => errosP.push(e.message));
+  await painel.addInitScript(([base, ses]) => {
+    window.AGENDAPRO = { url: base, chave:'k', ambiente:'bancada' };
+    localStorage.setItem('agendapro.sessao', JSON.stringify(ses));
+  }, [BASE, d.sessao()]);
+  await painel.setViewportSize({ width: 1360, height: 900 });
+  await painel.goto(BASE + '/app.html');
+  await painel.waitForTimeout(3200);
+  await painel.click('a:has-text("Meu salão"), button:has-text("Meu salão")');
+  await painel.waitForTimeout(1500);
+
+  const lado = await painel.evaluate(() => {
+    const c = document.querySelector('.ap-controles');
+    const p = document.querySelector('.ap-previa');
+    if(!c || !p) return null;
+    const rc = c.getBoundingClientRect(), rp = p.getBoundingClientRect();
+    return { aDireita: rp.left >= rc.right - 2,
+             grudada: getComputedStyle(p).position === 'sticky',
+             cabe: rp.height <= innerHeight };
+  });
+  verdade('a prévia fica à direita das escolhas', lado && lado.aDireita,
+    JSON.stringify(lado));
+  verdade('e gruda, para acompanhar a rolagem', lado && lado.grudada);
+  verdade('sem passar da altura da janela — senão o topo dela some',
+    lado && lado.cabe, JSON.stringify(lado));
+
+  /* O celular da prévia tem que trazer a página INTEIRA. Faltando uma peça,
+     o dono aprova uma capa que não é a que vai ao ar. */
+  const partes = await painel.evaluate(() => ({
+    fundo:  !!document.querySelector('.fone-fundo'),
+    capa:   !!document.querySelector('.fone-capa'),
+    logo:   !!document.querySelector('.fone-topo img, .fone-selo'),
+    nome:   !!document.querySelector('.fone-topo b'),
+    botao:  !!document.querySelector('.fone-cta'),
+    slide:  !!document.querySelector('.fone-slide'),
+    svs:    document.querySelectorAll('.fone-sv').length,
+  }));
+  verdade('mostra o fundo anexado', partes.fundo, JSON.stringify(partes));
+  verdade('mostra a faixa de capa', partes.capa, JSON.stringify(partes));
+  verdade('a logo e o nome', partes.logo && partes.nome);
+  verdade('o botão principal', partes.botao);
+  verdade('o slide', partes.slide);
+  verdade('e os serviços com quem atende', partes.svs >= 2, 'vieram ' + partes.svs);
+
+  /* A ordem: botão ANTES do slide, como na página. Estava trocado. */
+  verdade('na ordem da página de verdade: botão, depois slide',
+    await painel.evaluate(() => {
+      const b = document.querySelector('.fone-cta');
+      const s = document.querySelector('.fone-slide');
+      return !b || !s || (b.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }));
+
+  igual('sem erro de JavaScript no painel',
+    errosP.length ? errosP.join(' | ') : 0, 0);
+  await painel.close();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    SALÃO QUE NUNCA ESCOLHEU NADA
    ══════════════════════════════════════════════════════════════════════════ */
 secao('Salão antigo, que nunca abriu a tela de aparência');

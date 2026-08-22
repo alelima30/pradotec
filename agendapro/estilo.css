@@ -670,7 +670,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
   opacity:var(--veu, .84);
 }
 .fone-escuro .fone-fundo::after{ background:#141416 }
-.fone-topo, .fone-cta, .fone-svs{ position:relative; z-index:1 }
+.fone-topo, .fone-cta, .fone-svs, .fone-boas{ position:relative; z-index:1 }
 /* A prévia repete a letra escolhida. Sem isto ela mostraria o nome sempre na
    mesma fonte, e a escolha de letra seria feita no escuro. */
 .fone-topo[data-letra] b{ display:block; font-size:16px; line-height:1.15 }
@@ -683,6 +683,35 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
               "Arial Narrow",var(--fonte-display),sans-serif;
   text-transform:uppercase; font-weight:700; letter-spacing:.045em;
 }
+/* ── APARÊNCIA: ESCOLHAS À ESQUERDA, CELULAR À DIREITA ────────────────────
+   A prévia ficava no fim da lista de controles. Quem mexia no último — o
+   brilho do botão — já tinha a prévia fora da tela, e escolhia às cegas: a
+   única coisa que a tela existe para mostrar não estava à vista na hora de
+   decidir.
+
+   Agora ela é uma coluna própria, GRUDADA: rolando as escolhas, o celular
+   acompanha. `align-self:start` é o que permite o sticky funcionar dentro de
+   um grid — sem ele o item estica e nunca há o que grudar.
+
+   No celular do próprio dono a coluna some e a prévia volta para baixo: 268px
+   ao lado de 375px de tela não é comparação, é aperto. */
+.ap-grade{ display:grid; gap:22px }
+@media (min-width:900px){
+  .ap-grade{ grid-template-columns:minmax(0,1fr) 268px; align-items:start }
+  /* Grudada E com teto de altura. Sem o teto, uma prévia mais alta que a
+     janela rola junto e perde o topo — o `sticky` só segura o que cabe. Com
+     ele, a prévia inteira continua alcançável, rolando por dentro. */
+  .ap-previa{
+    position:sticky; top:78px; align-self:start;
+    max-height:calc(100vh - 104px); overflow-y:auto;
+    /* A barra de rolagem interna vira ruído numa peça pequena; o conteúdo
+       cortado na borda já diz que tem mais para baixo. */
+    scrollbar-width:none;
+  }
+  .ap-previa::-webkit-scrollbar{ width:0; height:0 }
+}
+.ap-controles{ min-width:0 }
+
 /* O deslizante. Alvo de 40px para o dedo, e a trilha na cor do salão até o
    ponto escolhido — sem isso não dá para ver de relance onde está. */
 .desliza{
@@ -730,6 +759,29 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 .fone-slide-n{
   position:absolute; right:6px; bottom:6px; padding:2px 6px; border-radius:5px;
   background:rgba(0,0,0,.6); color:#fff; font-size:11px; font-weight:640;
+}
+
+/* O cartão de boas-vindas, com o botão dentro — como na página de verdade. */
+.fone-boas{
+  border:1px solid var(--ac-line); border-radius:12px; padding:10px;
+  background:var(--ac-soft); margin-bottom:11px; position:relative; z-index:1;
+}
+.fone-boas-t{ display:block; font-size:11.5px; color:var(--ac-600); margin-bottom:7px }
+.fone-boas .fone-cta{ margin-bottom:0 }
+/* 11px é o piso, aqui como em qualquer outro texto do painel: a prévia é
+   pequena, mas quem a lê é a mesma pessoa, no mesmo celular. */
+.fone-rot{
+  font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--txt3); margin:0 0 7px;
+}
+.fone-eq{
+  width:30px; height:30px; flex:none; border-radius:50%;
+  background:var(--acao) center/cover no-repeat; color:var(--acao-txt);
+  display:grid; place-items:center; font-size:12px; font-weight:650;
+}
+.fone-topo i{
+  display:block; font-style:normal; font-size:11px; color:var(--txt3);
+  margin-top:1px;
 }
 
 .fone-sv{display:flex;gap:9px;align-items:center;margin-bottom:8px}
