@@ -74,7 +74,11 @@ language sql stable security definer set search_path = public as $$
          lista de {url, tipo, legenda}. Vem nomeada, como todo o resto: o
          `cfg` inteiro nunca é devolvido. */
       'slideDe', s.cfg->>'slideDe',
-      'galeria', coalesce(s.cfg->'galeria', '[]'::jsonb)
+      'galeria', coalesce(s.cfg->'galeria', '[]'::jsonb),
+      -- Enquadramento da foto de capa (0 = topo à vista, 100 = pé) e quanto
+      -- da imagem de fundo aparece por baixo do véu. Nulo = o padrão da tela.
+      'capaFoco', (s.cfg->>'capaFoco')::int,
+      'veu', (s.cfg->>'veu')::int
     ),
 
     'servicos', coalesce((

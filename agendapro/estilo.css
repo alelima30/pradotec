@@ -666,7 +666,8 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
   background:center/cover no-repeat;
 }
 .fone-fundo::after{
-  content:"";position:absolute;inset:0;background:var(--painel2);opacity:.84;
+  content:"";position:absolute;inset:0;background:var(--painel2);
+  opacity:var(--veu, .84);
 }
 .fone-escuro .fone-fundo::after{ background:#141416 }
 .fone-topo, .fone-cta, .fone-svs{ position:relative; z-index:1 }
@@ -682,6 +683,38 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
               "Arial Narrow",var(--fonte-display),sans-serif;
   text-transform:uppercase; font-weight:700; letter-spacing:.045em;
 }
+/* O deslizante. Alvo de 40px para o dedo, e a trilha na cor do salão até o
+   ponto escolhido — sem isso não dá para ver de relance onde está. */
+.desliza{
+  width:100%; height:40px; appearance:none; background:transparent;
+  cursor:pointer; display:block;
+}
+.desliza::-webkit-slider-runnable-track{
+  height:6px; border-radius:3px; background:var(--borda-forte);
+}
+.desliza::-moz-range-track{
+  height:6px; border-radius:3px; background:var(--borda-forte);
+}
+.desliza::-webkit-slider-thumb{
+  appearance:none; width:22px; height:22px; margin-top:-8px;
+  border-radius:50%; background:var(--acao); border:2px solid var(--painel);
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+.desliza::-moz-range-thumb{
+  width:22px; height:22px; border-radius:50%;
+  background:var(--acao); border:2px solid var(--painel);
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+
+/* A faixa de capa dentro da prévia, com o mesmo enquadramento da página. */
+.fone-capa{
+  aspect-ratio:16 / 9; margin:-18px -14px 0;
+  background:var(--painel) no-repeat; background-size:cover;
+  background-position:center var(--foco, 50%);
+  position:relative; z-index:1;
+}
+.fone-topo{ position:relative; z-index:1 }
+
 .fone-slide{
   position:relative; aspect-ratio:4 / 3; border-radius:10px; overflow:hidden;
   margin-bottom:11px; background:var(--painel);
@@ -925,10 +958,31 @@ body[data-passo="capa"] .cabeca-linha{ min-height:34px }
   position:fixed; inset:0; z-index:-2; pointer-events:none;
   background:var(--bg) center/cover no-repeat;
 }
+/* O véu tinha 84% fixos, e com isso um fundo fosco — que já é discreto por
+   natureza — simplesmente não aparecia: o dono anexava a imagem e via a
+   página branca de sempre.
+
+   Agora é ele quem decide, de 40% a 95%. Não desce de 40 de propósito: abaixo
+   disso a foto começa a competir com o texto, e a página do salão vira um
+   lugar onde não se lê o preço. */
 .fundo-veu{
   position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background:var(--bg); opacity:.84;
+  background:var(--bg); opacity:var(--veu, .84);
 }
+/* ⚠ O `.app` PRECISA FICAR TRANSPARENTE, senão nada disso aparece.
+
+   Ele é a coluna central da página e tem `background:var(--painel)` — branco,
+   opaco, cobrindo a tela inteira. As camadas de fundo ficam em `z-index:-2` e
+   `-1`, ou seja, ATRÁS dele. O dono anexava a foto, a camada era criada
+   direitinho, e a página continuava branca.
+
+   Foi o que aconteceu: "coloquei um fundo fosco" e não apareceu nada. E o
+   teste não pegou porque conferia se a CAMADA existia — position fixed,
+   z-index negativo, véu com opacidade — e nunca se ela era VISÍVEL. Estrutura
+   certa, resultado invisível. */
+body.tem-fundo .app{ background:transparent !important; box-shadow:none }
+body.tem-fundo .cabeca{ background:transparent }
+
 /* Com fundo, os cartões ganham um vidro leve: deixam a foto insinuar-se
    atrás sem soltar o texto do lugar. Onde não há `backdrop-filter`, o
    `--painel` chapado do fallback continua valendo e nada quebra. */
@@ -943,9 +997,15 @@ body.tem-fundo .barra-baixo{
 }
 
 body.capa-com-foto[data-passo="capa"] .cabeca{ display:none }
+/* `--foco` é a altura da foto que fica à vista: 0% mostra o topo, 100% o pé.
+   Existe porque a foto do salão quase nunca é 16:9 — recortada no centro, ela
+   corta a cabeça de quem está na imagem, que foi exatamente o que aconteceu.
+   O dono ajusta em Aparência e vê na prévia. */
 .hero-foto{
   margin:-18px -18px 0; aspect-ratio:16 / 9;
-  background:var(--painel2) center/cover no-repeat;
+  background:var(--painel2) no-repeat;
+  background-size:cover;
+  background-position:center var(--foco, 50%);
   border-bottom:1px solid var(--borda);
 }
 /* Com foto, a logo monta na beira de baixo dela — o anel na cor do fundo é o
@@ -972,15 +1032,41 @@ body.capa-com-foto[data-passo="capa"] .cabeca{ display:none }
 /* A logo cresceu de 76 para 104: é a primeira coisa que a cliente vê ao
    abrir o link no WhatsApp, e reconhecer a casa no primeiro segundo é o que
    separa "é do meu salão" de "isso é golpe". */
+/* ── A LOGO, COM RELEVO ───────────────────────────────────────────────────
+   Quatro camadas, e cada uma faz uma coisa que as outras não fazem:
+
+     1. o anel na cor do fundo recorta a peça da foto atrás
+     2. um fio de luz branco por dentro, em cima — é onde a luz bateria
+     3. um fio de sombra por dentro, embaixo — a espessura da peça
+     4. duas sombras por fora: uma curta e dura logo abaixo (o contato com a
+        página) e uma longa e macia (a distância)
+
+   Sombra única e grande não dá relevo: dá adesivo flutuando. O que o olho lê
+   como "isto tem espessura" é a diferença entre a borda de cima acesa e a de
+   baixo apagada. */
 .marca-selo{
   width:104px; height:104px; margin:0 auto 14px;
-  border-radius:20px; overflow:hidden;
+  border-radius:22px; overflow:hidden; position:relative;
   background:var(--acao); color:var(--acao-txt);
   display:grid; place-items:center;
   font-size:30px; font-weight:600; letter-spacing:-.02em;
-  box-shadow:var(--sombra);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.55),
+    inset 0 -1.5px 0 rgba(0,0,0,.22),
+    0 2px 4px rgba(0,0,0,.16),
+    0 12px 28px -8px rgba(0,0,0,.34);
 }
 .marca-selo img{ width:100%; height:100%; object-fit:cover; display:block }
+/* O brilho de vidro por cima: uma faixa clara na metade de cima, que é o que
+   uma superfície lisa faz com a luz do ambiente. Fica ACIMA da imagem, e por
+   isso é pseudo-elemento e não um degradê no fundo. */
+.marca-selo::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  border-radius:inherit;
+  background:linear-gradient(160deg,
+    rgba(255,255,255,.28) 0%, rgba(255,255,255,.10) 38%,
+    rgba(255,255,255,0) 58%);
+}
 /* ── O NOME DA CASA ───────────────────────────────────────────────────────
    Era 1,4rem na mesma letra do resto da página: correto e sem graça nenhuma.
    É o nome do negócio, na primeira tela, e é ele que a cliente reconhece

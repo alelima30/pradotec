@@ -2094,6 +2094,23 @@ function pintarSalao(){
       <div class="regua" id="reguaPreco" style="justify-content:flex-start"></div>
       <p class="secao-sub" id="explicaPreco" style="margin-top:9px"></p>
 
+      <div class="rot" style="margin:18px 0 8px">Enquadramento da foto</div>
+      <input type="range" id="fxFoco" class="desliza" min="0" max="100" step="1"
+             oninput="escolherAparencia('capaFoco', Number(this.value))">
+      <p class="secao-sub" style="margin-top:6px">Arraste para escolher que
+        parte da foto do salão aparece na faixa do topo. Foto em pé recortada
+        no meio corta a cabeça de quem está nela — puxe para a esquerda para
+        mostrar mais de cima.</p>
+
+      <div class="rot" style="margin:18px 0 8px">Quanto o fundo aparece</div>
+      <input type="range" id="fxVeu" class="desliza" min="40" max="95" step="1"
+             oninput="escolherAparencia('veu', 135 - Number(this.value))">
+      <p class="secao-sub" style="margin-top:6px">Só vale se você anexou um
+        <b>Fundo da página</b> em Identidade visual. Para a direita a imagem
+        aparece mais; para a esquerda ela some atrás do fundo liso. Não vai
+        até o fim de propósito: passando disso, a foto começa a atrapalhar a
+        leitura do preço.</p>
+
       <div class="rot" style="margin:18px 0 8px">Letra do nome</div>
       <div class="regua" id="reguaLetra" style="justify-content:flex-start"></div>
       <p class="secao-sub" id="explicaLetra" style="margin-top:9px"></p>
@@ -2219,6 +2236,9 @@ function lerAparencia(){
     letra: c.letra || ({ barbearia:'marcante', tatuagem:'marcante',
       estetica:'elegante', clinica:'elegante' })[sl.tipo] || 'moderno',
     slideDe: c.slideDe === 'galeria' ? 'galeria' : 'servicos',
+    // 50 = centro, que é o que o navegador faz sozinho. 84 = o véu de antes.
+    capaFoco: Number.isFinite(Number(c.capaFoco)) ? Number(c.capaFoco) : 50,
+    veu: Number.isFinite(Number(c.veu)) ? Number(c.veu) : 84,
   };
 }
 
@@ -2257,6 +2277,15 @@ function pintarAparencia(){
     const alvo = document.getElementById(explicaId);
     if(alvo) alvo.textContent = achado ? achado[2] : '';
   };
+  /* Os dois deslizantes. O do véu é INVERTIDO na tela — "quanto o fundo
+     aparece" cresce para a direita, enquanto o valor guardado é a opacidade
+     do véu, que cresce para o outro lado. 135 - v faz a volta, e a mesma
+     conta está no `oninput` do campo. */
+  const fx = document.getElementById('fxFoco');
+  if(fx) fx.value = aparencia.capaFoco;
+  const fv = document.getElementById('fxVeu');
+  if(fv) fv.value = 135 - aparencia.veu;
+
   regua('reguaLetra', LETRAS, 'letra', 'explicaLetra');
   regua('reguaSlide', SLIDES, 'slideDe', 'explicaSlide');
 
@@ -2328,8 +2357,11 @@ function pintarPreviaFone(){
     `<div class="fone ${escuro ? 'fone-escuro' : ''}"
           style="--marca:${aparencia.cor};--marca-txt:${letraSobre(aparencia.cor)}">
        ${imagemDoSalao(sl, 'fundo')
-         ? `<div class="fone-fundo" style="background-image:url('${imagemDoSalao(sl, 'fundo')}')"></div>`
+         ? `<div class="fone-fundo" style="background-image:url('${imagemDoSalao(sl, 'fundo')}');
+                  --veu:${aparencia.veu / 100}"></div>`
          : ''}
+       ${sl.capa ? `<div class="fone-capa" style="background-image:url('${sl.capa}');
+                          --foco:${aparencia.capaFoco}%"></div>` : ''}
        <div class="fone-topo" data-letra="${aparencia.letra}">
          ${sl.logo ? `<img src="${sl.logo}" alt="">`
                    : `<div class="fone-selo">${(sl.nome || 'A').charAt(0)}</div>`}
@@ -2366,6 +2398,8 @@ function salvarAparencia(){
     brilho: aparencia.brilho,
     letra: aparencia.letra,
     slideDe: aparencia.slideDe,
+    capaFoco: aparencia.capaFoco,
+    veu: aparencia.veu,
   });
   salvar();
   const aviso = document.getElementById('salvouAparencia');

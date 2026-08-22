@@ -865,6 +865,7 @@ function bdDaVitrine(v){
       fundo: s.fundo || null, brilho: s.brilho !== false,
       letra: s.letra || null,
       slideDe: s.slideDe || 'servicos', galeria: s.galeria || [],
+      capaFoco: s.capaFoco, veu: s.veu,
       cfg: { diasLiberados: s.diasLiberados },
     }],
     servicos: (v.servicos || []).map(x => ({
@@ -1198,6 +1199,9 @@ function desenharCapa(){
      Salão que nunca abriu a tela de Aparência já ganha uma capa com cara de
      ramo, sem ninguém configurar nada. */
   const cfg = salao.cfg || {};
+  /* Enquadramento da foto de capa: 0 = topo à vista, 100 = pé. Sem escolha,
+     50 (centro), que é o que o navegador já fazia. */
+  const foco = Number(salao.capaFoco != null ? salao.capaFoco : cfg.capaFoco);
   const letra = salao.letra || cfg.letra
     || ({ barbearia:'marcante', tatuagem:'marcante',
           estetica:'elegante', clinica:'elegante' })[salao.tipo] || 'moderno';
@@ -1210,7 +1214,8 @@ function desenharCapa(){
   document.body.classList.toggle('capa-com-foto', temFoto);
   document.getElementById('capaMarca').innerHTML = `
     ${temFoto ? `<div class="hero-foto"
-                   style="background-image:url('${salao.capa}')"
+                   style="background-image:url('${salao.capa}');--foco:${
+                     Number.isFinite(foco) ? foco : 50}%"
                    role="img" aria-label="Foto de ${salao.nome}"></div>` : ''}
     <div class="marca-salao${temFoto ? ' com-foto' : ''}" data-letra="${letra}">
       <div class="marca-selo">
@@ -2781,6 +2786,13 @@ function aplicarAparencia(s){
 
   if(tema === 'escuro') raiz.setAttribute('data-tema', 'escuro');
   else raiz.removeAttribute('data-tema');
+
+  /* O véu: quanto da foto de fundo aparece. Vem do salão, com o mesmo piso e
+     teto da tela de Aparência — a página da cliente não confia num número que
+     chegou de fora sem conferir. */
+  const veu = Number(salao.veu != null ? salao.veu : c.veu);
+  raiz.style.setProperty('--veu',
+    (Number.isFinite(veu) ? Math.min(95, Math.max(40, veu)) : 84) / 100);
 
   aplicarFundo(fundo);
   // O brilho do botão é escolha do salão. Vem ligado por padrão porque é o

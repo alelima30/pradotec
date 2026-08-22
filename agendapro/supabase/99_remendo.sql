@@ -351,7 +351,9 @@ language sql stable security definer set search_path = public as $$
       'brilho', coalesce((s.cfg->>'brilho')::boolean, true),
       'letra', s.cfg->>'letra',
       'slideDe', s.cfg->>'slideDe',
-      'galeria', coalesce(s.cfg->'galeria', '[]'::jsonb)
+      'galeria', coalesce(s.cfg->'galeria', '[]'::jsonb),
+      'capaFoco', (s.cfg->>'capaFoco')::int,
+      'veu', (s.cfg->>'veu')::int
     ),
     'servicos', coalesce((
       select jsonb_agg(jsonb_build_object(

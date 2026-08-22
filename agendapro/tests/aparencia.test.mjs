@@ -325,6 +325,35 @@ verdade('com um véu por cima — sem ele, metade das fotos deixa o texto ilegí
   }));
 verdade('a página se marca como "tem fundo", para os cartões saberem',
   await fd.evaluate(() => document.body.classList.contains('tem-fundo')));
+
+/* ── E A CAMADA PRECISA SER VISÍVEL, NÃO SÓ EXISTIR ───────────────────────
+   Os testes acima conferiam estrutura: a camada existe, está `fixed`, tem
+   z-index negativo, o véu tem opacidade. Tudo passava — e a página continuava
+   BRANCA, porque o `.app`, a coluna central, tem fundo opaco e cobre a tela
+   inteira. As camadas ficavam atrás dele.
+
+   Foi relatado assim: "coloquei um fundo fosco" e não apareceu nada.
+
+   Estrutura certa e resultado invisível é o pior tipo de teste verde. Este
+   aqui pergunta a única coisa que importa: dá para ver a foto? */
+verdade('e o `.app` fica transparente, senão ele cobre a foto inteira',
+  await fd.evaluate(() => {
+    const c = getComputedStyle(document.querySelector('.app')).backgroundColor;
+    return c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+  }), 'a coluna central opaca é o que escondia o fundo');
+
+verdade('nada opaco do tamanho da tela sobra na frente das camadas de fundo',
+  await fd.evaluate(() => {
+    const fundo = ['fundo-imagem', 'fundo-veu'];
+    for(const e of document.querySelectorAll('body *')){
+      if(fundo.includes(e.className)) continue;
+      const c = getComputedStyle(e), r = e.getBoundingClientRect();
+      const opaco = c.backgroundColor && c.backgroundColor !== 'rgba(0, 0, 0, 0)'
+                 && !/rgba\(.*,\s*0(\.\d+)?\)$/.test(c.backgroundColor);
+      if(opaco && r.width >= innerWidth - 2 && r.height >= innerHeight - 2) return false;
+    }
+    return true;
+  }));
 igual('sem erro de JavaScript', fd.erros.length ? fd.erros.join(' | ') : 0, 0);
 await fd.close();
 
