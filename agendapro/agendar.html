@@ -19,10 +19,10 @@
    Feito para o celular primeiro: é ali que a pessoa marca, às 23h de domingo.
    =========================================================================== */
 :root{
-  --marca:#0C7568; --marca-esc:#0A5E54; --marca-viva:#0F8B7B;
-  --bg:#F7F6F4; --painel:#FFFFFF; --borda:#E3E1DC;
-  --txt:#1A1917; --txt2:#5B574F; --txt3:#A8A49B;
-  --ok:#10B981; --alerta:#F59E0B; --erro:#EF4444;
+  --marca:#1D4ED8; --marca-esc:#1E40AF; --marca-viva:#7C3AED;
+  --bg:#F8FAFC; --painel:#FFFFFF; --borda:#E2E8F0;
+  --txt:#172033; --txt2:#475569; --txt3:#94A3B8;
+  --ok:#15803D; --alerta:#B45309; --erro:#DC2626;
   --sombra:0 1px 3px rgba(16,24,40,.07), 0 10px 30px rgba(16,24,40,.07);
   --r:14px;
 }
@@ -99,7 +99,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
   background:var(--painel);margin-bottom:9px;transition:.15s;
 }
 .opcao:active{transform:scale(.99)}
-.opcao.sel{border-color:var(--marca);background:rgba(15,129,117,.06)}
+.opcao.sel{border-color:var(--marca);background:rgba(37,99,235,.06)}
 .opcao .ic{
   width:44px;height:44px;border-radius:12px;flex:none;display:grid;
   place-items:center;font-size:19px;font-weight:800;color:#fff;
@@ -148,7 +148,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
   background:var(--bg);font-size:16px; /* 16px evita o zoom automático do iOS */
 }
 .campo input:focus{outline:none;border-color:var(--marca);
-  box-shadow:0 0 0 3px rgba(15,129,117,.14);background:var(--painel)}
+  box-shadow:0 0 0 3px rgba(37,99,235,.14);background:var(--painel)}
 
 .codigo{display:flex;gap:8px;justify-content:center;margin:20px 0}
 .codigo input{
@@ -198,7 +198,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
 .st-conf{background:rgba(16,185,129,.15);color:#059669}
 .st-pend{background:rgba(245,158,11,.17);color:#B45309}
 .st-canc{background:rgba(239,68,68,.14);color:#DC2626}
-.st-conc{background:rgba(15,129,117,.14);color:var(--marca)}
+.st-conc{background:rgba(37,99,235,.14);color:var(--marca)}
 .st-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
 
 /* ── Botões ──────────────────────────────────────────────────────────── */
@@ -231,7 +231,7 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 .selo-combo{
   display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;
   font-size:10px;font-weight:800;letter-spacing:.03em;
-  background:rgba(15,129,117,.16);color:var(--marca);vertical-align:middle;
+  background:rgba(37,99,235,.16);color:var(--marca);vertical-align:middle;
 }
 .segmento{display:flex;gap:7px;margin-bottom:6px}
 .segmento button{
@@ -271,7 +271,7 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 .proximo{
   display:flex;gap:11px;align-items:center;padding:13px 14px;
   border:1.5px solid var(--marca);border-radius:var(--r);margin-bottom:15px;
-  background:rgba(15,129,117,.06);
+  background:rgba(37,99,235,.06);
 }
 .proximo .ii{font-size:19px;flex:none;color:var(--marca)}
 .proximo b{display:block;font-size:14px}
@@ -281,7 +281,7 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 .nada b{display:block;font-size:16px;color:var(--txt2);margin-bottom:5px}
 .recado{
   padding:12px 14px;border-radius:11px;font-size:13.5px;margin-bottom:15px;
-  background:rgba(15,129,117,.08);color:var(--marca);border:1px solid rgba(15,129,117,.2);
+  background:rgba(37,99,235,.08);color:var(--marca);border:1px solid rgba(37,99,235,.2);
 }
 .recado.erro{background:rgba(239,68,68,.09);color:#DC2626;border-color:rgba(239,68,68,.25)}
 .recado.ok{background:rgba(16,185,129,.09);color:#059669;border-color:rgba(16,185,129,.25)}
@@ -2719,7 +2719,7 @@ function entrarNoSalao(slug){
    Sobre o dourado #C8A33C, texto branco dá cerca de 2,3:1 de contraste — bem
    abaixo dos 4,5:1 que o mínimo legível pede, e o botão principal da página
    vira um borrão para quem enxerga pouco, ou para qualquer um no sol. Sobre
-   o petróleo escuro, texto preto é igualmente ruim.
+   o azul escuro, texto preto é igualmente ruim.
 
    Então a letra é calculada da luminância da cor, não escolhida. É a mesma
    conta que o modelo que serviu de referência faz: dourado com letra preta,
@@ -2826,7 +2826,7 @@ function aplicarAparencia(s){
   // Aparência, e aí a classe some junto com a animação.
   document.body.classList.toggle('sem-brilho', !brilho);
 
-  // Sem cor escolhida, fica o petróleo do AgendaPro — que é o que salão antigo,
+  // Sem cor escolhida, fica o azul do AgendaPro — que é o que salão antigo,
   // criado antes disto existir, já tinha. Nada a migrar.
   const escolhida = s.cor || c.cor;
   if(!corValida(escolhida)) return;
@@ -2870,7 +2870,7 @@ function aplicarAparencia(s){
   // A barra do navegador acompanha, no celular. É o detalhe que faz a página
   // parecer do salão e não uma página genérica com a logo dele.
   const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute('content', escuro ? '#08100F' : cor);
+  if(meta) meta.setAttribute('content', escuro ? '#0B1220' : cor);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -2908,7 +2908,7 @@ const curto = nome => {
 
 function identidadeInstalada(s){
   const icone = s.logo || 'icones/icone-192.png';
-  const cor = (s.cfg && s.cfg.cor) || s.cor || '#0B6A60';
+  const cor = (s.cfg && s.cfg.cor) || s.cor || '#2563EB';
 
   // `etiqueta` e não `nome`: aqui é o nome da meta tag, não o de uma pessoa.
   // O varredor de tests/seguranca.test.mjs procura campo de gente indo para

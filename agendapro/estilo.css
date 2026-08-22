@@ -21,23 +21,23 @@
    primeira versão era magenta, e magenta chapado em botão faz o barbeiro
    fechar a tela em dois segundos.
 
-   Quem resolveu foi o logotipo novo: calendário grafite, aro petróleo, cromado, e
+   Quem resolveu foi o logotipo novo: calendário grafite, aro azul, cromado, e
    a pílula "Gestão" preta. Ele já não tem gênero, e o sistema segue ele. O
    magenta sobreviveu onde deve — no dia marcado do calendário e na abertura
    do degradê — que é o lugar em que uma cor pode ser expressiva sem estar
    dizendo "este botão é para você".
 
    Cogitei dourado com preto, que era o pedido. Não fiz: dourado ao lado do
-   verde do logotipo vira bijuteria, e o produto passaria a ter uma cor que a
+   azul do logotipo vira bijuteria, e o produto passaria a ter uma cor que a
    marca não tem. É trocar dois valores neste arquivo se você preferir assim.
 
    O CONTRASTE MANDA NO TOM, não o gosto
 
-   O mesmo petróleo não serve para tudo, e cada uso tem o seu:
+   O mesmo azul não serve para tudo, e cada uso tem o seu:
 
-     como FUNDO de botão, letra branca    #0B6A60   6,5:1
-     como TEXTO em papel claro            #08544C   8,2:1
-     como TEXTO sobre grafite             #63BCB1   8,7:1
+     como FUNDO de botão, letra branca    #2563EB   5,2:1
+     como TEXTO em papel claro            #1D4ED8   6,7:1
+     como TEXTO sobre grafite             #93C5FD   9,9:1
 
    Sombra em camadas, nunca uma só. Elevação de verdade tem duas partes: um
    contato curto e escuro que gruda o objeto na superfície, e uma difusa e
@@ -54,71 +54,94 @@
    =========================================================================== */
 
 :root{
-  /* ── Neutros: grafite com um fio da cor da marca ─────────────────────
-     Não é cinza puro. O calendário do logotipo é grafite levemente
-     esverdeado, e o cinza neutro ao lado dele parece desbotado. Um traço da
-     cor da marca no neutro faz o preto da tela e o preto da marca serem o
-     mesmo preto. */
-  --n-0:#FFFFFF;   --n-25:#FBFCFC;  --n-50:#F5F8F8;  --n-100:#ECF1F0;
-  --n-200:#DBE3E2; --n-300:#BFCBCA; --n-400:#93A2A1; --n-500:#677574;
-  --n-600:#46524F; --n-700:#2F3937; --n-800:#1F2726; --n-900:#131A19;
-  --n-950:#0A1010;
+  /* ── Neutros: cinza-ardósia, com um fio de azul ───────────────────────
+     Não é cinza puro. Cinza neutro ao lado de azul parece sujo — puxa para
+     o verde. Um traço de azul no neutro faz o preto da tela e o azul da
+     marca serem da mesma família. */
+  --n-0:#FFFFFF;   --n-25:#FCFDFE;  --n-50:#F8FAFC;  --n-100:#F1F5F9;
+  --n-200:#E2E8F0; --n-300:#CBD5E1; --n-400:#94A3B8; --n-500:#64748B;
+  --n-600:#475569; --n-700:#334155; --n-800:#1E293B; --n-900:#172033;
+  --n-950:#0F172A;
 
-  /* ── A cor da marca: petróleo ─────────────────────────────────────────
-     Era um roxo-violeta com magenta ao lado. Vendia bem para esmalteria e
-     mal para barbearia — e metade do público é barbearia. Roxo vivo com
-     magenta lê como salão feminino antes de ler como sistema, e o dono de
-     barbearia decide se aquilo é "para ele" na primeira tela, sem pensar
-     no assunto.
+  /* ── A COR DA MARCA: AZUL, COM ROXO DE APOIO ──────────────────────────
+     Duas escalas, e a divisão de trabalho entre elas é a regra que mantém
+     isto elegante em vez de colorido:
 
-     Petróleo resolve sem virar cinza: é sério, não tem gênero, e é o que
-     clínica de estética e barbearia usam de verdade. Casa com o grafite
-     que a moldura já tinha.
+       AZUL  manda na interface. Botão, item selecionado, foco, link.
+       ROXO  aparece em detalhe. Logotipo, avatar, selo, ícone de destaque.
 
-     Os tons de trabalho estão nomeados por ONDE servem, e não por quanto
-     são claros: foi trocar um pelo outro que quebrou a legibilidade nas
-     versões anteriores. Os três números ao lado são o contraste medido,
-     não estimado — a conta está em tests/aparencia.test.mjs. */
-  --pt-50:#EAF6F4;  --pt-100:#CDE9E5; --pt-200:#9FD5CE; --pt-300:#63BCB1;
-  --pt-400:#2A9C8D; --pt-500:#0F8175; --pt-600:#0B6A60; --pt-700:#08544C;
-  --pt-800:#053B35;
-  --pt-soft:rgba(15,129,117,.09);
-  --pt-line:rgba(15,129,117,.26);
+     Trocar isso de lado — roxo em botão de rotina, azul só em enfeite — é
+     o que transforma um produto sóbrio numa tela de carnaval. O roxo é
+     tempero; se ele estiver em toda parte, não destaca nada.
 
-  --pt-fundo:var(--pt-600);   /* fundo de botão, letra branca        6,5:1 */
-  --pt-texto:var(--pt-700);   /* petróleo escrito em papel claro     8,2:1 */
-  --pt-claro:var(--pt-300);   /* petróleo escrito sobre grafite      8,7:1 */
+     Os tons estão nomeados por ONDE servem, não por quanto são claros: foi
+     trocar um pelo outro que quebrou a legibilidade nas versões anteriores.
+     Os números ao lado são contraste medido, não estimado. */
+  --az-50:#EFF6FF;  --az-100:#DBEAFE; --az-200:#BFDBFE; --az-300:#93C5FD;
+  --az-400:#60A5FA; --az-500:#3B82F6; --az-600:#2563EB; --az-700:#1D4ED8;
+  --az-800:#1E40AF;
+  --az-soft:rgba(37,99,235,.07);
+  --az-line:rgba(37,99,235,.20);
 
-  /* A ponta clara do degradê. Não pinta interface — só o logotipo e o dia
-     marcado do calendário, que é de onde ela veio. Era o magenta #14A392;
-     virou a água-marinha do mesmo verde, para o degradê continuar tendo
-     um começo mais vivo que o fim sem trazer o rosa de volta. */
-  --mg-500:#14A392;
-  --grad-marca:linear-gradient(96deg,#14A392 0%,#0B6A60 62%,#07414A 100%);
+  --rx-50:#F5F3FF;  --rx-100:#EDE9FE; --rx-200:#DDD6FE; --rx-300:#C4B5FD;
+  --rx-400:#A78BFA; --rx-500:#8B5CF6; --rx-600:#7C3AED; --rx-700:#6D28D9;
+  --rx-800:#5B21B6;
+  --rx-soft:rgba(124,58,237,.07);
+  --rx-line:rgba(124,58,237,.20);
 
-  /* ── Semânticos, dessaturados para conviver com o petróleo ─────────── */
-  --su-500:#4A7C2F; --su-soft:rgba(74,124,47,.10);
-  --wa-500:#A56411; --wa-soft:rgba(165,100,17,.10);
-  --er-500:#B3261E; --er-soft:rgba(179,38,30,.09);
+  --az-fundo:var(--az-600);   /* fundo de botão, letra branca        5,2:1 */
+  --az-texto:var(--az-700);   /* azul escrito em papel claro         6,7:1 */
+  --az-claro:var(--az-300);   /* azul escrito sobre grafite          9,9:1 */
+
+  /* A ponta viva do degradê: o roxo. Não pinta interface — só o logotipo,
+     o avatar e o dia marcado do calendário. */
+  --mg-500:var(--rx-600);
+  --grad-marca:linear-gradient(96deg,#2563EB 0%,#4F46E5 52%,#7C3AED 100%);
+  /* Degradê de avatar e selo: o mesmo par, mais aberto, para caber num
+     círculo de 28px sem virar uma cor só. */
+  --grad-suave:linear-gradient(135deg,#3B82F6 0%,#7C3AED 100%);
+
+  /* ── Semânticos, escolhidos para não encostar no azul nem no roxo ──── */
+  --su-500:#15803D; --su-soft:rgba(21,128,61,.10);
+  --wa-500:#B45309; --wa-soft:rgba(180,83,9,.10);
+  --er-500:#DC2626; --er-soft:rgba(220,38,38,.09);
 
   /* ── Tokens que as telas já usavam, redirecionados ─────────────────── */
-  --ac-500:var(--pt-500); --ac-600:var(--pt-texto); --ac-700:var(--pt-800);
-  --ac-soft:var(--pt-soft); --ac-line:var(--pt-line);
-  --marca:var(--pt-texto); --marca-esc:var(--pt-800); --marca-viva:var(--pt-500);
-  --marca-media:var(--pt-500); --marca-clara:var(--pt-400); --marca-funda:var(--pt-700);
-  --info:var(--pt-texto);
+  --ac-500:var(--az-500); --ac-600:var(--az-texto); --ac-700:var(--az-800);
+  --ac-soft:var(--az-soft); --ac-line:var(--az-line);
+  --marca:var(--az-texto); --marca-esc:var(--az-800); --marca-viva:var(--rx-600);
+  --marca-media:var(--az-600); --marca-clara:var(--az-400); --marca-funda:var(--az-700);
+  --info:var(--az-texto);
 
   --bg:var(--n-50);   --painel:var(--n-0); --painel2:var(--n-25);
-  /* A moldura: grafite nos dois temas, com o petróleo por cima. */
-  --lat:#0B1413; --lat-2:#11201E; --lat-borda:rgba(42,156,141,.18);
-  --lat-txt:#EDF4F3; --lat-txt2:rgba(237,244,243,.58); --lat-txt3:rgba(237,244,243,.34);
+
+  /* ── A MOLDURA, AGORA CLARA ───────────────────────────────────────────
+     A lateral era grafite quase preto nos dois temas. Ficava com cara de
+     painel de servidor: escura, densa, "de sistema". Passa a ser branca,
+     com o palco num cinza um tom abaixo — assim a lateral é a folha e o
+     conteúdo respira ao lado, em vez de a tela ser dividida em duas
+     metades que brigam.
+
+     Os tons de texto aqui deixam de ser branco transparente e passam a ser
+     ardósia sólida: branco a 58% sobre fundo branco é invisível, e foi o
+     que quebrou quando a moldura clareou. */
+  --lat:#FFFFFF; --lat-2:var(--n-50); --lat-borda:var(--n-200);
+  --lat-txt:var(--n-900); --lat-txt2:var(--n-600); --lat-txt3:var(--n-500);
   --lat-largura:252px;
+  /* Os fundos de dentro da moldura, nomeados. Antes eram `rgba(255,255,255,…)`
+     cravado, que é uma aposta de que o fundo é escuro — a aposta furou no dia
+     em que a moldura clareou, e cada hover virou invisível. Agora cada um tem
+     nome e vira junto com o tema. */
+  --lat-hover:var(--n-100);
+  --lat-ic:var(--n-100); --lat-ic-txt:var(--az-600);
+  --lat-sel:var(--az-50); --lat-sel-txt:var(--az-700);
+  --lat-card:var(--painel);
   --borda:var(--n-200); --borda-forte:var(--n-300);
   --txt:var(--n-900); --txt2:var(--n-600); --txt3:var(--n-400);
   --ok:var(--su-500); --alerta:var(--wa-500); --erro:var(--er-500);
 
-  /* A ação primária é o petróleo da marca, com letra branca. */
-  --acao:var(--pt-fundo); --acao-hover:var(--pt-700); --acao-txt:#FFFFFF;
+  /* A ação primária é o azul da marca, com letra branca. */
+  --acao:var(--az-fundo); --acao-hover:var(--az-700); --acao-txt:#FFFFFF;
   /* Ação de peso mas sem brilho: confirmar, salvar, tudo que é rotina. */
   --tinta:var(--n-900); --tinta-hover:var(--n-800); --tinta-txt:var(--n-0);
   --tinta-marca:var(--n-900);   /* a marca do AgendaPro, que nunca muda */
@@ -154,37 +177,51 @@
                   -apple-system,"Roboto",Arial,sans-serif;
 }
 
-/* O tema escuro é onde este visual mora: grafite com o petróleo por cima,
-   do jeito do logotipo. O claro é a versão para quem trabalha com a loja aberta
-   e o sol batendo no monitor. */
+/* O visual mora no CLARO: é o padrão, e é o que a maioria vai ver. O escuro
+   continua inteiro para quem atende de noite ou prefere assim — o botão de
+   trocar está no pé da lateral e não some. Aqui o azul sobe na rampa, porque
+   o #1D4ED8 que serve de texto no papel branco desaparece no grafite. */
 [data-tema="escuro"], html[data-tema="escuro"]{
-  --bg:#08100F; --painel:#121A19; --painel2:#182322;
-  --borda:#26312F; --borda-forte:#374542;
-  --txt:#EDF4F3; --txt2:#9CB3AF; --txt3:#657A77;
+  --bg:#0B1220; --painel:#131C2E; --painel2:#18233A;
+  --borda:#25324A; --borda-forte:#35455F;
+  --txt:#E8EEF7; --txt2:#A3B2C7; --txt3:#6F8098;
 
-  /* Sobre grafite o petróleo sobe na rampa: o #08544C que serve de texto no
-     papel claro some aqui. */
-  --pt-texto:var(--pt-300);
-  --ac-500:var(--pt-300); --ac-600:var(--pt-300); --ac-700:var(--pt-200);
-  --pt-soft:rgba(99,188,177,.13); --pt-line:rgba(99,188,177,.30);
-  --ac-soft:var(--pt-soft); --ac-line:var(--pt-line);
+  --az-texto:var(--az-300);
+  --ac-500:var(--az-300); --ac-600:var(--az-300); --ac-700:var(--az-200);
+  --az-soft:rgba(147,197,253,.13); --az-line:rgba(147,197,253,.30);
+  --rx-soft:rgba(196,181,253,.13); --rx-line:rgba(196,181,253,.30);
+  --ac-soft:var(--az-soft); --ac-line:var(--az-line);
+  --marca:var(--az-300); --marca-esc:var(--az-200); --marca-viva:var(--rx-400);
+  --marca-media:var(--az-400); --marca-clara:var(--az-300); --marca-funda:var(--az-200);
+  --info:var(--az-300);
 
-  --su-500:#8ABF5F; --wa-500:#D19A4E; --er-500:#E27A72;
-  --su-soft:rgba(138,191,95,.12); --wa-soft:rgba(209,154,78,.12);
-  --er-soft:rgba(226,122,114,.12);
+  /* A moldura acompanha o tema: branca no claro, grafite azulado aqui.
+     Deixá-la branca no escuro faria a lateral virar um holofote ao lado de
+     uma tela apagada — que é exatamente o que cansa quem trabalha à noite. */
+  --lat:#101A2B; --lat-2:#18233A; --lat-borda:#25324A;
+  --lat-txt:#E8EEF7; --lat-txt2:#A3B2C7; --lat-txt3:#6F8098;
+  --lat-hover:rgba(255,255,255,.06);
+  --lat-ic:rgba(255,255,255,.07); --lat-ic-txt:var(--az-300);
+  --lat-sel:rgba(147,197,253,.14); --lat-sel-txt:var(--az-300);
+  --lat-card:var(--painel2);
 
-  /* O botão sobe um degrau para não sumir no grafite, e continua de letra
-     branca — é a mesma peça nos dois temas, e trocar a cor da letra entre
-     eles faria o produto parecer dois. */
-  --acao:var(--pt-500); --acao-hover:var(--pt-400); --acao-txt:#FFFFFF;
-  --tinta:#EDF4F3; --tinta-hover:#FFFFFF; --tinta-txt:#08100F;
-  --tinta-marca:#EDF4F3;
+  --su-500:#4ADE80; --wa-500:#FBBF24; --er-500:#F87171;
+  --su-soft:rgba(74,222,128,.12); --wa-soft:rgba(251,191,36,.12);
+  --er-soft:rgba(248,113,113,.12);
+
+  /* O botão NÃO sobe de tom aqui, ao contrário do que o instinto pede: o
+     azul-500 sobre grafite dá 3,7:1 com letra branca, abaixo do mínimo. O
+     600 mantém 5,2:1 na letra e ainda se separa do fundo em 3,5:1, que é o
+     que uma peça de interface precisa. */
+  --acao:var(--az-600); --acao-hover:var(--az-500); --acao-txt:#FFFFFF;
+  --tinta:#E8EEF7; --tinta-hover:#FFFFFF; --tinta-txt:#0B1220;
+  --tinta-marca:#E8EEF7;
 
   --sombra-xs:0 1px 1px rgba(0,0,0,.35);
   --sombra:0 1px 2px rgba(0,0,0,.45), 0 2px 6px -1px rgba(0,0,0,.35);
   --sombra-md:0 2px 6px rgba(0,0,0,.42), 0 12px 28px -6px rgba(0,0,0,.45);
   --sombra-lg:0 4px 10px rgba(0,0,0,.45), 0 24px 52px -12px rgba(0,0,0,.55);
-  --sombra-marca:0 1px 2px rgba(0,0,0,.55), 0 6px 18px -6px rgba(15,129,117,.34);
+  --sombra-marca:0 1px 2px rgba(0,0,0,.55), 0 6px 18px -6px rgba(37,99,235,.34);
 }
 
 
@@ -205,8 +242,10 @@
 .lateral{
   position:fixed; inset:0 auto 0 0; width:var(--lat-largura); z-index:60;
   background:var(--lat); border-right:1px solid var(--lat-borda);
-  display:flex; flex-direction:column;
+  display:flex; flex-direction:column; overflow-y:auto;
   transition:transform .24s cubic-bezier(.4,0,.2,1);
+  box-shadow:1px 0 0 var(--lat-borda), 4px 0 16px -8px rgba(15,32,51,.06);
+  scrollbar-width:thin;
 }
 .palco{
   margin-left:var(--lat-largura); min-height:100vh;
@@ -222,7 +261,7 @@
 
 /* ── A marca, no alto da lateral ─────────────────────────────────────── */
 .lat-marca{
-  padding:22px 20px 18px; border-bottom:1px solid var(--lat-borda);
+  padding:18px 20px 15px; border-bottom:1px solid var(--lat-borda);
   display:flex; align-items:center; gap:9px; flex-wrap:wrap;
 }
 /* O nome usa o degradê do logotipo — é o único lugar em que ele aparece.
@@ -231,6 +270,12 @@
 /* O logotipo em linha ocupa a largura da lateral menos o respiro. Altura por
    `aspect-ratio` implícita: o SVG já traz a proporção, então basta a largura. */
 .lat-logo{ width:100%; max-width:186px; height:auto; display:block }
+/* Qual das duas aparece. O padrão é o claro, porque o padrão do sistema é o
+   tema claro — assim, se o atributo do tema ainda não foi escrito no <html>,
+   o que se vê é o certo, e não um logotipo branco em folha branca. */
+.lat-logo-escuro{ display:none }
+[data-tema="escuro"] .lat-logo-claro{ display:none }
+[data-tema="escuro"] .lat-logo-escuro{ display:block }
 .marca-logo{ width:34px; height:34px; flex:none; display:block }
 /* No cadastro o fundo é claro e há espaço, então entra o bloco inteiro. */
 .logo-topo{ height:34px; width:auto; display:block }
@@ -248,14 +293,14 @@
    palavra cortada no meio. */
 .marca-etiqueta{
   font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
-  color:var(--pt-200); background:rgba(42,156,141,.18);
-  border:1px solid rgba(42,156,141,.32);
+  color:var(--rx-700); background:var(--rx-50);
+  border:1px solid var(--rx-200);
   padding:2px 9px; border-radius:var(--r-pill); line-height:1.6;
   align-self:center;
 }
 
 /* ── O seletor de salão ──────────────────────────────────────────────── */
-.lat-salao{ padding:16px 16px 6px }
+.lat-salao{ padding:13px 16px 4px }
 .lat-salao label{
   display:block; font-size:10px; font-weight:600; letter-spacing:.1em;
   text-transform:uppercase; color:var(--lat-txt3); margin-bottom:7px;
@@ -269,36 +314,36 @@
 .lateral .sel-salao option{ background:var(--lat); color:var(--lat-txt) }
 
 /* ── Os itens ────────────────────────────────────────────────────────── */
-.lat-nav{ flex:1; overflow-y:auto; padding:10px 12px 16px; display:block }
+.lat-nav{ flex:0 0 auto; padding:6px 12px 10px; display:block }
 .lat-grupo{
   font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
-  color:var(--lat-txt3); padding:16px 8px 7px;
+  color:var(--lat-txt3); padding:11px 8px 5px;
 }
 .lat-nav .aba{
   display:flex; align-items:center; gap:11px; width:100%;
-  padding:9px 10px; margin-bottom:2px; border-radius:var(--r-sm);
+  padding:8px 10px; margin-bottom:2px; border-radius:var(--r-sm);
   border:none; background:none; color:var(--lat-txt2);
   font-size:14px; font-weight:530; text-align:left; cursor:pointer;
   position:relative; transition:background .14s ease, color .14s ease;
 }
-.lat-nav .aba:hover{ background:rgba(255,255,255,.06); color:var(--lat-txt) }
+.lat-nav .aba:hover{ background:var(--lat-hover); color:var(--lat-txt) }
 .lat-nav .aba.on{
-  background:var(--pt-soft); color:var(--pt-200); font-weight:600;
+  background:var(--lat-sel); color:var(--lat-sel-txt); font-weight:600;
   border-bottom:none !important;
 }
 /* A tarja da esquerda é o que diz "você está aqui" de longe, sem depender de
    distinguir dois tons de rosa no escuro. */
 .lat-nav .aba.on::before{
   content:""; position:absolute; left:-12px; top:6px; bottom:6px; width:3px;
-  border-radius:0 3px 3px 0; background:var(--pt-400);
+  border-radius:0 3px 3px 0; background:var(--az-600);
 }
 .aba-ic{
   width:30px; height:30px; flex:none; border-radius:8px;
-  display:grid; place-items:center; background:rgba(255,255,255,.05);
-  transition:background .14s ease;
+  display:grid; place-items:center; background:var(--lat-ic);
+  color:var(--lat-ic-txt); transition:background .14s ease, color .14s ease;
 }
-.lat-nav .aba:hover .aba-ic{ background:rgba(255,255,255,.09) }
-.lat-nav .aba.on .aba-ic{ background:rgba(42,156,141,.22) }
+.lat-nav .aba:hover .aba-ic{ background:var(--lat-sel); color:var(--lat-sel-txt) }
+.lat-nav .aba.on .aba-ic{ background:var(--az-600); color:#FFFFFF }
 .aba-ic .ic-svg{ width:16px; height:16px }
 
 /* ── O pé da lateral ─────────────────────────────────────────────────── */
@@ -309,14 +354,17 @@
    quem, e comanda lançada na conta da colega é questão de tempo. */
 .lat-quem{
   display:flex; align-items:center; gap:9px;
-  padding:9px 10px; margin-bottom:9px; border-radius:var(--r-sm);
-  background:rgba(255,255,255,.05);
+  padding:9px 10px; margin-bottom:8px; border-radius:var(--r-md);
+  background:var(--lat-card); border:1px solid var(--lat-borda);
+  box-shadow:0 1px 2px rgba(15,32,51,.05);
 }
 .lat-quem-ini{
-  width:28px; height:28px; flex:none; border-radius:50%;
+  width:32px; height:32px; flex:none; border-radius:50%;
   display:grid; place-items:center;
-  background:var(--acao); color:var(--acao-txt);
-  font-size:12px; font-weight:640; letter-spacing:-.01em;
+  /* Azul para roxo: é o único degradê da moldura, e é o que amarra o avatar
+     ao logotipo lá em cima sem repetir o logotipo. */
+  background:var(--grad-suave); color:#FFFFFF;
+  font-size:12.5px; font-weight:640; letter-spacing:-.01em;
 }
 .lat-quem-txt{ min-width:0; line-height:1.25 }
 .lat-quem-txt b{
@@ -332,12 +380,59 @@
   font-size:13px; font-weight:520; text-align:left; cursor:pointer;
   transition:background .14s ease, color .14s ease;
 }
-.lat-acao:hover{ background:rgba(255,255,255,.06); color:var(--lat-txt) }
+.lat-acao:hover{ background:var(--lat-hover); color:var(--lat-txt) }
 .lat-acao .ic-svg{ width:15px; height:15px; flex:none }
 .lat-rodape{
   font-size:11px; color:var(--lat-txt3); text-align:center;
-  padding:10px 4px 4px; margin:0;
+  padding:8px 4px 2px; margin:0;
 }
+
+/* ── DUAS ABAS COM PESO PRÓPRIO ────────────────────────────────────────────
+   "Ver como cliente" não é mais uma seção: é a única que mostra a página que
+   a CLIENTE vê, e é o que o dono abre para conferir se o salão está bonito
+   antes de mandar o link. Vive em azul claro o tempo todo, não só quando
+   selecionada.
+
+   "Plano" é a única que fala de dinheiro, e leva o roxo — que é exatamente o
+   papel do roxo aqui: destacar um item, não pintar a interface. */
+.lat-nav .aba[data-chave="publico"]{
+  background:var(--lat-sel); color:var(--lat-sel-txt); font-weight:600;
+}
+.lat-nav .aba[data-chave="publico"] .aba-ic{
+  background:var(--az-600); color:#FFFFFF;
+}
+[data-tema="escuro"] .lat-nav .aba[data-chave="publico"] .aba-ic{
+  background:var(--az-500);
+}
+.lat-nav .aba[data-chave="publico"]:hover{ background:var(--az-100) }
+[data-tema="escuro"] .lat-nav .aba[data-chave="publico"]:hover{
+  background:rgba(147,197,253,.20);
+}
+
+.lat-nav .aba[data-chave="plano"] .aba-ic{
+  background:var(--rx-50); color:var(--rx-600);
+}
+[data-tema="escuro"] .lat-nav .aba[data-chave="plano"] .aba-ic{
+  background:rgba(196,181,253,.14); color:var(--rx-300);
+}
+.lat-nav .aba[data-chave="plano"]:hover .aba-ic{
+  background:var(--rx-100); color:var(--rx-700);
+}
+/* Selecionada, ela volta para o azul do resto: duas cores de "você está aqui"
+   ensinariam que a tarja azul significa uma coisa e a roxa, outra. */
+.lat-nav .aba[data-chave="plano"].on .aba-ic{
+  background:var(--rx-600); color:#FFFFFF;
+}
+
+/* ── O PÉ DA MOLDURA, COM AR ──────────────────────────────────────────────
+   Estava tudo colado: cartão de perfil encostado nos botões, botões
+   encostados no rodapé. Espaço é o que faz uma lista parecer produto em vez
+   de menu de sistema. */
+.lat-pe{ padding:12px 12px 10px; margin-top:auto }
+.lat-acao{ padding:8px 10px; margin-bottom:3px }
+.lat-acao .ic-svg{ color:var(--lat-txt3) }
+.lat-acao:hover .ic-svg{ color:var(--az-600) }
+[data-tema="escuro"] .lat-acao:hover .ic-svg{ color:var(--az-300) }
 
 /* ── O topo do palco ─────────────────────────────────────────────────── */
 .palco > .topo{
@@ -486,7 +581,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
    dourada porque a barbearia é dourada seria a assinatura do fornecedor se
    passando pela do cliente. */
 .marca-ic, .logo i{
-  background:var(--tinta-marca) !important; color:var(--pt-400) !important;
+  background:var(--tinta-marca) !important; color:var(--az-400) !important;
   border-radius:var(--r-sm) !important; font-weight:600 !important;
   box-shadow:var(--sombra-xs);
 }
@@ -599,7 +694,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 .regua button:hover{border-color:var(--n-300);color:var(--txt)}
 /* Anel dourado em volta da ficha de tinta: o detalhe que amarra as duas
    cores sem colocá-las para brigar. */
-.regua button.on{box-shadow:0 0 0 3px var(--pt-soft) !important}
+.regua button.on{box-shadow:0 0 0 3px var(--az-soft) !important}
 /* ═══════════════════════════════════════════════════════════════════════════
    A APARÊNCIA DO LINK DA CLIENTE — paleta e prévia
 
@@ -972,7 +1067,7 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 /* A aba ativa é o único lugar em que o dourado aparece como linha. Uma
    régua de 2px pesa mais que 1px sem virar barra colorida. */
 .aba.on{
-  color:var(--txt); border-bottom:2px solid var(--pt-500) !important;
+  color:var(--txt); border-bottom:2px solid var(--az-500) !important;
   font-weight:600;
 }
 

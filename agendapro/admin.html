@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Plataforma — AgendaPro</title>
 <meta name="robots" content="noindex, nofollow" />
-<meta name="theme-color" content="#0B1413" />
+<meta name="theme-color" content="#0F172A" />
 <link rel="icon" type="image/png" href="icones/icone-192.png" />
 <style>
 /* ===========================================================================
@@ -29,7 +29,7 @@ button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:none;background:none}
 body{
   font:15px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
-  background:#0B1413;color:#EDF4F3;
+  background:#0F172A;color:#E8EEF7;
   padding:26px 20px calc(60px + env(safe-area-inset-bottom));
 }
 .folha{max-width:1180px;margin:0 auto}
@@ -38,11 +38,11 @@ body{
 .topo img{height:30px;width:auto}
 .selo{
   font-size:10.5px;font-weight:700;letter-spacing:.11em;padding:3px 9px;
-  border-radius:99px;background:rgba(224,33,155,.16);color:#F472B6;
-  border:1px solid rgba(224,33,155,.34);
+  border-radius:99px;background:rgba(124,58,237,.18);color:#C4B5FD;
+  border:1px solid rgba(124,58,237,.38);
 }
-.sair{margin-left:auto;color:rgba(237,244,243,.55);font-size:13.5px;font-weight:550}
-.sair:hover{color:#EDF4F3}
+.sair{margin-left:auto;color:rgba(232,238,247,.55);font-size:13.5px;font-weight:550}
+.sair:hover{color:#E8EEF7}
 .subtopo{color:rgba(237,244,243,.5);font-size:14px;margin-bottom:26px}
 
 /* ── Os números do topo ─────────────────────────────────────────────────── */
@@ -51,7 +51,7 @@ body{
   grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
 }
 .cartao{
-  background:#11201E;border:1px solid rgba(42,156,141,.15);
+  background:#1B2740;border:1px solid rgba(37,99,235,.15);
   border-radius:11px;padding:15px 16px;
 }
 .cartao .rot{
@@ -86,16 +86,16 @@ h2{
 .ligar a:hover{text-decoration:underline}
 
 /* ── A lista ────────────────────────────────────────────────────────────── */
-.rolo{overflow-x:auto;border-radius:11px;border:1px solid rgba(42,156,141,.15)}
-table{width:100%;border-collapse:collapse;background:#11201E;font-size:14px}
+.rolo{overflow-x:auto;border-radius:11px;border:1px solid rgba(37,99,235,.15)}
+table{width:100%;border-collapse:collapse;background:#1B2740;font-size:14px}
 th{
   text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;
   text-transform:uppercase;color:rgba(237,244,243,.4);
-  padding:11px 13px;border-bottom:1px solid rgba(42,156,141,.15);white-space:nowrap;
+  padding:11px 13px;border-bottom:1px solid rgba(37,99,235,.15);white-space:nowrap;
 }
-td{padding:11px 13px;border-bottom:1px solid rgba(42,156,141,.08);vertical-align:middle}
+td{padding:11px 13px;border-bottom:1px solid rgba(37,99,235,.08);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(42,156,141,.05)}
+tr:hover td{background:rgba(37,99,235,.05)}
 td .nome{font-weight:600}
 td .slug{font-size:12px;color:rgba(237,244,243,.38);font-family:ui-monospace,monospace}
 .etq{
@@ -104,30 +104,30 @@ td .slug{font-size:12px;color:rgba(237,244,243,.38);font-family:ui-monospace,mon
 }
 .etq.pago{background:rgba(74,222,128,.14);color:#4ADE80}
 .etq.teste{background:rgba(251,191,36,.14);color:#FBBF24}
-.etq.gratis{background:rgba(237,244,243,.08);color:rgba(237,244,243,.55)}
+.etq.gratis{background:rgba(237,244,243,.08);color:rgba(232,238,247,.55)}
 .etq.ruim{background:rgba(251,113,133,.14);color:#FB7185}
 .num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .morto{color:rgba(237,244,243,.34)}
 select.plano{
-  background:#0B1413;border:1px solid rgba(42,156,141,.26);border-radius:7px;
+  background:#0F172A;border:1px solid rgba(37,99,235,.26);border-radius:7px;
   padding:6px 9px;font-size:13px;min-width:118px;
 }
 .acao{
   font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:7px;
-  border:1px solid rgba(42,156,141,.26);color:rgba(237,244,243,.72);
+  border:1px solid rgba(37,99,235,.26);color:rgba(237,244,243,.72);
 }
-.acao:hover{border-color:rgba(42,156,141,.5);color:#EDF4F3}
+.acao:hover{border-color:rgba(37,99,235,.5);color:#E8EEF7}
 .acao.perigo:hover{border-color:rgba(251,113,133,.55);color:#FB7185}
 
 .recado{
-  padding:15px 18px;border-radius:10px;background:#11201E;
-  border-left:3px solid #0B6A60;line-height:1.6;
+  padding:15px 18px;border-radius:10px;background:#1B2740;
+  border-left:3px solid #2563EB;line-height:1.6;
 }
 .recado.erro{border-left-color:#FB7185;background:rgba(251,113,133,.07)}
 .recado b{display:block;margin-bottom:3px}
 .recado code{
-  background:#0B1413;padding:1px 6px;border-radius:4px;font-size:12.5px;
-  border:1px solid rgba(42,156,141,.2);
+  background:#0F172A;padding:1px 6px;border-radius:4px;font-size:12.5px;
+  border:1px solid rgba(37,99,235,.2);
 }
 .vazio{padding:22px;text-align:center;color:rgba(237,244,243,.42);font-size:14px}
 
@@ -208,7 +208,7 @@ async function carregar(){
     corpo.innerHTML = `<div class="recado"><b>Você não está logado.</b>
       Esta tela lê o negócio inteiro, então ela precisa saber quem é você
       antes de mostrar qualquer número.<br><br>
-      <a href="entrar.html" style="color:var(--pt-claro,#63BCB1);font-weight:600">
+      <a href="entrar.html" style="color:var(--az-claro,#93C5FD);font-weight:600">
       Entrar &rsaquo;</a></div>`;
     return;
   }

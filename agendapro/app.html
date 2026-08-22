@@ -20,10 +20,10 @@
    Sem framework, sem build. Abrir o arquivo é rodar o sistema.
    =========================================================================== */
 :root{
-  --marca:#0C7568; --marca-esc:#0A5E54; --marca-viva:#0F8B7B;
-  --bg:#F7F6F4; --painel:#FFFFFF; --borda:#E3E1DC;
-  --txt:#1A1917; --txt2:#5B574F; --txt3:#A8A49B;
-  --ok:#10B981; --alerta:#F59E0B; --erro:#EF4444;
+  --marca:#1D4ED8; --marca-esc:#1E40AF; --marca-viva:#7C3AED;
+  --bg:#F8FAFC; --painel:#FFFFFF; --borda:#E2E8F0;
+  --txt:#172033; --txt2:#475569; --txt3:#94A3B8;
+  --ok:#15803D; --alerta:#B45309; --erro:#DC2626;
   --sombra:0 1px 3px rgba(16,24,40,.08), 0 8px 24px rgba(16,24,40,.06);
   --r:12px; --linha:15px; /* altura de 15 min na grade */
 }
@@ -141,7 +141,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   45deg,transparent,transparent 4px,rgba(0,0,0,.16) 4px,rgba(0,0,0,.16) 8px)}
 .ag.concluido::after{content:"\2713";position:absolute;right:5px;top:3px;font-size:11px;opacity:.85}
 .vazio-slot{position:absolute;left:0;right:0;cursor:pointer}
-.vazio-slot:hover{background:rgba(15,129,117,.09)}
+.vazio-slot:hover{background:rgba(37,99,235,.09)}
 
 /* ── Cartões e listas ────────────────────────────────────────────────── */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
@@ -163,14 +163,14 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 }
 .tabela td{padding:11px 13px;border-bottom:1px solid var(--borda);font-size:14px}
 .tabela tr:last-child td{border-bottom:none}
-.tabela tr:hover td{background:rgba(15,129,117,.045)}
+.tabela tr:hover td{background:rgba(37,99,235,.045)}
 .tag{
   display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;
 }
 .t-conf{background:rgba(16,185,129,.15);color:#059669}
 .t-pend{background:rgba(245,158,11,.16);color:#D97706}
 .t-canc{background:rgba(239,68,68,.14);color:#DC2626}
-.t-conc{background:rgba(15,129,117,.14);color:var(--marca)}
+.t-conc{background:rgba(37,99,235,.14);color:var(--marca)}
 .t-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
 .vazio{text-align:center;padding:44px 20px;color:var(--txt3)}
 
@@ -237,7 +237,7 @@ body.carregando-tudo .tela{ display:none }
   background:var(--bg);
 }
 .campo input:focus,.campo select:focus,.campo textarea:focus{
-  outline:none;border-color:var(--marca);box-shadow:0 0 0 3px rgba(15,129,117,.14)
+  outline:none;border-color:var(--marca);box-shadow:0 0 0 3px rgba(37,99,235,.14)
 }
 .dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .aviso{
@@ -245,7 +245,7 @@ body.carregando-tudo .tela{ display:none }
   background:rgba(239,68,68,.1);color:#DC2626;border:1px solid rgba(239,68,68,.25);
 }
 .aviso.ok{background:rgba(16,185,129,.1);color:#059669;border-color:rgba(16,185,129,.25)}
-.aviso.info{background:rgba(15,129,117,.09);color:var(--marca);border-color:rgba(15,129,117,.22)}
+.aviso.info{background:rgba(37,99,235,.09);color:var(--marca);border-color:rgba(37,99,235,.22)}
 
 /* ── Escolha de serviços (checkboxes) ────────────────────────────────── */
 .lista-serv{border:1px solid var(--borda);border-radius:9px;max-height:190px;overflow:auto}
@@ -254,7 +254,7 @@ body.carregando-tudo .tela{ display:none }
   border-bottom:1px solid var(--borda);cursor:pointer;
 }
 .serv-op:last-child{border-bottom:none}
-.serv-op:hover{background:rgba(15,129,117,.05)}
+.serv-op:hover{background:rgba(37,99,235,.05)}
 .serv-op input{width:auto;margin:0}
 .serv-op .i{flex:1}
 .serv-op .n{font-weight:600;font-size:14px}
@@ -279,7 +279,7 @@ body.carregando-tudo .tela{ display:none }
   padding:9px 4px;border:1px solid var(--borda);border-radius:9px;
   text-align:center;font-weight:600;font-size:14px;background:var(--bg);
 }
-.hslot:hover{border-color:var(--marca);color:var(--marca);background:rgba(15,129,117,.07)}
+.hslot:hover{border-color:var(--marca);color:var(--marca);background:rgba(37,99,235,.07)}
 .hslot.sel{background:var(--marca);color:#fff;border-color:var(--marca)}
 .nota{
   font-size:12px;color:var(--txt2);margin-top:14px;padding-top:12px;
@@ -311,7 +311,13 @@ body.carregando-tudo .tela{ display:none }
 
 <aside class="lateral" id="lateral">
   <div class="lat-marca">
-    <img class="lat-logo" src="icones/marca-linha.svg" alt="AgendaPro">
+    <!-- Duas versões do mesmo logotipo, e o CSS escolhe. A moldura agora é
+         branca no tema claro e grafite no escuro; uma imagem só ficaria
+         invisível num dos dois. Trocar por JavaScript funcionaria, mas
+         pisca na primeira pintura — e o logotipo é a primeira coisa que a
+         pessoa vê. -->
+    <img class="lat-logo lat-logo-claro" src="icones/logotipo-escuro-linha.svg" alt="AgendaPro">
+    <img class="lat-logo lat-logo-escuro" src="icones/marca-linha.svg" alt="" aria-hidden="true">
     <span class="marca-etiqueta">Gestão</span>
   </div>
 
@@ -740,7 +746,12 @@ function montarAbas(){
       html += `<div class="lat-grupo">${grupo}</div>`;
       grupoAtual = grupo;
     }
-    html += `<button class="aba${k === telaAtual ? ' on' : ''}"
+    /* `data-chave` na aba: é por ele que o CSS dá tratamento próprio a um
+       item sem que o JavaScript precise conhecer estilo. "Ver como cliente"
+       é a única aba que sai do sistema e mostra a página que a cliente vê —
+       merece peso diferente das outras, e "Plano" ganha o roxo de destaque
+       por ser a única que fala de dinheiro. */
+    html += `<button class="aba${k === telaAtual ? ' on' : ''}" data-chave="${k}"
                      onclick="irPara('${k}')" ${k === telaAtual ? 'aria-current="page"' : ''}>
                <span class="aba-ic" data-ico="${icone}"></span>
                <span class="aba-txt">${rotulo}</span>

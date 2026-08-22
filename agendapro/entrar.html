@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Entrar — AgendaPro</title>
 <meta name="description" content="Entre no painel do seu salão, barbearia ou estúdio." />
-<meta name="theme-color" content="#0B1413" />
+<meta name="theme-color" content="#0F172A" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/png" href="icones/icone-192.png" />
 <link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
@@ -57,13 +57,13 @@ button{cursor:pointer;border:none;background:none}
 .abertura{ display:none }
 .com-abertura .abertura{
   display:grid; place-items:center; position:fixed; inset:0; z-index:120;
-  background:var(--lat); overflow:hidden;
+  background:var(--painel); overflow:hidden;
 }
 /* O brilho nasce junto com a marca, atrás dela. Sozinho seria só um borrão
    roxo; o que ele faz é dar profundidade ao logotipo, que é plano. */
 .abertura::before{
   content:""; position:absolute; width:720px; height:720px; border-radius:50%;
-  background:radial-gradient(circle, rgba(15,129,117,.34), rgba(15,129,117,0) 68%);
+  background:radial-gradient(circle, rgba(37,99,235,.34), rgba(37,99,235,0) 68%);
   animation:brilho-nasce 1.5s cubic-bezier(.22,.61,.36,1) both;
 }
 .abertura-in{ position:relative; text-align:center; padding:0 24px }
@@ -75,17 +75,17 @@ button{cursor:pointer;border:none;background:none}
    três segundos faz a pessoa achar que travou. */
 .abertura-traco{
   width:min(212px, 52vw); height:2px; margin:30px auto 0; border-radius:2px;
-  background:rgba(237,244,243,.13); overflow:hidden;
+  background:var(--n-200); overflow:hidden;
 }
 .abertura-traco i{
   display:block; height:100%; width:100%; border-radius:2px;
-  background:linear-gradient(90deg, var(--mg-500), var(--pt-fundo));
+  background:linear-gradient(90deg, var(--mg-500), var(--az-fundo));
   transform-origin:left; transform:scaleX(0);
   animation:traco-corre 2.35s cubic-bezier(.4,0,.2,1) .28s both;
 }
 .abertura-pular{
   position:absolute; left:0; right:0; bottom:34px; text-align:center;
-  font-size:12px; letter-spacing:.04em; color:var(--lat-txt3);
+  font-size:12px; letter-spacing:.04em; color:var(--txt3);
   animation:aparece-devagar .5s ease 1.5s both;
 }
 
@@ -126,7 +126,8 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
    alinhado à esquerda numa metade de tela fica torto, como sobra. Centrado
    vira composição. */
 .lado-marca{
-  background:var(--lat); color:var(--lat-txt);
+  background:linear-gradient(160deg, var(--az-50) 0%, var(--rx-50) 100%);
+  color:var(--txt);
   padding:48px 44px; display:flex; flex-direction:column;
   justify-content:center; align-items:center; text-align:center;
   position:relative; overflow:hidden;
@@ -138,11 +139,11 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
 .lado-marca::before{
   content:""; position:absolute; width:560px; height:560px; border-radius:50%;
   top:-230px; left:50%; transform:translateX(-50%); pointer-events:none;
-  background:radial-gradient(circle, rgba(15,129,117,.28), rgba(15,129,117,0) 70%);
+  background:radial-gradient(circle, rgba(37,99,235,.28), rgba(37,99,235,0) 70%);
 }
 .lado-marca > *{ position:relative }
 .marca-grande{ width:min(300px,80%); height:auto; margin-bottom:26px }
-.lado-marca p{ color:var(--lat-txt2); font-size:15px; max-width:34ch; line-height:1.6 }
+.lado-marca p{ color:var(--txt2); font-size:15px; max-width:34ch; line-height:1.6 }
 
 /* `inline-flex` para o bloco encolher até o texto mais longo e ficar centrado
    como um todo, com as três linhas alinhadas entre si. Se fosse `flex`, ele
@@ -152,8 +153,8 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
   margin-top:32px; display:inline-flex; flex-direction:column; gap:11px;
   text-align:left;
 }
-.prova{ display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--lat-txt2) }
-.prova .ic-svg{ color:var(--pt-300); width:17px; height:17px; margin-top:2px; flex:none }
+.prova{ display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--txt2) }
+.prova .ic-svg{ color:var(--az-600); width:17px; height:17px; margin-top:2px; flex:none }
 
 /* ── A faixa do formulário ────────────────────────────────────────────── */
 .lado-forma{
@@ -262,7 +263,7 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
      vezes só atrapalha. -->
 <div class="abertura" id="abertura" aria-hidden="true">
   <div class="abertura-in">
-    <img class="abertura-marca" src="icones/logotipo-branco.svg" alt="">
+    <img class="abertura-marca" src="icones/logotipo.svg" alt="">
     <div class="abertura-traco"><i></i></div>
   </div>
   <div class="abertura-pular">toque para pular</div>
@@ -271,7 +272,7 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
 <div class="entrada-tela">
 
   <section class="lado-marca">
-    <img class="marca-grande" src="icones/logotipo-branco.svg" alt="AgendaPro Gestão">
+    <img class="marca-grande" src="icones/logotipo.svg" alt="AgendaPro Gestão">
     <p>O cliente marca sozinho pelo link, você acompanha tudo de um lugar só —
        agenda, comanda, comissão e caixa.</p>
     <div class="provas">

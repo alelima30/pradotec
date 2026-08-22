@@ -36,8 +36,50 @@ console.log('\nA cortina sobe sozinha');
 
   verdade('a cortina está de pé assim que a página abre',
     await p.isVisible('#abertura'));
-  verdade('e o logotipo dela é o mesmo arquivo da marca',
-    (await p.getAttribute('.abertura-marca','src')).includes('logotipo-branco'));
+  verdade('e o logotipo dela é o mesmo arquivo da marca da página',
+    (await p.getAttribute('.abertura-marca','src'))
+      === (await p.getAttribute('.marca-grande','src')));
+
+  /* ── E O LOGOTIPO PRECISA APARECER ────────────────────────────────────
+     A versão anterior conferia o NOME do arquivo — `logotipo-branco`. Nome
+     de arquivo não é o que a pessoa vê: quando a cortina deixou de ser
+     escura, o logotipo branco continuou lá, com o nome certo, e a palavra
+     "Agenda" sumiu na folha branca. O teste passou; a tela abria vazia.
+
+     Aqui a conta é no pixel, e é a da norma: desenha o SVG, tira a média de
+     luminância do que ele realmente pinta (transparente não conta) e exige
+     3:1 contra o fundo da cortina — o mínimo para elemento gráfico.
+
+     Contar "quantos pontos destoam" não serve: o selo escuro e o anel
+     colorido continuam destoando mesmo com o lettering invisível, e a
+     versão errada passava com 23% dos pontos diferentes. Medido nas duas,
+     a média de luminância dá 7,5:1 para a certa e 2,2:1 para a errada. */
+  const contraste = await p.evaluate(async () => {
+    const img = document.querySelector('.abertura-marca');
+    await img.decode();
+    const fundo = getComputedStyle(document.getElementById('abertura')).backgroundColor;
+    const rel = ([r, g, b]) => {
+      const L = [r, g, b].map(v => v/255)
+        .map(v => v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4));
+      return .2126*L[0] + .7152*L[1] + .0722*L[2];
+    };
+    const c = document.createElement('canvas');
+    c.width = 240; c.height = Math.max(1, Math.round(240 * img.naturalHeight / img.naturalWidth));
+    const cx = c.getContext('2d');
+    cx.drawImage(img, 0, 0, c.width, c.height);
+    const d = cx.getImageData(0, 0, c.width, c.height).data;
+    let soma = 0, n = 0;
+    for(let i = 0; i < d.length; i += 4){
+      if(d[i+3] < 160) continue;                    // transparente não é tinta
+      soma += rel([d[i], d[i+1], d[i+2]]); n++;
+    }
+    const lt = soma / n, lf = rel(fundo.match(/\d+/g).map(Number));
+    const [alto, baixo] = [lt, lf].sort((a, b) => b - a);
+    return +((alto + .05) / (baixo + .05)).toFixed(2);
+  });
+  verdade('e ele APARECE contra o fundo da cortina, não só existe',
+    contraste >= 3, `só ${contraste}:1 entre a tinta do logotipo e a cortina — `
+                  + 'é o logotipo da cor da folha em que está');
 
   await p.waitForSelector('#abertura', { state:'detached', timeout:6000 });
   // 3s de cortina + 0,5s de esmaecimento, contados do fim do carregamento.
