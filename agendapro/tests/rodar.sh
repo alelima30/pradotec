@@ -75,6 +75,42 @@ for teste in "$AQUI"/*.test.sql; do
   [ "${PIPESTATUS[0]}" -eq 0 ] || falhou=1
 done
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O 00_tudo.sql TEM QUE SOBREVIVER À SEGUNDA COLAGEM
+#
+# O cabeçalho dele promete: "pode rodar mais de uma vez sem medo". E não podia.
+#
+# O 09_cliente.sql substitui `agendar()` por uma versão que devolve o token de
+# gerenciamento — uma coluna a mais no retorno. `create or replace` não muda
+# tipo de retorno, então, num banco já instalado, a segunda passada morria no
+# 05 tentando rebaixar a função de volta:
+#
+#     ERROR: cannot change return type of existing function
+#
+# Quem cola o arquivo de novo — o que a gente pede a cada correção — leva essa
+# mensagem, que fala de tipo de retorno e não diz nada sobre o que fazer.
+#
+# Os testes acima nunca pegaram porque instalam arquivo por arquivo, uma vez
+# só. Aqui o arquivo é colado DUAS VEZES, que é o que acontece de verdade.
+# ═══════════════════════════════════════════════════════════════════════════
+echo ""
+echo "▸ 00_tudo.sql colado duas vezes"
+psql -q -d postgres -c "drop database if exists ${BANCO}_2x;" \
+                    -c "create database ${BANCO}_2x;" >/dev/null
+for vez in 1 2; do
+  saida=$(psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_2x" \
+            $( [ "$vez" = 1 ] && printf -- '-f %s' "$AQUI/00_stub_supabase.sql" ) \
+            -f "$RAIZ/supabase/00_tudo.sql" 2>&1 | grep -E "^psql.*ERROR|^ERROR" || true)
+  if [ -n "$saida" ]; then
+    echo "  ✗ ${vez}ª passada falhou:"
+    echo "      $saida"
+    falhou=1
+  else
+    echo "  ✓ ${vez}ª passada, sem erro"
+  fi
+done
+psql -q -d postgres -c "drop database if exists ${BANCO}_2x;" >/dev/null 2>&1 || true
+
 echo ""
 if [ "$falhou" -eq 0 ]; then
   echo "✓ Tudo passou."

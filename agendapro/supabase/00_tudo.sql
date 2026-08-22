@@ -2235,6 +2235,23 @@ end $$;
 -- conta). Nos dois casos a ficha do cliente sai de `ficha_do_cliente()`, que
 -- procura pelo perfil de quem está logado antes de procurar pelo telefone.
 -- ---------------------------------------------------------------------------
+/* ⚠ O DROP É O QUE FAZ ESTE ARQUIVO PODER RODAR DUAS VEZES
+
+   O 09_cliente.sql substitui esta função por uma que devolve o `token` de
+   gerenciamento — uma coluna a mais no retorno. E `create or replace` NÃO
+   muda tipo de retorno: ele recusa com
+
+       cannot change return type of existing function
+
+   Então, num banco que já foi instalado, a SEGUNDA passada do 00_tudo.sql
+   morria aqui — no 05, tentando rebaixar a função de volta à versão sem
+   token. O arquivo que promete "pode rodar quantas vezes quiser" quebrava na
+   segunda, e a mensagem falava de tipo de retorno, que não diz nada para
+   quem só colou o arquivo de novo.
+
+   Com o drop, a segunda passada derruba a versão do 09, recria esta, e o 09
+   logo em seguida põe a dele de volta. Ordem preservada, resultado idêntico. */
+drop function if exists public.agendar(uuid, timestamptz, uuid[], text, text, text, text);
 create or replace function public.agendar(
   p_profissional  uuid,
   p_inicio        timestamptz,
