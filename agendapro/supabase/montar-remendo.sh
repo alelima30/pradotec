@@ -33,10 +33,22 @@ def limpar(sql):
     return '\n'.join(fora)
 
 fonte05 = open('supabase/05_agenda.sql', encoding='utf-8').read()
-i = fonte05.index('create or replace function public.ficha_do_cliente')
-ficha = fonte05[i:fonte05.index('$$;', i) + 3]
+
+def recortar(fonte, cabeca):
+    i = fonte.index(cabeca)
+    return fonte[i:fonte.index('$$;', i) + 3]
+
+ficha = recortar(fonte05, 'create or replace function public.ficha_do_cliente')
+# `horarios_livres` entra no remendo desde que ela passou a costurar as faixas
+# de jornada. Sem ela aqui, quem só cola o remendo continua com a lista de
+# horários duplicada e fora de ordem — o remendo tem que levar a correção
+# inteira, senão ele conserta metade e ninguém percebe qual metade.
+livres = recortar(fonte05, 'create or replace function public.horarios_livres(')
 
 partes = [
+    limpar(livres),
+    "revoke all on function public.horarios_livres(uuid, date, uuid[]) from public;",
+    "grant execute on function public.horarios_livres(uuid, date, uuid[]) to anon, authenticated;",
     limpar(ficha),
     "revoke all on function public.ficha_do_cliente(uuid, text, text) from public;",
     limpar(open('supabase/09_cliente.sql', encoding='utf-8').read()),

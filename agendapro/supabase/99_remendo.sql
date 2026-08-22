@@ -1,3 +1,77 @@
+create or replace function public.horarios_livres(
+  p_profissional uuid, p_data date, p_servicos uuid[])
+returns setof timestamptz
+language plpgsql stable security definer set search_path = public as $$
+declare
+  v_salao   uuid;
+  v_fuso    text;
+  v_duracao int;
+  v_passo   constant interval := '15 minutes';
+  v_cedo_demais constant interval := '30 minutes';
+  j         record;
+  v_ini     timestamptz;
+  v_fim     timestamptz;
+  v_ate     timestamptz;
+begin
+  if public.porque_nao_agenda(p_profissional, p_data, p_servicos) is not null then
+    return;
+  end if;
+  select p.salao_id, sa.fuso into v_salao, v_fuso
+    from public.profissionais p
+    join public.saloes sa on sa.id = p.salao_id
+   where p.id = p_profissional;
+  v_duracao := public.duracao_dos_servicos(p_profissional, p_servicos);
+  if v_duracao <= 0 then return; end if;
+  for j in
+    with cruas as (
+      select inicio, fim from public.jornadas
+       where profissional_id = p_profissional
+         and dia_semana = extract(dow from p_data)::smallint
+    ),
+    marcadas as (
+      select inicio, fim,
+             case when inicio <= max(fim) over (
+                    order by inicio, fim
+                    rows between unbounded preceding and 1 preceding)
+                  then 0 else 1 end as nova
+        from cruas
+    ),
+    grupos as (
+      select inicio, fim,
+             sum(nova) over (order by inicio, fim
+                             rows between unbounded preceding and current row) as g
+        from marcadas
+    )
+    select min(inicio) as inicio, max(fim) as fim
+      from grupos group by g order by 1
+  loop
+    v_ini := ((p_data + j.inicio) at time zone v_fuso);
+    v_ate := ((p_data + j.fim)    at time zone v_fuso);
+    while v_ini + make_interval(mins => v_duracao) <= v_ate loop
+      v_fim := v_ini + make_interval(mins => v_duracao);
+      if v_ini >= now() + v_cedo_demais
+         and not exists (
+           select 1 from public.agendamentos a
+            where a.profissional_id = p_profissional
+              and a.status in ('pendente','confirmado','em_atendimento','concluido')
+              and tstzrange(a.inicio, a.fim, '[)') && tstzrange(v_ini, v_fim, '[)'))
+         and not exists (
+           select 1 from public.bloqueios b
+            where b.salao_id = v_salao
+              and (b.profissional_id = p_profissional or b.profissional_id is null)
+              and tstzrange(b.inicio, b.fim, '[)') && tstzrange(v_ini, v_fim, '[)'))
+      then
+        return next v_ini;
+      end if;
+      v_ini := v_ini + v_passo;
+    end loop;
+  end loop;
+end $$;
+
+revoke all on function public.horarios_livres(uuid, date, uuid[]) from public;
+
+grant execute on function public.horarios_livres(uuid, date, uuid[]) to anon, authenticated;
+
 create or replace function public.ficha_do_cliente(
   p_salao uuid, p_nome text, p_tel text
 ) returns uuid
@@ -165,6 +239,11 @@ language sql stable security definer set search_path = public as $$
         select jsonb_agg(sv.nome order by asv.ordem)
           from public.agendamento_servicos asv
           join public.servicos sv on sv.id = asv.servico_id
+         where asv.agendamento_id = a.id), '[]'::jsonb),
+      'profissionalId', a.profissional_id,
+      'servicoIds', coalesce((
+        select jsonb_agg(asv.servico_id order by asv.ordem)
+          from public.agendamento_servicos asv
          where asv.agendamento_id = a.id), '[]'::jsonb),
       'podeMexer', a.status in ('pendente','confirmado')
                    and a.inicio > now() + interval '2 hours'

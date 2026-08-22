@@ -214,6 +214,20 @@ language sql stable security definer set search_path = public as $$
           from public.agendamento_servicos asv
           join public.servicos sv on sv.id = asv.servico_id
          where asv.agendamento_id = a.id), '[]'::jsonb),
+      /* Os IDS, além dos nomes. Nome serve para ler; para REMARCAR a tela
+         precisa recompor a escolha, e escolha se faz com id. Sem isto a
+         remarcação só existia no modo de demonstração — a nuvem mostrava o
+         botão em lugar nenhum, e quem quisesse trocar de horário tinha que
+         cancelar primeiro, ficando sem nada enquanto procurava outro.
+
+         Não é dado novo exposto: quem tem o token deste agendamento já é
+         dono dele, e os dois ids são justamente o que ele acabou de
+         escolher. */
+      'profissionalId', a.profissional_id,
+      'servicoIds', coalesce((
+        select jsonb_agg(asv.servico_id order by asv.ordem)
+          from public.agendamento_servicos asv
+         where asv.agendamento_id = a.id), '[]'::jsonb),
       -- A tela precisa saber se ainda dá tempo de mexer. A regra mora aqui
       -- para as duas pontas não discordarem: `cancelar_agendamento()` cobra
       -- o mesmo limite, e nada é oferecido para ser recusado depois.

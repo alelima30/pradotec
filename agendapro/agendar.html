@@ -2116,6 +2116,7 @@ async function desenharMeusDaNuvem(alvo){
         <span class="selo-st ${classe[a.status] || ''}">${rotulo[a.status] || a.status}</span>
       </div>
       ${a.podeMexer ? `<div class="acoes">
+        <button class="bp" onclick="remarcarNaNuvem('${a.token}')">Remarcar</button>
         <button class="bp perigo" onclick="cancelarNaNuvem('${a.token}')">Cancelar</button>
       </div>` : ''}
     </div>`;
@@ -2156,6 +2157,39 @@ async function desenharMeusDaNuvem(alvo){
 }
 
 function recarregarMeus(){ meusDaNuvem = null; desenhar(); }
+
+/* ── REMARCAR, NA NUVEM ───────────────────────────────────────────────────
+   Existia só no modo de demonstração: `remarcar()` e o `agendamentoARemarcar`
+   moram no caminho local, e `confirmarNaNuvem()` nunca olhou para essa
+   variável. Na nuvem — que é onde os salões de verdade estão — o cartão só
+   trazia "Cancelar". Quem quisesse trocar de horário tinha que desmarcar
+   primeiro e sair procurando outro sem nada na mão; se o novo já tivesse
+   sido pego, perdia os dois.
+
+   A ordem aqui não é detalhe: marca o novo PRIMEIRO e só então solta o
+   antigo. Se o novo falhar, a pessoa continua com o horário que já tinha. */
+let tokenARemarcar = null;
+
+function remarcarNaNuvem(token){
+  // `meusDaNuvem` é { ags, fila } — não uma lista. Procurar direto nele
+  // devolvia sempre `undefined`, e o botão não fazia absolutamente nada.
+  const a = (((meusDaNuvem || {}).ags) || []).find(x => x.token === token);
+  if(!a){
+    alert('Não achei esse horário. Atualize a página e tente de novo.');
+    return;
+  }
+  const ids = a.servicoIds || [];
+  if(!ids.length){
+    alert('Não consegui recuperar os serviços deste horário. '
+        + 'Cancele e marque de novo, por favor.');
+    return;
+  }
+  escolha = { servicos: ids.slice(), profissionalId: a.profissionalId,
+              data: null, inicio: null, para: 'mim', filhoNome: '' };
+  tokenARemarcar = token;
+  esquecerVagas();
+  irPara('quando');
+}
 
 async function cancelarNaNuvem(token){
   if(!confirm('Cancelar este horário?')) return;
@@ -2613,6 +2647,29 @@ async function confirmarNaNuvem(profId, prof){
       + ' <button class="link" onclick="irPara(\'quando\')">Ver horários</button></div>';
     bp.disabled = false; bp.textContent = rotulo;
     return;
+  }
+
+  /* O novo está de pé. Agora solta o antigo — e se ISTO falhar, a pessoa
+     precisa saber que ficou com dois, não descobrir na porta do salão. */
+  if(tokenARemarcar){
+    const velho = tokenARemarcar;
+    tokenARemarcar = null;
+    try{
+      await Dados.chamar('cancelar_agendamento', { p_token: velho });
+    }catch(e){
+      console.error('[AgendaPro] soltar o horário antigo:', e);
+      bp.disabled = false; bp.textContent = rotulo;
+      esquecerVagas();
+      aviso.innerHTML =
+        '<div class="recado atencao"><b>Seu horário novo está marcado.</b><br>'
+        + 'Mas não consegui desmarcar o antigo: ' + escapar(e.message || '')
+        + ' Você está com <b>dois horários</b> — desmarque o antigo em '
+        + '"Meus horários" ou fale com o salão.</div>';
+      meusDaNuvem = null;
+      mostrarPronto(prof, unit, filho);
+      return;
+    }
+    meusDaNuvem = null;          // a lista mudou dos dois lados
   }
 
   bp.disabled = false; bp.textContent = rotulo;

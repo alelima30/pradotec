@@ -2117,11 +2117,39 @@ begin
   v_duracao := public.duracao_dos_servicos(p_profissional, p_servicos);
   if v_duracao <= 0 then return; end if;
 
+  /* ⚠ AS FAIXAS SÃO COSTURADAS ANTES DE VIRAREM HORÁRIO
+
+     Uma jornada pode estar cadastrada em duas faixas que se cruzam — 08:00
+     às 13:00 e 12:00 às 18:00 é erro de digitação comum, e o painel aceita.
+     Percorrendo as faixas cruas, o trecho comum saía DUAS VEZES, e a lista
+     ainda voltava no tempo: ...12:15, 12:30, 12:00, 12:15... A cliente via
+     o mesmo horário repetido e o relógio andando para trás no meio da tela.
+
+     `costurar` funde o que encosta ou se sobrepõe, em ordem. Faixas
+     separadas de verdade — manhã e tarde com almoço no meio — continuam
+     separadas, que é o certo. */
   for j in
-    select inicio, fim from public.jornadas
-     where profissional_id = p_profissional
-       and dia_semana = extract(dow from p_data)::smallint
-     order by inicio
+    with cruas as (
+      select inicio, fim from public.jornadas
+       where profissional_id = p_profissional
+         and dia_semana = extract(dow from p_data)::smallint
+    ),
+    marcadas as (
+      select inicio, fim,
+             case when inicio <= max(fim) over (
+                    order by inicio, fim
+                    rows between unbounded preceding and 1 preceding)
+                  then 0 else 1 end as nova
+        from cruas
+    ),
+    grupos as (
+      select inicio, fim,
+             sum(nova) over (order by inicio, fim
+                             rows between unbounded preceding and current row) as g
+        from marcadas
+    )
+    select min(inicio) as inicio, max(fim) as fim
+      from grupos group by g order by 1
   loop
     -- A hora da jornada é hora de parede ("09:00 de segunda"). Vira instante
     -- no fuso do salão — e é isso que faz a agenda continuar certa na semana
@@ -3285,6 +3313,20 @@ language sql stable security definer set search_path = public as $$
         select jsonb_agg(sv.nome order by asv.ordem)
           from public.agendamento_servicos asv
           join public.servicos sv on sv.id = asv.servico_id
+         where asv.agendamento_id = a.id), '[]'::jsonb),
+      /* Os IDS, além dos nomes. Nome serve para ler; para REMARCAR a tela
+         precisa recompor a escolha, e escolha se faz com id. Sem isto a
+         remarcação só existia no modo de demonstração — a nuvem mostrava o
+         botão em lugar nenhum, e quem quisesse trocar de horário tinha que
+         cancelar primeiro, ficando sem nada enquanto procurava outro.
+
+         Não é dado novo exposto: quem tem o token deste agendamento já é
+         dono dele, e os dois ids são justamente o que ele acabou de
+         escolher. */
+      'profissionalId', a.profissional_id,
+      'servicoIds', coalesce((
+        select jsonb_agg(asv.servico_id order by asv.ordem)
+          from public.agendamento_servicos asv
          where asv.agendamento_id = a.id), '[]'::jsonb),
       -- A tela precisa saber se ainda dá tempo de mexer. A regra mora aqui
       -- para as duas pontas não discordarem: `cancelar_agendamento()` cobra
