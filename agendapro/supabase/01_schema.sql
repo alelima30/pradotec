@@ -222,7 +222,7 @@ create table if not exists public.profissionais (
   nome          text not null,
   apelido       text,
   foto          text,
-  cor           text not null default '#7C3AED',  -- cor da coluna na agenda
+  cor           text not null default '#0B6A60',  -- cor da coluna na agenda
   comissao_pct  numeric(5,2) not null default 0
                 check (comissao_pct between 0 and 100),
   aceita_online boolean not null default true,

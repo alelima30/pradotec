@@ -21,23 +21,23 @@
    primeira versão era magenta, e magenta chapado em botão faz o barbeiro
    fechar a tela em dois segundos.
 
-   Quem resolveu foi o logotipo novo: calendário grafite, aro roxo, cromado, e
+   Quem resolveu foi o logotipo novo: calendário grafite, aro petróleo, cromado, e
    a pílula "Gestão" preta. Ele já não tem gênero, e o sistema segue ele. O
    magenta sobreviveu onde deve — no dia marcado do calendário e na abertura
    do degradê — que é o lugar em que uma cor pode ser expressiva sem estar
    dizendo "este botão é para você".
 
    Cogitei dourado com preto, que era o pedido. Não fiz: dourado ao lado do
-   roxo do logotipo vira bijuteria, e o produto passaria a ter uma cor que a
+   verde do logotipo vira bijuteria, e o produto passaria a ter uma cor que a
    marca não tem. É trocar dois valores neste arquivo se você preferir assim.
 
    O CONTRASTE MANDA NO TOM, não o gosto
 
-   O mesmo roxo não serve para tudo, e cada uso tem o seu:
+   O mesmo petróleo não serve para tudo, e cada uso tem o seu:
 
-     como FUNDO de botão, letra branca    #6321D6   8,4:1
-     como TEXTO em papel claro            #5A1CC0   9,7:1
-     como TEXTO sobre grafite             #B79BF6   9,5:1
+     como FUNDO de botão, letra branca    #0B6A60   6,5:1
+     como TEXTO em papel claro            #08544C   8,2:1
+     como TEXTO sobre grafite             #63BCB1   8,7:1
 
    Sombra em camadas, nunca uma só. Elevação de verdade tem duas partes: um
    contato curto e escuro que gruda o objeto na superfície, e uma difusa e
@@ -54,57 +54,71 @@
    =========================================================================== */
 
 :root{
-  /* ── Neutros: grafite com um fio de roxo ───────────────────────────────
-     Não é cinza puro. O calendário do logotipo é grafite levemente arroxeado,
-     e o cinza neutro ao lado dele parece desbotado. Um traço de roxo no
-     neutro faz o preto da tela e o preto da marca serem o mesmo preto. */
-  --n-0:#FFFFFF;   --n-25:#FCFBFD;  --n-50:#F7F6FA;  --n-100:#EFEDF4;
-  --n-200:#E0DDE8; --n-300:#C6C1D3; --n-400:#9B95AC; --n-500:#6E6880;
-  --n-600:#4B4658; --n-700:#332F3E; --n-800:#221F2B; --n-900:#15131C;
-  --n-950:#0C0A11;
+  /* ── Neutros: grafite com um fio da cor da marca ─────────────────────
+     Não é cinza puro. O calendário do logotipo é grafite levemente
+     esverdeado, e o cinza neutro ao lado dele parece desbotado. Um traço da
+     cor da marca no neutro faz o preto da tela e o preto da marca serem o
+     mesmo preto. */
+  --n-0:#FFFFFF;   --n-25:#FBFCFC;  --n-50:#F5F8F8;  --n-100:#ECF1F0;
+  --n-200:#DBE3E2; --n-300:#BFCBCA; --n-400:#93A2A1; --n-500:#677574;
+  --n-600:#46524F; --n-700:#2F3937; --n-800:#1F2726; --n-900:#131A19;
+  --n-950:#0A1010;
 
-  /* ── A cor da marca ──────────────────────────────────────────────────
-     O roxo do aro do logotipo, do 50 ao 800. Os tons de trabalho estão
-     nomeados por ONDE servem, e não por quanto são claros: foi trocar um
-     pelo outro que quebrou a legibilidade nas versões anteriores. */
-  --rx-50:#F4F0FE;  --rx-100:#E9E1FD; --rx-200:#D3C3FB; --rx-300:#B79BF6;
-  --rx-400:#9366EE; --rx-500:#7B2FF7; --rx-600:#6321D6; --rx-700:#5A1CC0;
-  --rx-800:#3F1289;
-  --rx-soft:rgba(123,47,247,.09);
-  --rx-line:rgba(123,47,247,.26);
+  /* ── A cor da marca: petróleo ─────────────────────────────────────────
+     Era um roxo-violeta com magenta ao lado. Vendia bem para esmalteria e
+     mal para barbearia — e metade do público é barbearia. Roxo vivo com
+     magenta lê como salão feminino antes de ler como sistema, e o dono de
+     barbearia decide se aquilo é "para ele" na primeira tela, sem pensar
+     no assunto.
 
-  --rx-fundo:var(--rx-600);   /* fundo de botão, letra branca        8,4:1 */
-  --rx-texto:var(--rx-700);   /* roxo escrito em papel claro         9,7:1 */
-  --rx-claro:var(--rx-300);   /* roxo escrito sobre grafite          9,5:1 */
+     Petróleo resolve sem virar cinza: é sério, não tem gênero, e é o que
+     clínica de estética e barbearia usam de verdade. Casa com o grafite
+     que a moldura já tinha.
 
-  /* O magenta da marca. Não pinta interface — só o degradê do logotipo e o
-     dia marcado do calendário, que é de onde ele veio. */
-  --mg-500:#E0219B;
-  --grad-marca:linear-gradient(96deg,#E0219B 0%,#6321D6 62%,#4B14A8 100%);
+     Os tons de trabalho estão nomeados por ONDE servem, e não por quanto
+     são claros: foi trocar um pelo outro que quebrou a legibilidade nas
+     versões anteriores. Os três números ao lado são o contraste medido,
+     não estimado — a conta está em tests/aparencia.test.mjs. */
+  --pt-50:#EAF6F4;  --pt-100:#CDE9E5; --pt-200:#9FD5CE; --pt-300:#63BCB1;
+  --pt-400:#2A9C8D; --pt-500:#0F8175; --pt-600:#0B6A60; --pt-700:#08544C;
+  --pt-800:#053B35;
+  --pt-soft:rgba(15,129,117,.09);
+  --pt-line:rgba(15,129,117,.26);
 
-  /* ── Semânticos, dessaturados para conviver com o roxo ─────────────── */
-  --su-500:#2F7D4F; --su-soft:rgba(47,125,79,.10);
+  --pt-fundo:var(--pt-600);   /* fundo de botão, letra branca        6,5:1 */
+  --pt-texto:var(--pt-700);   /* petróleo escrito em papel claro     8,2:1 */
+  --pt-claro:var(--pt-300);   /* petróleo escrito sobre grafite      8,7:1 */
+
+  /* A ponta clara do degradê. Não pinta interface — só o logotipo e o dia
+     marcado do calendário, que é de onde ela veio. Era o magenta #14A392;
+     virou a água-marinha do mesmo verde, para o degradê continuar tendo
+     um começo mais vivo que o fim sem trazer o rosa de volta. */
+  --mg-500:#14A392;
+  --grad-marca:linear-gradient(96deg,#14A392 0%,#0B6A60 62%,#07414A 100%);
+
+  /* ── Semânticos, dessaturados para conviver com o petróleo ─────────── */
+  --su-500:#4A7C2F; --su-soft:rgba(74,124,47,.10);
   --wa-500:#A56411; --wa-soft:rgba(165,100,17,.10);
   --er-500:#B3261E; --er-soft:rgba(179,38,30,.09);
 
   /* ── Tokens que as telas já usavam, redirecionados ─────────────────── */
-  --ac-500:var(--rx-500); --ac-600:var(--rx-texto); --ac-700:var(--rx-800);
-  --ac-soft:var(--rx-soft); --ac-line:var(--rx-line);
-  --roxo:var(--rx-texto); --roxo-esc:var(--rx-800); --rosa:var(--rx-500);
-  --ouro:var(--rx-500); --ouro-claro:var(--rx-400); --ouro-esc:var(--rx-700);
-  --info:var(--rx-texto);
+  --ac-500:var(--pt-500); --ac-600:var(--pt-texto); --ac-700:var(--pt-800);
+  --ac-soft:var(--pt-soft); --ac-line:var(--pt-line);
+  --marca:var(--pt-texto); --marca-esc:var(--pt-800); --marca-viva:var(--pt-500);
+  --marca-media:var(--pt-500); --marca-clara:var(--pt-400); --marca-funda:var(--pt-700);
+  --info:var(--pt-texto);
 
   --bg:var(--n-50);   --painel:var(--n-0); --painel2:var(--n-25);
-  /* A moldura: grafite nos dois temas, com o roxo por cima. */
-  --lat:#0E0B15; --lat-2:#171122; --lat-borda:rgba(147,102,238,.16);
-  --lat-txt:#F2EFF8; --lat-txt2:rgba(242,239,248,.58); --lat-txt3:rgba(242,239,248,.34);
+  /* A moldura: grafite nos dois temas, com o petróleo por cima. */
+  --lat:#0B1413; --lat-2:#11201E; --lat-borda:rgba(42,156,141,.18);
+  --lat-txt:#EDF4F3; --lat-txt2:rgba(237,244,243,.58); --lat-txt3:rgba(237,244,243,.34);
   --lat-largura:252px;
   --borda:var(--n-200); --borda-forte:var(--n-300);
   --txt:var(--n-900); --txt2:var(--n-600); --txt3:var(--n-400);
   --ok:var(--su-500); --alerta:var(--wa-500); --erro:var(--er-500);
 
-  /* A ação primária é o roxo da marca, com letra branca. */
-  --acao:var(--rx-fundo); --acao-hover:var(--rx-700); --acao-txt:#FFFFFF;
+  /* A ação primária é o petróleo da marca, com letra branca. */
+  --acao:var(--pt-fundo); --acao-hover:var(--pt-700); --acao-txt:#FFFFFF;
   /* Ação de peso mas sem brilho: confirmar, salvar, tudo que é rotina. */
   --tinta:var(--n-900); --tinta-hover:var(--n-800); --tinta-txt:var(--n-0);
   --tinta-marca:var(--n-900);   /* a marca do AgendaPro, que nunca muda */
@@ -117,7 +131,7 @@
   --sombra:0 1px 2px rgba(25,23,18,.05), 0 2px 6px -1px rgba(25,23,18,.06);
   --sombra-md:0 2px 4px -1px rgba(25,23,18,.05), 0 8px 20px -4px rgba(25,23,18,.10);
   --sombra-lg:0 4px 8px -2px rgba(25,23,18,.06), 0 20px 44px -10px rgba(25,23,18,.16);
-  --sombra-marca:0 1px 2px rgba(63,18,137,.22), 0 6px 16px -5px rgba(99,33,214,.34);
+  --sombra-marca:0 1px 2px rgba(5,59,53,.22), 0 6px 16px -5px rgba(11,106,96,.34);
 
   /* ── Tipografia ──────────────────────────────────────────────────────
      A fonte do Windows, que é onde o salão trabalha: o computador da recepção
@@ -140,37 +154,37 @@
                   -apple-system,"Roboto",Arial,sans-serif;
 }
 
-/* O tema escuro é onde este visual mora: grafite com o roxo por cima, do
-   jeito do logotipo. O claro é a versão para quem trabalha com a loja aberta
+/* O tema escuro é onde este visual mora: grafite com o petróleo por cima,
+   do jeito do logotipo. O claro é a versão para quem trabalha com a loja aberta
    e o sol batendo no monitor. */
 [data-tema="escuro"], html[data-tema="escuro"]{
-  --bg:#0A0810; --painel:#131019; --painel2:#191524;
-  --borda:#282334; --borda-forte:#3A3348;
-  --txt:#F2EFF8; --txt2:#A49CB8; --txt3:#6C6580;
+  --bg:#08100F; --painel:#121A19; --painel2:#182322;
+  --borda:#26312F; --borda-forte:#374542;
+  --txt:#EDF4F3; --txt2:#9CB3AF; --txt3:#657A77;
 
-  /* Sobre grafite o roxo sobe na rampa: o #5A1CC0 que serve de texto no papel
-     claro some aqui. */
-  --rx-texto:var(--rx-300);
-  --ac-500:var(--rx-300); --ac-600:var(--rx-300); --ac-700:var(--rx-200);
-  --rx-soft:rgba(183,155,246,.13); --rx-line:rgba(183,155,246,.30);
-  --ac-soft:var(--rx-soft); --ac-line:var(--rx-line);
+  /* Sobre grafite o petróleo sobe na rampa: o #08544C que serve de texto no
+     papel claro some aqui. */
+  --pt-texto:var(--pt-300);
+  --ac-500:var(--pt-300); --ac-600:var(--pt-300); --ac-700:var(--pt-200);
+  --pt-soft:rgba(99,188,177,.13); --pt-line:rgba(99,188,177,.30);
+  --ac-soft:var(--pt-soft); --ac-line:var(--pt-line);
 
-  --su-500:#5FB07E; --wa-500:#D19A4E; --er-500:#E27A72;
-  --su-soft:rgba(95,176,126,.12); --wa-soft:rgba(209,154,78,.12);
+  --su-500:#8ABF5F; --wa-500:#D19A4E; --er-500:#E27A72;
+  --su-soft:rgba(138,191,95,.12); --wa-soft:rgba(209,154,78,.12);
   --er-soft:rgba(226,122,114,.12);
 
   /* O botão sobe um degrau para não sumir no grafite, e continua de letra
      branca — é a mesma peça nos dois temas, e trocar a cor da letra entre
      eles faria o produto parecer dois. */
-  --acao:var(--rx-500); --acao-hover:var(--rx-400); --acao-txt:#FFFFFF;
-  --tinta:#F2EFF8; --tinta-hover:#FFFFFF; --tinta-txt:#0A0810;
-  --tinta-marca:#F2EFF8;
+  --acao:var(--pt-500); --acao-hover:var(--pt-400); --acao-txt:#FFFFFF;
+  --tinta:#EDF4F3; --tinta-hover:#FFFFFF; --tinta-txt:#08100F;
+  --tinta-marca:#EDF4F3;
 
   --sombra-xs:0 1px 1px rgba(0,0,0,.35);
   --sombra:0 1px 2px rgba(0,0,0,.45), 0 2px 6px -1px rgba(0,0,0,.35);
   --sombra-md:0 2px 6px rgba(0,0,0,.42), 0 12px 28px -6px rgba(0,0,0,.45);
   --sombra-lg:0 4px 10px rgba(0,0,0,.45), 0 24px 52px -12px rgba(0,0,0,.55);
-  --sombra-marca:0 1px 2px rgba(0,0,0,.55), 0 6px 18px -6px rgba(123,47,247,.34);
+  --sombra-marca:0 1px 2px rgba(0,0,0,.55), 0 6px 18px -6px rgba(15,129,117,.34);
 }
 
 
@@ -234,8 +248,8 @@
    palavra cortada no meio. */
 .marca-etiqueta{
   font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
-  color:var(--rx-200); background:rgba(147,102,238,.18);
-  border:1px solid rgba(147,102,238,.32);
+  color:var(--pt-200); background:rgba(42,156,141,.18);
+  border:1px solid rgba(42,156,141,.32);
   padding:2px 9px; border-radius:var(--r-pill); line-height:1.6;
   align-self:center;
 }
@@ -269,14 +283,14 @@
 }
 .lat-nav .aba:hover{ background:rgba(255,255,255,.06); color:var(--lat-txt) }
 .lat-nav .aba.on{
-  background:var(--rx-soft); color:var(--rx-200); font-weight:600;
+  background:var(--pt-soft); color:var(--pt-200); font-weight:600;
   border-bottom:none !important;
 }
 /* A tarja da esquerda é o que diz "você está aqui" de longe, sem depender de
    distinguir dois tons de rosa no escuro. */
 .lat-nav .aba.on::before{
   content:""; position:absolute; left:-12px; top:6px; bottom:6px; width:3px;
-  border-radius:0 3px 3px 0; background:var(--rx-400);
+  border-radius:0 3px 3px 0; background:var(--pt-400);
 }
 .aba-ic{
   width:30px; height:30px; flex:none; border-radius:8px;
@@ -284,7 +298,7 @@
   transition:background .14s ease;
 }
 .lat-nav .aba:hover .aba-ic{ background:rgba(255,255,255,.09) }
-.lat-nav .aba.on .aba-ic{ background:rgba(147,102,238,.22) }
+.lat-nav .aba.on .aba-ic{ background:rgba(42,156,141,.22) }
 .aba-ic .ic-svg{ width:16px; height:16px }
 
 /* ── O pé da lateral ─────────────────────────────────────────────────── */
@@ -364,7 +378,7 @@
   .palco > .topo{ padding:0 14px }
   body.lateral-aberta .veu{
     display:block; position:fixed; inset:0; z-index:50;
-    background:rgba(15,12,22,.55);
+    background:rgba(11,20,19,.55);
   }
   .tb-data{ display:none }
 }
@@ -472,7 +486,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
    dourada porque a barbearia é dourada seria a assinatura do fornecedor se
    passando pela do cliente. */
 .marca-ic, .logo i{
-  background:var(--tinta-marca) !important; color:var(--rx-400) !important;
+  background:var(--tinta-marca) !important; color:var(--pt-400) !important;
   border-radius:var(--r-sm) !important; font-weight:600 !important;
   box-shadow:var(--sombra-xs);
 }
@@ -585,7 +599,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 .regua button:hover{border-color:var(--n-300);color:var(--txt)}
 /* Anel dourado em volta da ficha de tinta: o detalhe que amarra as duas
    cores sem colocá-las para brigar. */
-.regua button.on{box-shadow:0 0 0 3px var(--rx-soft) !important}
+.regua button.on{box-shadow:0 0 0 3px var(--pt-soft) !important}
 /* ═══════════════════════════════════════════════════════════════════════════
    A APARÊNCIA DO LINK DA CLIENTE — paleta e prévia
 
@@ -624,7 +638,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
   object-fit:cover;
 }
 .fone-selo{
-  background:var(--marca);color:var(--marca-txt);font-weight:700;font-size:24px;
+  background:var(--fone-marca);color:var(--fone-marca-txt);font-weight:700;font-size:24px;
   display:flex;align-items:center;justify-content:center;
 }
 .fone-topo b{display:block;font-size:14.5px;line-height:1.25}
@@ -634,19 +648,19 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
    mostrar — e o dono só descobriria abrindo o próprio link no celular. */
 .fone-cta{
   position:relative;overflow:hidden;
-  background:var(--marca);color:var(--marca-txt);text-align:center;font-weight:650;
+  background:var(--fone-marca);color:var(--fone-marca-txt);text-align:center;font-weight:650;
   font-size:13px;padding:11px;border-radius:12px;margin-bottom:13px;
   background-image:linear-gradient(100deg,
-    color-mix(in srgb, var(--marca) 82%, #000)  0%,
-    color-mix(in srgb, var(--marca) 88%, #fff) 20%,
-    color-mix(in srgb, var(--marca) 70%, #fff) 40%,
-    var(--marca)                               60%,
-    color-mix(in srgb, var(--marca) 84%, #000) 100%);
-  border:1px solid color-mix(in srgb, var(--marca) 72%, #000);
+    color-mix(in srgb, var(--fone-marca) 82%, #000)  0%,
+    color-mix(in srgb, var(--fone-marca) 88%, #fff) 20%,
+    color-mix(in srgb, var(--fone-marca) 70%, #fff) 40%,
+    var(--fone-marca)                               60%,
+    color-mix(in srgb, var(--fone-marca) 84%, #000) 100%);
+  border:1px solid color-mix(in srgb, var(--fone-marca) 72%, #000);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.42),
     inset 0 -1px 0 rgba(0,0,0,.16),
-    0 8px 20px -9px color-mix(in srgb, var(--marca) 65%, transparent);
+    0 8px 20px -9px color-mix(in srgb, var(--fone-marca) 65%, transparent);
 }
 .fone-cta.com-brilho::after{
   content:"";position:absolute;top:0;bottom:0;left:0;width:38%;
@@ -791,7 +805,7 @@ td, .tabela td, .hslot, .horas button, .cs-rodape .vv, .vv{
 }
 .fone-escuro .fone-sv-foto{background-color:#26262A}
 .fone-sv-txt b{display:block;font-size:12px;line-height:1.3}
-.fone-preco{font-size:12.5px;font-weight:700;color:var(--marca)}
+.fone-preco{font-size:12.5px;font-weight:700;color:var(--fone-marca)}
 .fone-nada{font-size:11.5px;opacity:.55;text-align:center;padding:8px 0}
 
 /* O plano em destaque é uma recomendação da casa, não uma escolha já feita:
@@ -958,7 +972,7 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 /* A aba ativa é o único lugar em que o dourado aparece como linha. Uma
    régua de 2px pesa mais que 1px sem virar barra colorida. */
 .aba.on{
-  color:var(--txt); border-bottom:2px solid var(--rx-500) !important;
+  color:var(--txt); border-bottom:2px solid var(--pt-500) !important;
   font-weight:600;
 }
 
@@ -1711,8 +1725,8 @@ body.sem-brilho .boas-cta::after{ animation:none; opacity:0 }
   background-image:
     linear-gradient(to right,  var(--painel) 40%, rgba(255,255,255,0)),
     linear-gradient(to left,   var(--painel) 40%, rgba(255,255,255,0)),
-    linear-gradient(to right,  rgba(21,19,28,.13), rgba(21,19,28,0)),
-    linear-gradient(to left,   rgba(21,19,28,.13), rgba(21,19,28,0));
+    linear-gradient(to right,  rgba(19,26,25,.13), rgba(19,26,25,0)),
+    linear-gradient(to left,   rgba(19,26,25,.13), rgba(19,26,25,0));
   background-position:left center, right center, left center, right center;
   background-repeat:no-repeat;
   background-size:36px 100%, 36px 100%, 15px 100%, 15px 100%;

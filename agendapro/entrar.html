@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Entrar — AgendaPro</title>
 <meta name="description" content="Entre no painel do seu salão, barbearia ou estúdio." />
-<meta name="theme-color" content="#0E0B15" />
+<meta name="theme-color" content="#0B1413" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/png" href="icones/icone-192.png" />
 <link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
@@ -63,7 +63,7 @@ button{cursor:pointer;border:none;background:none}
    roxo; o que ele faz é dar profundidade ao logotipo, que é plano. */
 .abertura::before{
   content:""; position:absolute; width:720px; height:720px; border-radius:50%;
-  background:radial-gradient(circle, rgba(123,47,247,.34), rgba(123,47,247,0) 68%);
+  background:radial-gradient(circle, rgba(15,129,117,.34), rgba(15,129,117,0) 68%);
   animation:brilho-nasce 1.5s cubic-bezier(.22,.61,.36,1) both;
 }
 .abertura-in{ position:relative; text-align:center; padding:0 24px }
@@ -75,11 +75,11 @@ button{cursor:pointer;border:none;background:none}
    três segundos faz a pessoa achar que travou. */
 .abertura-traco{
   width:min(212px, 52vw); height:2px; margin:30px auto 0; border-radius:2px;
-  background:rgba(242,239,248,.13); overflow:hidden;
+  background:rgba(237,244,243,.13); overflow:hidden;
 }
 .abertura-traco i{
   display:block; height:100%; width:100%; border-radius:2px;
-  background:linear-gradient(90deg, var(--mg-500), var(--rx-fundo));
+  background:linear-gradient(90deg, var(--mg-500), var(--pt-fundo));
   transform-origin:left; transform:scaleX(0);
   animation:traco-corre 2.35s cubic-bezier(.4,0,.2,1) .28s both;
 }
@@ -138,7 +138,7 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
 .lado-marca::before{
   content:""; position:absolute; width:560px; height:560px; border-radius:50%;
   top:-230px; left:50%; transform:translateX(-50%); pointer-events:none;
-  background:radial-gradient(circle, rgba(123,47,247,.28), rgba(123,47,247,0) 70%);
+  background:radial-gradient(circle, rgba(15,129,117,.28), rgba(15,129,117,0) 70%);
 }
 .lado-marca > *{ position:relative }
 .marca-grande{ width:min(300px,80%); height:auto; margin-bottom:26px }
@@ -153,7 +153,7 @@ html.com-abertura, html.com-abertura body{ overflow:hidden }
   text-align:left;
 }
 .prova{ display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--lat-txt2) }
-.prova .ic-svg{ color:var(--rx-300); width:17px; height:17px; margin-top:2px; flex:none }
+.prova .ic-svg{ color:var(--pt-300); width:17px; height:17px; margin-top:2px; flex:none }
 
 /* ── A faixa do formulário ────────────────────────────────────────────── */
 .lado-forma{

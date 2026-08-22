@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Plataforma — AgendaPro</title>
 <meta name="robots" content="noindex, nofollow" />
-<meta name="theme-color" content="#0E0B15" />
+<meta name="theme-color" content="#0B1413" />
 <link rel="icon" type="image/png" href="icones/icone-192.png" />
 <style>
 /* ===========================================================================
@@ -29,7 +29,7 @@ button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:none;background:none}
 body{
   font:15px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
-  background:#0E0B15;color:#F2EFF8;
+  background:#0B1413;color:#EDF4F3;
   padding:26px 20px calc(60px + env(safe-area-inset-bottom));
 }
 .folha{max-width:1180px;margin:0 auto}
@@ -41,9 +41,9 @@ body{
   border-radius:99px;background:rgba(224,33,155,.16);color:#F472B6;
   border:1px solid rgba(224,33,155,.34);
 }
-.sair{margin-left:auto;color:rgba(242,239,248,.55);font-size:13.5px;font-weight:550}
-.sair:hover{color:#F2EFF8}
-.subtopo{color:rgba(242,239,248,.5);font-size:14px;margin-bottom:26px}
+.sair{margin-left:auto;color:rgba(237,244,243,.55);font-size:13.5px;font-weight:550}
+.sair:hover{color:#EDF4F3}
+.subtopo{color:rgba(237,244,243,.5);font-size:14px;margin-bottom:26px}
 
 /* ── Os números do topo ─────────────────────────────────────────────────── */
 .placar{
@@ -51,15 +51,15 @@ body{
   grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
 }
 .cartao{
-  background:#171122;border:1px solid rgba(147,102,238,.15);
+  background:#11201E;border:1px solid rgba(42,156,141,.15);
   border-radius:11px;padding:15px 16px;
 }
 .cartao .rot{
   font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
-  color:rgba(242,239,248,.42);margin-bottom:5px;
+  color:rgba(237,244,243,.42);margin-bottom:5px;
 }
 .cartao .val{font-size:27px;font-weight:640;letter-spacing:-.03em;line-height:1.15}
-.cartao .pe{font-size:12px;color:rgba(242,239,248,.42);margin-top:3px}
+.cartao .pe{font-size:12px;color:rgba(237,244,243,.42);margin-top:3px}
 .cartao.dinheiro{border-color:rgba(74,222,128,.26);background:rgba(74,222,128,.05)}
 .cartao.dinheiro .val{color:#4ADE80}
 .cartao.alerta{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.06)}
@@ -67,7 +67,7 @@ body{
 
 h2{
   font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-  color:rgba(242,239,248,.42);margin:30px 0 11px;
+  color:rgba(237,244,243,.42);margin:30px 0 11px;
 }
 
 /* ── Quem precisa de telefonema ─────────────────────────────────────────── */
@@ -78,7 +78,7 @@ h2{
 }
 .ligar .quem{font-weight:600}
 .ligar .qdo{color:#FB7185;font-size:13px;font-weight:600}
-.ligar .uso{color:rgba(242,239,248,.5);font-size:13px}
+.ligar .uso{color:rgba(237,244,243,.5);font-size:13px}
 .ligar a{
   margin-left:auto;color:#4ADE80;font-weight:600;font-size:13.5px;
   text-decoration:none;white-space:nowrap;
@@ -86,50 +86,50 @@ h2{
 .ligar a:hover{text-decoration:underline}
 
 /* ── A lista ────────────────────────────────────────────────────────────── */
-.rolo{overflow-x:auto;border-radius:11px;border:1px solid rgba(147,102,238,.15)}
-table{width:100%;border-collapse:collapse;background:#171122;font-size:14px}
+.rolo{overflow-x:auto;border-radius:11px;border:1px solid rgba(42,156,141,.15)}
+table{width:100%;border-collapse:collapse;background:#11201E;font-size:14px}
 th{
   text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;
-  text-transform:uppercase;color:rgba(242,239,248,.4);
-  padding:11px 13px;border-bottom:1px solid rgba(147,102,238,.15);white-space:nowrap;
+  text-transform:uppercase;color:rgba(237,244,243,.4);
+  padding:11px 13px;border-bottom:1px solid rgba(42,156,141,.15);white-space:nowrap;
 }
-td{padding:11px 13px;border-bottom:1px solid rgba(147,102,238,.08);vertical-align:middle}
+td{padding:11px 13px;border-bottom:1px solid rgba(42,156,141,.08);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(147,102,238,.05)}
+tr:hover td{background:rgba(42,156,141,.05)}
 td .nome{font-weight:600}
-td .slug{font-size:12px;color:rgba(242,239,248,.38);font-family:ui-monospace,monospace}
+td .slug{font-size:12px;color:rgba(237,244,243,.38);font-family:ui-monospace,monospace}
 .etq{
   display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;
   border-radius:99px;white-space:nowrap;
 }
 .etq.pago{background:rgba(74,222,128,.14);color:#4ADE80}
 .etq.teste{background:rgba(251,191,36,.14);color:#FBBF24}
-.etq.gratis{background:rgba(242,239,248,.08);color:rgba(242,239,248,.55)}
+.etq.gratis{background:rgba(237,244,243,.08);color:rgba(237,244,243,.55)}
 .etq.ruim{background:rgba(251,113,133,.14);color:#FB7185}
 .num{font-variant-numeric:tabular-nums;white-space:nowrap}
-.morto{color:rgba(242,239,248,.34)}
+.morto{color:rgba(237,244,243,.34)}
 select.plano{
-  background:#0E0B15;border:1px solid rgba(147,102,238,.26);border-radius:7px;
+  background:#0B1413;border:1px solid rgba(42,156,141,.26);border-radius:7px;
   padding:6px 9px;font-size:13px;min-width:118px;
 }
 .acao{
   font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:7px;
-  border:1px solid rgba(147,102,238,.26);color:rgba(242,239,248,.72);
+  border:1px solid rgba(42,156,141,.26);color:rgba(237,244,243,.72);
 }
-.acao:hover{border-color:rgba(147,102,238,.5);color:#F2EFF8}
+.acao:hover{border-color:rgba(42,156,141,.5);color:#EDF4F3}
 .acao.perigo:hover{border-color:rgba(251,113,133,.55);color:#FB7185}
 
 .recado{
-  padding:15px 18px;border-radius:10px;background:#171122;
-  border-left:3px solid #6321D6;line-height:1.6;
+  padding:15px 18px;border-radius:10px;background:#11201E;
+  border-left:3px solid #0B6A60;line-height:1.6;
 }
 .recado.erro{border-left-color:#FB7185;background:rgba(251,113,133,.07)}
 .recado b{display:block;margin-bottom:3px}
 .recado code{
-  background:#0E0B15;padding:1px 6px;border-radius:4px;font-size:12.5px;
-  border:1px solid rgba(147,102,238,.2);
+  background:#0B1413;padding:1px 6px;border-radius:4px;font-size:12.5px;
+  border:1px solid rgba(42,156,141,.2);
 }
-.vazio{padding:22px;text-align:center;color:rgba(242,239,248,.42);font-size:14px}
+.vazio{padding:22px;text-align:center;color:rgba(237,244,243,.42);font-size:14px}
 
 @media (max-width:700px){
   body{padding:18px 13px 50px}
@@ -208,7 +208,7 @@ async function carregar(){
     corpo.innerHTML = `<div class="recado"><b>Você não está logado.</b>
       Esta tela lê o negócio inteiro, então ela precisa saber quem é você
       antes de mostrar qualquer número.<br><br>
-      <a href="entrar.html" style="color:var(--rx-claro,#B79BF6);font-weight:600">
+      <a href="entrar.html" style="color:var(--pt-claro,#63BCB1);font-weight:600">
       Entrar &rsaquo;</a></div>`;
     return;
   }

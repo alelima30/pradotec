@@ -19,7 +19,7 @@
    Feito para o celular primeiro: é ali que a pessoa marca, às 23h de domingo.
    =========================================================================== */
 :root{
-  --roxo:#0C7568; --roxo-esc:#0A5E54; --rosa:#0F8B7B;
+  --marca:#0C7568; --marca-esc:#0A5E54; --marca-viva:#0F8B7B;
   --bg:#F7F6F4; --painel:#FFFFFF; --borda:#E3E1DC;
   --txt:#1A1917; --txt2:#5B574F; --txt3:#A8A49B;
   --ok:#10B981; --alerta:#F59E0B; --erro:#EF4444;
@@ -82,7 +82,7 @@ button{cursor:pointer;border:none;background:none}
   height:3px;flex:1;border-radius:99px;background:var(--borda);
   transition:background .25s;
 }
-.trilha i.on{background:var(--roxo)}
+.trilha i.on{background:var(--marca)}
 
 .conteudo{flex:1;padding:18px}
 .passo{display:none}
@@ -99,7 +99,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
   background:var(--painel);margin-bottom:9px;transition:.15s;
 }
 .opcao:active{transform:scale(.99)}
-.opcao.sel{border-color:var(--roxo);background:rgba(124,58,237,.06)}
+.opcao.sel{border-color:var(--marca);background:rgba(15,129,117,.06)}
 .opcao .ic{
   width:44px;height:44px;border-radius:12px;flex:none;display:grid;
   place-items:center;font-size:19px;font-weight:800;color:#fff;
@@ -112,7 +112,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
   width:22px;height:22px;border-radius:50%;border:2px solid var(--borda);
   flex:none;display:grid;place-items:center;font-size:12px;color:#fff;
 }
-.opcao.sel .marca{background:var(--roxo);border-color:var(--roxo)}
+.opcao.sel .marca{background:var(--marca);border-color:var(--marca)}
 
 .cat{font-size:12px;font-weight:800;color:var(--txt3);letter-spacing:.07em;
      text-transform:uppercase;margin:18px 0 8px}
@@ -127,7 +127,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
 .dia small{display:block;font-size:11px;color:var(--txt2);text-transform:capitalize}
 .dia b{display:block;font-size:19px;font-weight:800;line-height:1.25}
 .dia i{display:block;font-size:10px;color:var(--txt3);font-style:normal}
-.dia.sel{background:var(--roxo);border-color:var(--roxo);color:#fff}
+.dia.sel{background:var(--marca);border-color:var(--marca);color:#fff}
 .dia.sel small,.dia.sel i{color:rgba(255,255,255,.85)}
 .dia.sem{opacity:.4}
 
@@ -138,7 +138,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
   padding:12px 2px;border:1.5px solid var(--borda);border-radius:11px;
   text-align:center;font-weight:700;font-size:15px;background:var(--painel);
 }
-.hora.sel{background:var(--roxo);border-color:var(--roxo);color:#fff}
+.hora.sel{background:var(--marca);border-color:var(--marca);color:#fff}
 
 /* ── Formulário ──────────────────────────────────────────────────────── */
 .campo{margin-bottom:15px}
@@ -147,15 +147,15 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
   width:100%;padding:14px;border:1.5px solid var(--borda);border-radius:12px;
   background:var(--bg);font-size:16px; /* 16px evita o zoom automático do iOS */
 }
-.campo input:focus{outline:none;border-color:var(--roxo);
-  box-shadow:0 0 0 3px rgba(124,58,237,.14);background:var(--painel)}
+.campo input:focus{outline:none;border-color:var(--marca);
+  box-shadow:0 0 0 3px rgba(15,129,117,.14);background:var(--painel)}
 
 .codigo{display:flex;gap:8px;justify-content:center;margin:20px 0}
 .codigo input{
   width:46px;height:56px;text-align:center;font-size:24px;font-weight:800;
   border:1.5px solid var(--borda);border-radius:12px;background:var(--bg);
 }
-.codigo input:focus{outline:none;border-color:var(--roxo);background:var(--painel)}
+.codigo input:focus{outline:none;border-color:var(--marca);background:var(--painel)}
 
 /* ── Bolha do WhatsApp (simulação) ───────────────────────────────────── */
 .zap{
@@ -198,7 +198,7 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
 .st-conf{background:rgba(16,185,129,.15);color:#059669}
 .st-pend{background:rgba(245,158,11,.17);color:#B45309}
 .st-canc{background:rgba(239,68,68,.14);color:#DC2626}
-.st-conc{background:rgba(124,58,237,.14);color:var(--roxo)}
+.st-conc{background:rgba(15,129,117,.14);color:var(--marca)}
 .st-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
 
 /* ── Botões ──────────────────────────────────────────────────────────── */
@@ -209,9 +209,9 @@ h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
 }
 .b{
   flex:1;padding:15px;border-radius:12px;font-weight:800;font-size:15px;
-  background:var(--roxo);color:#fff;transition:.15s;
+  background:var(--marca);color:#fff;transition:.15s;
 }
-.b:active{transform:scale(.985);background:var(--roxo-esc)}
+.b:active{transform:scale(.985);background:var(--marca-esc)}
 .b:disabled{opacity:.4;pointer-events:none}
 .b2{background:var(--bg);color:var(--txt);border:1.5px solid var(--borda);flex:0 0 auto;padding:15px 18px}
 .bp{padding:9px 14px;border-radius:10px;font-size:13px;font-weight:700;
@@ -227,18 +227,18 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 <circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>");
   background-repeat:no-repeat;background-position:14px center;background-size:17px;
 }
-.busca:focus{outline:none;border-color:var(--roxo);background-color:var(--painel)}
+.busca:focus{outline:none;border-color:var(--marca);background-color:var(--painel)}
 .selo-combo{
   display:inline-block;margin-left:6px;padding:2px 8px;border-radius:99px;
   font-size:10px;font-weight:800;letter-spacing:.03em;
-  background:rgba(124,58,237,.16);color:var(--roxo);vertical-align:middle;
+  background:rgba(15,129,117,.16);color:var(--marca);vertical-align:middle;
 }
 .segmento{display:flex;gap:7px;margin-bottom:6px}
 .segmento button{
   flex:1;padding:11px 6px;border:1.5px solid var(--borda);border-radius:11px;
   background:var(--painel);font-weight:700;font-size:13.5px;line-height:1.25;
 }
-.segmento button.sel{background:var(--roxo);border-color:var(--roxo);color:#fff}
+.segmento button.sel{background:var(--marca);border-color:var(--marca);color:#fff}
 .bloco{
   border:1.5px solid var(--borda);border-radius:var(--r);padding:14px;
   margin-bottom:15px;
@@ -265,15 +265,15 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
   border:1.5px solid var(--borda);border-radius:var(--r);margin-bottom:14px;
   font-size:13.5px;
 }
-.janela .ii{font-size:19px;line-height:1;flex:none;color:var(--roxo)}
+.janela .ii{font-size:19px;line-height:1;flex:none;color:var(--marca)}
 .janela b{display:block}
 .janela span{color:var(--txt2);font-size:12.5px}
 .proximo{
   display:flex;gap:11px;align-items:center;padding:13px 14px;
-  border:1.5px solid var(--roxo);border-radius:var(--r);margin-bottom:15px;
-  background:rgba(124,58,237,.06);
+  border:1.5px solid var(--marca);border-radius:var(--r);margin-bottom:15px;
+  background:rgba(15,129,117,.06);
 }
-.proximo .ii{font-size:19px;flex:none;color:var(--roxo)}
+.proximo .ii{font-size:19px;flex:none;color:var(--marca)}
 .proximo b{display:block;font-size:14px}
 .proximo span{color:var(--txt2);font-size:13px}
 
@@ -281,11 +281,11 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
 .nada b{display:block;font-size:16px;color:var(--txt2);margin-bottom:5px}
 .recado{
   padding:12px 14px;border-radius:11px;font-size:13.5px;margin-bottom:15px;
-  background:rgba(124,58,237,.08);color:var(--roxo);border:1px solid rgba(124,58,237,.2);
+  background:rgba(15,129,117,.08);color:var(--marca);border:1px solid rgba(15,129,117,.2);
 }
 .recado.erro{background:rgba(239,68,68,.09);color:#DC2626;border-color:rgba(239,68,68,.25)}
 .recado.ok{background:rgba(16,185,129,.09);color:#059669;border-color:rgba(16,185,129,.25)}
-.link{color:var(--roxo);font-weight:700;text-decoration:underline;font-size:14px}
+.link{color:var(--marca);font-weight:700;text-decoration:underline;font-size:14px}
 .rodape-nota{padding:16px 18px 26px;font-size:12px;color:var(--txt3);text-align:center}
 .rodape-nota code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11px}
 </style>
@@ -530,6 +530,11 @@ viewBox='0 0 24 24' fill='none' stroke='%239AA1B2' stroke-width='2' stroke-linec
       </div>
       <div class="resumo" id="resumoPronto"></div>
       <div id="bolhaConfirmacao"></div>
+      <!-- O convite para instalar entra AQUI, e não na capa. Na capa a pessoa
+           ainda não sabe se vai usar; aqui ela acabou de marcar, sabe que
+           volta, e o salão vira um ícone na tela dela em vez de um link
+           perdido no WhatsApp. Some sozinho quando já está instalado. -->
+      <div id="convitePwa" style="display:none"></div>
     </section>
 
     <!-- ══════ MEUS AGENDAMENTOS ══════ -->
@@ -864,7 +869,7 @@ function horariosLivres(profId, data, duracao){
    dá para marcar sem ver a lista de clientes dele.
    =========================================================================== */
 
-const CORES_EQUIPE = ['#3D6B8E','#8E5A3D','#5A8E3D','#8E3D6B','#3D8E8A','#6B3D8E'];
+const CORES_EQUIPE = ['#3D6B8E','#8E5A3D','#5A8E3D','#5E6B57','#3D8E8A','#8E7A3D'];
 
 /* A vitrine chega como um objeto só e vira o `bd` que esta tela já sabe
    desenhar. Nenhuma tela precisou ser reescrita por causa disso — é a mesma
@@ -2515,6 +2520,7 @@ function mostrarPronto(prof, unit, filho){
 
   historico = [];
   irPara('pronto', true);
+  convidarAInstalar();
 }
 
 /* ── Marcar de verdade ───────────────────────────────────────────────────
@@ -2670,6 +2676,7 @@ function entrarNoSalao(slug){
     s.tipo === 'barbearia' ? 'barbearia' : 'salao');
 
   aplicarAparencia(s);
+  identidadeInstalada(s);
 
   document.getElementById('tituloSalao').textContent = s.nome;
   document.getElementById('subSalao').textContent = voc('casa');
@@ -2712,7 +2719,7 @@ function entrarNoSalao(slug){
    Sobre o dourado #C8A33C, texto branco dá cerca de 2,3:1 de contraste — bem
    abaixo dos 4,5:1 que o mínimo legível pede, e o botão principal da página
    vira um borrão para quem enxerga pouco, ou para qualquer um no sol. Sobre
-   o roxo escuro, texto preto é igualmente ruim.
+   o petróleo escuro, texto preto é igualmente ruim.
 
    Então a letra é calculada da luminância da cor, não escolhida. É a mesma
    conta que o modelo que serviu de referência faz: dourado com letra preta,
@@ -2819,7 +2826,7 @@ function aplicarAparencia(s){
   // Aparência, e aí a classe some junto com a animação.
   document.body.classList.toggle('sem-brilho', !brilho);
 
-  // Sem cor escolhida, fica o roxo do AgendaPro — que é o que salão antigo,
+  // Sem cor escolhida, fica o petróleo do AgendaPro — que é o que salão antigo,
   // criado antes disto existir, já tinha. Nada a migrar.
   const escolhida = s.cor || c.cor;
   if(!corValida(escolhida)) return;
@@ -2863,7 +2870,177 @@ function aplicarAparencia(s){
   // A barra do navegador acompanha, no celular. É o detalhe que faz a página
   // parecer do salão e não uma página genérica com a logo dele.
   const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute('content', escuro ? '#0A0810' : cor);
+  if(meta) meta.setAttribute('content', escuro ? '#08100F' : cor);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INSTALAR O SALÃO NA TELA DE INÍCIO
+
+   ── O QUE ESTAVA ERRADO ────────────────────────────────────────────────────
+   Esta página apontava para o `manifest.webmanifest` do sistema, cujo
+   `start_url` é `app.html` — o PAINEL DO DONO. Quem instalasse a página do
+   salão ganhava um ícone que abria a tela de login do dono. A cliente da
+   Barbearia do Zé instalava "a Barbearia do Zé" e recebia "AgendaPro:
+   entre com seu e-mail".
+
+   ── O QUE PASSA A ACONTECER ────────────────────────────────────────────────
+   O manifesto é montado aqui, com os dados DESTE salão, e entregue como
+   blob: nome do salão, ícone do salão, cor do salão, e `start_url` apontando
+   para o link dele. Assim cada salão vira um app próprio na tela da cliente,
+   e o dono não precisa publicar nada.
+
+   No iPhone o Safari ignora o manifesto e usa as duas metas `apple-*`
+   abaixo — por isso elas também são atualizadas, e não só o manifesto.
+   ══════════════════════════════════════════════════════════════════════════ */
+let manifestoAntigo = null;
+
+const LIGACOES = /\s+(de|do|da|dos|das|e|&|the)$/i;
+const curto = nome => {
+  const n = String(nome || 'Agendar').trim();
+  if(n.length <= 14) return n;
+  const corte = n.slice(0, 15);
+  const espaco = corte.lastIndexOf(' ');
+  let curto = (espaco >= 5 ? corte.slice(0, espaco) : n.slice(0, 14)).trim();
+  // "Barbearia do Zé" cortado no espaço vira "Barbearia do", que é pior que
+  // "Barbearia": termina numa palavra que não diz nada e parece truncado.
+  return curto.replace(LIGACOES, '') || n.slice(0, 14);
+};
+
+function identidadeInstalada(s){
+  const icone = s.logo || 'icones/icone-192.png';
+  const cor = (s.cfg && s.cfg.cor) || s.cor || '#0B6A60';
+
+  // `etiqueta` e não `nome`: aqui é o nome da meta tag, não o de uma pessoa.
+  // O varredor de tests/seguranca.test.mjs procura campo de gente indo para
+  // HTML sem escapar, e o parâmetro chamado "nome" acendia a luz dele à toa —
+  // luz que acende à toa é luz que alguém acaba desligando.
+  const meta = (etiqueta, valor) => {
+    const m = document.querySelector(`meta[name="${etiqueta}"]`);
+    if(m) m.setAttribute('content', valor);
+  };
+  // O nome que fica embaixo do ícone. A tela de início corta por volta de 12
+  // caracteres, então o corte é feito aqui — e no ESPAÇO, não no meio da
+  // palavra: "Barbearia do" fica pior que "Barbearia".
+  meta('apple-mobile-web-app-title', curto(s.nome));
+  const toque = document.querySelector('link[rel="apple-touch-icon"]');
+  if(toque && s.logo) toque.setAttribute('href', s.logo);
+
+  const alvo = new URL(location.href);
+  alvo.search = '?salao=' + encodeURIComponent(s.slug);
+
+  const manifesto = {
+    name: s.nome, short_name: curto(s.nome),
+    description: 'Agende seu horário em ' + s.nome + '.',
+    start_url: alvo.pathname + alvo.search,
+    scope: alvo.pathname.replace(/[^/]*$/, ''),
+    display: 'standalone', lang: 'pt-BR',
+    background_color: '#F5F8F8', theme_color: cor,
+    icons: [
+      { src: icone, sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: 'icones/icone-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: 'icones/icone-mascara-512.png', sizes: '512x512',
+        type: 'image/png', purpose: 'maskable' },
+    ],
+  };
+
+  try{
+    const link = document.querySelector('link[rel="manifest"]');
+    if(!link) return;
+    // Revoga o anterior: trocar de salão sem isto vaza um blob por troca, e
+    // quem abre a lista e testa três salões deixa três presos na memória.
+    if(manifestoAntigo) URL.revokeObjectURL(manifestoAntigo);
+    manifestoAntigo = URL.createObjectURL(
+      new Blob([JSON.stringify(manifesto)], { type:'application/manifest+json' }));
+    link.setAttribute('href', manifestoAntigo);
+  }catch(e){
+    // Sem manifesto próprio a página continua inteira — só perde o ícone
+    // bonito. Não é motivo para derrubar a tela de quem quer marcar horário.
+    console.info('[AgendaPro] Não consegui montar o manifesto do salão:', e);
+  }
+}
+
+/* Rodando dentro do app instalado, e não numa aba. `navigator.standalone` é o
+   do Safari do iPhone, que não implementa a media query. */
+function estaInstalado(){
+  return matchMedia('(display-mode: standalone)').matches
+      || navigator.standalone === true;
+}
+
+let pedidoDeInstalacao = null;
+window.addEventListener('beforeinstallprompt', ev => {
+  ev.preventDefault();
+  pedidoDeInstalacao = ev;
+});
+window.addEventListener('appinstalled', () => {
+  pedidoDeInstalacao = null;
+  const c = document.getElementById('convitePwa');
+  if(c) c.style.display = 'none';
+});
+
+/* O convite, na tela de "agendado". Só aqui, e uma vez: quem já recusou não
+   precisa ver de novo a cada horário marcado. */
+function convidarAInstalar(){
+  const alvo = document.getElementById('convitePwa');
+  if(!alvo) return;
+  let recusou = false;
+  try{ recusou = localStorage.getItem('agendapro.semconvite') === '1'; }catch(e){}
+  if(!salao || estaInstalado() || recusou || location.protocol === 'file:'){
+    alvo.style.display = 'none'; return;
+  }
+  alvo.style.display = '';
+  alvo.innerHTML = `
+    <div class="recado" style="margin-top:16px;text-align:left">
+      <b>Deixe ${escapar(salao.nome)} na sua tela de início</b><br>
+      <span style="color:var(--txt2)">Abre como aplicativo, e da próxima vez
+      você marca em dois toques — sem procurar o link.</span>
+      <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="instalarSalao()">Adicionar</button>
+        <button class="link" onclick="dispensarConvite()">Agora não</button>
+      </div>
+    </div>`;
+}
+
+function dispensarConvite(){
+  try{ localStorage.setItem('agendapro.semconvite', '1'); }catch(e){}
+  const c = document.getElementById('convitePwa');
+  if(c) c.style.display = 'none';
+}
+
+async function instalarSalao(){
+  if(pedidoDeInstalacao){
+    pedidoDeInstalacao.prompt();
+    const r = await pedidoDeInstalacao.userChoice.catch(() => null);
+    pedidoDeInstalacao = null;
+    if(r && r.outcome === 'accepted'){ dispensarConvite(); return; }
+    return;
+  }
+  // Sem prompt quer dizer iPhone (ou um navegador que não instala). Ensinar é
+  // o que sobra — e é o que faltava: antes o botão simplesmente não existia.
+  const ua = navigator.userAgent;
+  const iOS = /iPad|iPhone|iPod/.test(ua)
+           || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const alvo = document.getElementById('convitePwa');
+  alvo.innerHTML = iOS ? `
+    <div class="recado" style="margin-top:16px;text-align:left">
+      <b>No iPhone é assim</b>
+      <ol style="color:var(--txt2);line-height:1.75;padding-left:20px;margin:8px 0 0">
+        <li>Toque em <b>Compartilhar</b> — o quadradinho com a seta para cima,
+            embaixo da tela.</li>
+        <li>Role e toque em <b>Adicionar à Tela de Início</b>.</li>
+        <li>Toque em <b>Adicionar</b>.</li>
+      </ol>
+      <p style="color:var(--txt2);font-size:13.5px;margin-top:10px">Precisa ser
+      pelo <b>Safari</b> — pelo Chrome do iPhone essa opção não aparece.</p>
+      <div style="margin-top:10px">
+        <button class="link" onclick="dispensarConvite()">Fechar</button></div>
+    </div>` : `
+    <div class="recado" style="margin-top:16px;text-align:left">
+      <b>Pelo menu do navegador</b>
+      <p style="color:var(--txt2);margin:8px 0 0">Toque no menu <b>⋮</b> e depois
+      em <b>Instalar aplicativo</b> ou <b>Adicionar à tela inicial</b>.</p>
+      <div style="margin-top:10px">
+        <button class="link" onclick="dispensarConvite()">Fechar</button></div>
+    </div>`;
 }
 
 function guardarSessao(){

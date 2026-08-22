@@ -20,7 +20,7 @@
    Sem framework, sem build. Abrir o arquivo é rodar o sistema.
    =========================================================================== */
 :root{
-  --roxo:#0C7568; --roxo-esc:#0A5E54; --rosa:#0F8B7B;
+  --marca:#0C7568; --marca-esc:#0A5E54; --marca-viva:#0F8B7B;
   --bg:#F7F6F4; --painel:#FFFFFF; --borda:#E3E1DC;
   --txt:#1A1917; --txt2:#5B574F; --txt3:#A8A49B;
   --ok:#10B981; --alerta:#F59E0B; --erro:#EF4444;
@@ -66,9 +66,9 @@ button{cursor:pointer;border:none;background:none}
   border:1px solid var(--borda);background:var(--painel);
   transition:.15s; white-space:nowrap;
 }
-.btn:hover{border-color:var(--roxo);color:var(--roxo)}
-.btn-p{background:var(--roxo);color:#fff;border-color:var(--roxo)}
-.btn-p:hover{background:var(--roxo-esc);border-color:var(--roxo-esc);color:#fff}
+.btn:hover{border-color:var(--marca);color:var(--marca)}
+.btn-p{background:var(--marca);color:#fff;border-color:var(--marca)}
+.btn-p:hover{background:var(--marca-esc);border-color:var(--marca-esc);color:#fff}
 .btn-x{padding:8px 10px}
 .btn-peq{padding:5px 10px;font-size:13px}
 
@@ -82,7 +82,7 @@ button{cursor:pointer;border:none;background:none}
   border-bottom:2px solid transparent;white-space:nowrap;
 }
 .aba:hover{color:var(--txt)}
-.aba.on{color:var(--roxo);border-bottom-color:var(--roxo)}
+.aba.on{color:var(--marca);border-bottom-color:var(--marca)}
 
 /* ── Conteúdo ────────────────────────────────────────────────────────── */
 /* `width:100%` é o que segura isto num celular. Sem ele, o `.corpo` é item de
@@ -141,7 +141,7 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   45deg,transparent,transparent 4px,rgba(0,0,0,.16) 4px,rgba(0,0,0,.16) 8px)}
 .ag.concluido::after{content:"\2713";position:absolute;right:5px;top:3px;font-size:11px;opacity:.85}
 .vazio-slot{position:absolute;left:0;right:0;cursor:pointer}
-.vazio-slot:hover{background:rgba(124,58,237,.09)}
+.vazio-slot:hover{background:rgba(15,129,117,.09)}
 
 /* ── Cartões e listas ────────────────────────────────────────────────── */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
@@ -163,14 +163,14 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 }
 .tabela td{padding:11px 13px;border-bottom:1px solid var(--borda);font-size:14px}
 .tabela tr:last-child td{border-bottom:none}
-.tabela tr:hover td{background:rgba(124,58,237,.045)}
+.tabela tr:hover td{background:rgba(15,129,117,.045)}
 .tag{
   display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;
 }
 .t-conf{background:rgba(16,185,129,.15);color:#059669}
 .t-pend{background:rgba(245,158,11,.16);color:#D97706}
 .t-canc{background:rgba(239,68,68,.14);color:#DC2626}
-.t-conc{background:rgba(124,58,237,.14);color:var(--roxo)}
+.t-conc{background:rgba(15,129,117,.14);color:var(--marca)}
 .t-falt{background:rgba(107,114,133,.18);color:var(--txt2)}
 .vazio{text-align:center;padding:44px 20px;color:var(--txt3)}
 
@@ -237,7 +237,7 @@ body.carregando-tudo .tela{ display:none }
   background:var(--bg);
 }
 .campo input:focus,.campo select:focus,.campo textarea:focus{
-  outline:none;border-color:var(--roxo);box-shadow:0 0 0 3px rgba(124,58,237,.14)
+  outline:none;border-color:var(--marca);box-shadow:0 0 0 3px rgba(15,129,117,.14)
 }
 .dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .aviso{
@@ -245,7 +245,7 @@ body.carregando-tudo .tela{ display:none }
   background:rgba(239,68,68,.1);color:#DC2626;border:1px solid rgba(239,68,68,.25);
 }
 .aviso.ok{background:rgba(16,185,129,.1);color:#059669;border-color:rgba(16,185,129,.25)}
-.aviso.info{background:rgba(124,58,237,.09);color:var(--roxo);border-color:rgba(124,58,237,.22)}
+.aviso.info{background:rgba(15,129,117,.09);color:var(--marca);border-color:rgba(15,129,117,.22)}
 
 /* ── Escolha de serviços (checkboxes) ────────────────────────────────── */
 .lista-serv{border:1px solid var(--borda);border-radius:9px;max-height:190px;overflow:auto}
@@ -254,7 +254,7 @@ body.carregando-tudo .tela{ display:none }
   border-bottom:1px solid var(--borda);cursor:pointer;
 }
 .serv-op:last-child{border-bottom:none}
-.serv-op:hover{background:rgba(124,58,237,.05)}
+.serv-op:hover{background:rgba(15,129,117,.05)}
 .serv-op input{width:auto;margin:0}
 .serv-op .i{flex:1}
 .serv-op .n{font-weight:600;font-size:14px}
@@ -273,14 +273,14 @@ body.carregando-tudo .tela{ display:none }
   background:var(--painel);border:1px solid var(--borda);border-top:none;
   border-radius:0 0 var(--r) var(--r);padding:18px;box-shadow:var(--sombra);
 }
-.passo{font-size:12px;font-weight:700;color:var(--roxo);letter-spacing:.05em;margin-bottom:8px}
+.passo{font-size:12px;font-weight:700;color:var(--marca);letter-spacing:.05em;margin-bottom:8px}
 .horarios{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:7px}
 .hslot{
   padding:9px 4px;border:1px solid var(--borda);border-radius:9px;
   text-align:center;font-weight:600;font-size:14px;background:var(--bg);
 }
-.hslot:hover{border-color:var(--roxo);color:var(--roxo);background:rgba(124,58,237,.07)}
-.hslot.sel{background:var(--roxo);color:#fff;border-color:var(--roxo)}
+.hslot:hover{border-color:var(--marca);color:var(--marca);background:rgba(15,129,117,.07)}
+.hslot.sel{background:var(--marca);color:#fff;border-color:var(--marca)}
 .nota{
   font-size:12px;color:var(--txt2);margin-top:14px;padding-top:12px;
   border-top:1px dashed var(--borda);
@@ -333,7 +333,7 @@ body.carregando-tudo .tela{ display:none }
         <small id="latQuemPapel"></small>
       </span>
     </div>
-    <button class="lat-acao" id="btInstalar" style="display:none" onclick="instalarApp()">
+    <button class="lat-acao" id="btInstalar" onclick="instalarApp()">
       <span data-ico="baixo"></span>Instalar aplicativo</button>
     <button class="lat-acao" onclick="trocarTema()" id="btTema">
       <span data-ico="tema"></span><span id="rotuloTema">Tema escuro</span></button>
@@ -2388,7 +2388,7 @@ function pintarPreviaFone(){
 
   alvo.innerHTML =
     `<div class="fone ${escuro ? 'fone-escuro' : ''}"
-          style="--marca:${escapar(aparencia.cor)};--marca-txt:${letraSobre(aparencia.cor)}">
+          style="--fone-marca:${escapar(aparencia.cor)};--fone-marca-txt:${letraSobre(aparencia.cor)}">
        ${imagemDoSalao(sl, 'fundo')
          ? `<div class="fone-fundo" style="background-image:url('${imagemDoSalao(sl, 'fundo')}');
                   --veu:${aparencia.veu / 100}"></div>`
@@ -2903,7 +2903,7 @@ function pintarPlano(){
                    || planos[planos.length-1];
   document.getElementById('cartaoPlano').innerHTML = recomendado ? `
     <div class="card" style="margin-top:14px">
-      <div style="font-size:12px;font-weight:800;color:var(--roxo);letter-spacing:.05em">
+      <div style="font-size:12px;font-weight:800;color:var(--marca);letter-spacing:.05em">
         PLANO RECOMENDADO</div>
       <h3 style="font-size:20px;margin-top:4px">${escapar(recomendado.nome)}</h3>
       <div style="font-size:26px;font-weight:800;margin:6px 0">
@@ -3420,12 +3420,12 @@ let pedidoDeInstalacao = null;
 window.addEventListener('beforeinstallprompt', ev => {
   ev.preventDefault();
   pedidoDeInstalacao = ev;
-  document.getElementById('btInstalar').style.display = '';
+  ajustarBotaoInstalar();
 });
 
 window.addEventListener('appinstalled', () => {
   pedidoDeInstalacao = null;
-  document.getElementById('btInstalar').style.display = 'none';
+  ajustarBotaoInstalar();
 });
 
 async function instalarApp(){
@@ -3436,21 +3436,73 @@ async function instalarApp(){
   pedidoDeInstalacao = null;
 }
 
-// iPhone não dispara beforeinstallprompt: no Safari é pelo botão Compartilhar.
+/* ── QUEM TEM iPHONE NUNCA VIA O BOTÃO ────────────────────────────────────
+   O botão nascia escondido e só aparecia quando o navegador disparava
+   `beforeinstallprompt`. Esse evento é do Chrome. O Safari não tem, nunca
+   teve e a Apple já disse que não vai ter: no iPhone instalar é
+   Compartilhar → Adicionar à Tela de Início, e ponto.
+
+   Resultado: no aparelho de metade dos donos de salão do Brasil, o único
+   caminho para instalar era um botão que nunca aparecia — e a tela de
+   instruções que existia aqui embaixo não tinha como ser aberta por
+   ninguém. Código pronto, inalcançável.
+
+   Agora o botão aparece sempre. Onde há prompt, ele instala com um toque;
+   onde não há, ele ensina. Some só quando não faz mais sentido: já
+   instalado, ou aberto direto do arquivo, que não instala mesmo. */
+function ajustarBotaoInstalar(){
+  const bt = document.getElementById('btInstalar');
+  if(!bt) return;
+  bt.style.display = (jaInstalado() || location.protocol === 'file:') ? 'none' : '';
+}
+
+/* Rodando dentro do app instalado, e não numa aba. `standalone` cobre
+   Android e desktop; `navigator.standalone` é o do Safari do iPhone, que
+   não implementa a media query. */
+function jaInstalado(){
+  return matchMedia('(display-mode: standalone)').matches
+      || matchMedia('(display-mode: window-controls-overlay)').matches
+      || navigator.standalone === true;
+}
+
+/* Instrução por sistema, e só a do sistema de quem está lendo: uma tela com
+   as três é uma tela em que a pessoa procura a parte dela. */
 function explicarInstalacaoManual(){
-  abrirModal('Instalar o AgendaPro', `
-    <div class="campo"><b>iPhone / iPad (Safari)</b>
-      <p style="color:var(--txt2);font-size:14px">Toque em <b>Compartilhar</b> ↑
-      e depois em <b>Adicionar à Tela de Início</b>.</p></div>
-    <div class="campo"><b>Android (Chrome)</b>
-      <p style="color:var(--txt2);font-size:14px">Menu <b>⋮</b> →
-      <b>Instalar aplicativo</b>.</p></div>
-    <div class="campo"><b>Computador (Chrome / Edge)</b>
-      <p style="color:var(--txt2);font-size:14px">Ícone de instalar na barra de
-      endereço, à direita.</p></div>
-    <div class="aviso info">Para instalar, a página precisa estar num endereço
-      <b>https://</b>. Aberta direto do arquivo no disco, ela funciona mas não
-      instala.</div>
+  const ua = navigator.userAgent;
+  const iOS = /iPad|iPhone|iPod/.test(ua)
+           || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+
+  const passos = iOS ? `
+    <div class="campo"><b>No iPhone, pelo Safari</b>
+      <ol style="color:var(--txt2);font-size:14px;line-height:1.75;padding-left:20px;margin:6px 0 0">
+        <li>Toque em <b>Compartilhar</b> — o quadradinho com a seta para cima,
+            embaixo da tela.</li>
+        <li>Role a lista e toque em <b>Adicionar à Tela de Início</b>.</li>
+        <li>Toque em <b>Adicionar</b>, no canto de cima.</li>
+      </ol>
+      <p style="color:var(--txt2);font-size:13.5px;margin-top:10px">Precisa ser
+      pelo <b>Safari</b>. Pelo Chrome do iPhone não aparece essa opção — é
+      limitação do iPhone, não do sistema.</p></div>`
+    : android ? `
+    <div class="campo"><b>No Android, pelo Chrome</b>
+      <ol style="color:var(--txt2);font-size:14px;line-height:1.75;padding-left:20px;margin:6px 0 0">
+        <li>Toque no menu <b>⋮</b>, no canto de cima.</li>
+        <li>Toque em <b>Instalar aplicativo</b> (ou <b>Adicionar à tela
+            inicial</b>).</li>
+      </ol></div>`
+    : `
+    <div class="campo"><b>No computador, pelo Chrome ou Edge</b>
+      <p style="color:var(--txt2);font-size:14px">Clique no ícone de instalar na
+      barra de endereço, à direita — um monitor com uma seta para baixo.</p></div>`;
+
+  abrirModal('Instalar o AgendaPro', passos + `
+    <div class="aviso info" style="margin-bottom:0">Depois de instalado, ele abre
+      como aplicativo: sem barra de endereço, com ícone na tela de início, e a
+      agenda continua abrindo mesmo sem internet.</div>
+    ${location.protocol === 'file:' ? `<div class="aviso atencao">Esta página está
+      aberta direto do arquivo no disco. Assim ela funciona, mas não instala —
+      precisa estar num endereço <b>https://</b>.</div>` : ''}
   `, [['Entendi','fecharModal()','btn-p']]);
 }
 
@@ -3612,6 +3664,7 @@ function mostrarQuemEstaLogado(){
     }
     iniciar();
     registrarServiceWorker();
+    ajustarBotaoInstalar();
     arrumarRodape();
     }finally{ mostrarCarregando(false); }
   })();

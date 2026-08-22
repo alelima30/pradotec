@@ -112,10 +112,11 @@ rodar "imagens"            node "$AQUI/imagens.test.mjs"
 rodar "plataforma"         node "$AQUI/plataforma.test.mjs"
 rodar "aparência"          node "$AQUI/aparencia.test.mjs"
 rodar "segurança"          node "$AQUI/seguranca.test.mjs"
+rodar "instalar"           node "$AQUI/instalar.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 15 suítes."
+  echo "✓ Tudo passou — as 16 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."
