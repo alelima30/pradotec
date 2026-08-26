@@ -318,14 +318,34 @@ end $$;
 --    Cancelado, faltou e arquivado não precisam caber em jornada nenhuma —
 --    são exatamente os estados que LIBERAM o horário.
 -- ---------------------------------------------------------------------------
+/* ⚠ QUARTA DECISÃO, E ELA É DE PRIVACIDADE.
+   O gatilho NÃO usa a mensagem de `porque_nao_cabe()`.
+
+   Aquela mensagem diz "Ana já tem Maria Silva das 14:00 às 15:00" — o que é
+   exatamente o que a recepção precisa ler, e exatamente o que uma
+   desconhecida NÃO pode ler. `agendar()` é `security definer` e alcançável
+   por `anon`: numa corrida entre duas clientes pelo link público, a que
+   perdesse receberia o nome da que ganhou.
+
+   Não é hipótese — foi o `auditoria.test.mjs` que pegou, na primeira
+   execução, com a frase inteira no relatório de falha.
+
+   Então são duas mensagens para o mesmo fato:
+
+     o gatilho          diz O QUE houve, sem dizer de quem
+     porque_nao_cabe()  diz com quem e a que horas, e só responde a
+                        `authenticated` — o painel de quem trabalha ali
+
+   E o choque sai com `exclusion_violation` de propósito: é o código que o
+   `agendar()` já trata, trocando por "Alguém acabou de marcar esse horário".
+   Sem isso o `exception when exclusion_violation` de lá nunca dispararia,
+   porque o gatilho chega antes da constraint. */
 create or replace function public.checar_cabe_agendamento()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_motivo text;
 begin
   if new.status not in ('pendente','confirmado','em_atendimento','concluido')
      or new.arquivado_em is not null then
@@ -343,11 +363,23 @@ begin
     return new;
   end if;
 
-  v_motivo := public.porque_nao_cabe(
-    new.profissional_id, new.inicio, new.fim, new.id);
+  if public.ha_choque(new.profissional_id, new.inicio, new.fim, new.id)
+     is not null then
+    raise exception 'Esse horário já está ocupado.'
+      using errcode = 'exclusion_violation';
+  end if;
 
-  if v_motivo is not null then
-    raise exception '%', v_motivo using errcode = 'check_violation';
+  -- O motivo do bloqueio fica de fora: "médico", "terapia" e "advogado" são
+  -- assunto de quem trabalha no salão, não de quem está marcando.
+  if public.ha_bloqueio(new.profissional_id, new.inicio, new.fim)
+     is not null then
+    raise exception 'Esse horário está bloqueado na agenda.'
+      using errcode = 'check_violation';
+  end if;
+
+  if not public.cabe_na_jornada(new.profissional_id, new.inicio, new.fim) then
+    raise exception 'Fora da jornada de trabalho deste profissional.'
+      using errcode = 'check_violation';
   end if;
 
   return new;

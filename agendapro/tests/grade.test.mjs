@@ -75,16 +75,23 @@ const desl = new Intl.DateTimeFormat('en-US', { timeZone:'America/Sao_Paulo',
   .find(p => p.type === 'timeZoneName').value.replace('GMT','');
 const emQue = hhmm => `${AMANHA}T${hhmm}:00${desl}`;
 
-// A recepção marcando pelo painel: escreve direto na tabela, sem passar por
-// `horarios_livres`. É por aqui que entra horário fora da grade.
+/* A recepção marcando pelo painel: escreve direto na tabela, sem passar por
+   `horarios_livres`. É por aqui que entra horário fora da grade.
+
+   ⚠ `encaixe` por parâmetro, e não sempre ligado, porque a diferença importa:
+   07:00 e 21:00 numa jornada 08:00–18:00 SÃO encaixes de verdade — é o que o
+   título de cada seção diz, "a recepção encaixou a cliente cedo". Marcar
+   assim é dizer a verdade sobre o dado. Já o das 10:00 cabe na jornada e não
+   é exceção nenhuma; ligar a marca nele esconderia uma regressão, porque um
+   `encaixe = true` universal faria o gatilho ser pulado em todo o arquivo. */
 let nCliente = 0;
-async function recepcaoMarca(profId, hhmmIni, hhmmFim){
+async function recepcaoMarca(profId, hhmmIni, hhmmFim, encaixe = false){
   const c = await d.inserir('clientes', { salaoId: SALAO,
     nome: 'Cliente ' + (++nCliente),
     telefone: '11' + (900000000 + Math.floor(Math.random()*99999999)) });
   const a = await d.inserir('agendamentos', { salaoId: SALAO, clienteId: c.id,
     profissionalId: profId, inicio: emQue(hhmmIni), fim: emQue(hhmmFim),
-    status:'confirmado', origem:'recepcao', valorPrevisto: 50 });
+    status:'confirmado', origem:'recepcao', valorPrevisto: 50, encaixe });
   await d.inserir('agendamento_servicos', { agendamentoId: a.id, servicoId: SV.id,
     ordem:1, duracaoMin:60, preco:50, comissaoPct:0 });
   return { agendamento: a, cliente: c };
@@ -129,7 +136,7 @@ const alcancaveis = () => dono.evaluate(() => {
    ══════════════════════════════════════════════════════════════════════════ */
 secao('Horário antes das 08:00 — a recepção encaixou a cliente cedo');
 
-await recepcaoMarca(PROF.id, '07:00', '08:00');
+await recepcaoMarca(PROF.id, '07:00', '08:00', true);
 await abrirNoDia();
 
 igual('o topo conta o atendimento', await contador(), 1);
@@ -140,7 +147,7 @@ igual('e o dono consegue chegar nele na tela', await alcancaveis(), 1);
    ══════════════════════════════════════════════════════════════════════════ */
 secao('Horário depois das 20:00 — noite de formatura, festa, véspera de Natal');
 
-await recepcaoMarca(PROF.id, '21:00', '22:00');
+await recepcaoMarca(PROF.id, '21:00', '22:00', true);
 await dono.reload(); await dono.waitForTimeout(3500);
 await dono.evaluate(dd => { diaAtual = dd; pintar(); }, AMANHA);
 await dono.waitForTimeout(600);

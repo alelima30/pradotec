@@ -1025,8 +1025,6 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_motivo text;
 begin
   if new.status not in ('pendente','confirmado','em_atendimento','concluido')
      or new.arquivado_em is not null then
@@ -1041,10 +1039,19 @@ begin
   if new.encaixe then
     return new;
   end if;
-  v_motivo := public.porque_nao_cabe(
-    new.profissional_id, new.inicio, new.fim, new.id);
-  if v_motivo is not null then
-    raise exception '%', v_motivo using errcode = 'check_violation';
+  if public.ha_choque(new.profissional_id, new.inicio, new.fim, new.id)
+     is not null then
+    raise exception 'Esse horário já está ocupado.'
+      using errcode = 'exclusion_violation';
+  end if;
+  if public.ha_bloqueio(new.profissional_id, new.inicio, new.fim)
+     is not null then
+    raise exception 'Esse horário está bloqueado na agenda.'
+      using errcode = 'check_violation';
+  end if;
+  if not public.cabe_na_jornada(new.profissional_id, new.inicio, new.fim) then
+    raise exception 'Fora da jornada de trabalho deste profissional.'
+      using errcode = 'check_violation';
   end if;
   return new;
 end $$;

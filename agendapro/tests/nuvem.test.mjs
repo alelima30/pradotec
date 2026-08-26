@@ -167,15 +167,24 @@ secao('A trava de horário funciona vinda da tela');
   const erro = await recusa(() => dono.inserir('agendamentos', {
     salaoId, clienteId: ficha.id, profissionalId: profs[0].id,
     inicio: '2026-09-14T12:15:00Z', fim: '2026-09-14T12:50:00Z' }));
-  /* A recusa agora vem do motor (`porque_nao_cabe`), que roda num gatilho
-     BEFORE e chega antes da constraint — e diz COM QUEM está o horário, em
-     vez de "agenda_sem_choque". A constraint continua sendo a autoridade no
-     empate de verdade, quando duas gravações acontecem no mesmo instante e
-     nenhum gatilho enxerga a outra ainda. */
-  dizer(!!erro && /conflit|exclus|choque|agenda_sem_choque|já tem/i.test(erro),
+  /* ⚠ SÃO DUAS MENSAGENS PARA O MESMO FATO, E A DIFERENÇA É DE PRIVACIDADE.
+
+     O gatilho fala com quem quer que esteja gravando — inclusive uma cliente
+     desconhecida, porque `agendar()` é alcançável por `anon`. Então ele diz o
+     QUE houve e nada mais: "Esse horário já está ocupado."
+
+     A frase útil — com o nome e as horas — vem de `porque_nao_cabe()`, que só
+     responde a `authenticated`. É o painel de quem trabalha no salão
+     perguntando antes de gravar, e aí o nome da outra cliente é dado
+     interno, não vazamento.
+
+     A constraint continua sendo a autoridade no empate de verdade: duas
+     gravações no mesmo instante, quando nenhum gatilho enxerga a outra
+     ainda. */
+  dizer(!!erro && /conflit|exclus|choque|agenda_sem_choque|ocupado/i.test(erro),
     'horário em cima de outro é recusado pelo banco');
-  dizer(!!erro && /das \d{2}:\d{2} às \d{2}:\d{2}/.test(erro),
-    'e a recusa diz de que horas até que horas, para resolver no balcão');
+  dizer(!!erro && !/[A-Z][a-z]+ já tem/.test(erro) && !/\d{2}:\d{2}/.test(erro),
+    'e a recusa do gatilho NÃO diz de quem é o horário');
   if(erro) console.log('      banco disse: ' + erro.slice(0,90));
 }
 

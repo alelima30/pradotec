@@ -202,8 +202,15 @@ const [c1, c2] = await Promise.all([
 ]);
 const venceram = [c1, c2].filter(x => x.ok).length;
 igual('exatamente UM consegue — o outro é recusado pelo banco', venceram, 1);
+/* ⚠ E o recado não pode trazer o nome de quem ganhou.
+   `agendar()` é alcançável por `anon`. A primeira versão do gatilho da Fase
+   1A repassava a mensagem de `porque_nao_cabe()` — "Dona do Salão já tem
+   Corrida A das 14:00 às 15:00" — e foi ESTA asserção que pegou o vazamento. */
 verdade('e quem perdeu recebe recado de gente, não erro de banco',
   venceram !== 1 || /hor[áa]rio|livre|marc/i.test(([c1,c2].find(x => !x.ok) || {}).erro || ''),
+  JSON.stringify(([c1,c2].find(x => !x.ok) || {}).erro));
+verdade('e NÃO traz o nome de quem ganhou o horário',
+  !/Corrida [AB]/.test(([c1,c2].find(x => !x.ok) || {}).erro || ''),
   JSON.stringify(([c1,c2].find(x => !x.ok) || {}).erro));
 
 const naGrade = await d.lista('agendamentos', { salaoId: SALAO });
@@ -594,14 +601,31 @@ secao('N3. O dono marcando fora do horário de funcionamento');
   /* Isto NÃO é bug: a recepção precisa poder encaixar a cliente antiga às 7h.
      O que o teste fixa é que a porta é só do dono — pelo link, ninguém entra
      fora da jornada. Se um dia alguém "consertar" isso fechando os dois
-     lados, o salão perde um encaixe legítimo e vai reclamar sem saber por quê. */
+     lados, o salão perde um encaixe legítimo e vai reclamar sem saber por quê.
+
+     ⚠ O QUE MUDOU NA FASE 1A: a porta continua aberta, mas deixou de ser
+     silenciosa. Antes, marcar às 7h e marcar às 7h POR ENGANO entravam no
+     banco exatamente iguais. Agora o encaixe precisa se declarar — e é isso
+     que este bloco fixa: sem a marca, recusa; com ela, entra. */
   const dia = emDias(32);
   const cliente = (await d.lista('clientes', { salaoId: SALAO }))[0];
-  let deuCerto = true;
+
+  let semMarca = null;
   try{
     await d.inserir('agendamentos', { salaoId: SALAO, clienteId: cliente.id,
       profissionalId: P2.id, inicio: instante(dia,'07:00'), fim: instante(dia,'07:45'),
       status:'confirmado', origem:'recepcao' });
+  }catch(e){ semMarca = e.message; }
+  verdade('sem se declarar encaixe, 7h é recusado', semMarca !== null);
+  verdade('e a recusa diz que é a jornada, sem citar ninguém',
+    /jornada/i.test(semMarca || '') && !/[A-Z][a-z]+ já tem/.test(semMarca || ''),
+    String(semMarca));
+
+  let deuCerto = true;
+  try{
+    await d.inserir('agendamentos', { salaoId: SALAO, clienteId: cliente.id,
+      profissionalId: P2.id, inicio: instante(dia,'07:00'), fim: instante(dia,'07:45'),
+      status:'confirmado', origem:'recepcao', encaixe: true });
   }catch(e){ deuCerto = false; }
   verdade('a recepção consegue encaixar às 7h, antes de abrir', deuCerto);
 
