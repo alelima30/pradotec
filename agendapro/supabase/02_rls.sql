@@ -41,28 +41,45 @@ language sql stable security definer set search_path = public as $$
    limit 1
 $$;
 
+/* ⚠ TODO AUXILIAR AQUI DEVOLVE true OU false — NUNCA NULL.
+
+   `papel_no_salao()` é NULL para quem não tem vínculo, e `NULL in (...)` é
+   NULL, não false. Nas policies isso passa despercebido: policy só deixa
+   passar o que é TRUE, então NULL barra igual.
+
+   Fora delas, não. Numa função `security definer` que confere permissão com
+
+       if not e_gestor(salao) then raise ...
+
+   um NULL vira `not NULL` = NULL, o `if` NÃO dispara, e a função segue como
+   se a permissão existisse. Foi assim, exatamente, que `placar_campanha()`
+   devolveu o placar da campanha de outro salão para quem só tinha o uuid na
+   mão — achado pelo tests/campanhas.test.sql antes de ir para o ar.
+
+   O `coalesce` fecha a classe inteira, para o auxiliar de hoje e para o
+   chamador de amanhã. */
 create or replace function public.tem_acesso(p_salao uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select is_super() or papel_no_salao(p_salao) is not null
+  select coalesce(is_super() or papel_no_salao(p_salao) is not null, false)
 $$;
 
 -- Equipe = trabalha no salão. Cliente NÃO é equipe.
 create or replace function public.e_equipe(p_salao uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select is_super()
-      or papel_no_salao(p_salao) in ('dono','admin','recepcao','profissional')
+  select coalesce(is_super()
+      or papel_no_salao(p_salao) in ('dono','admin','recepcao','profissional'), false)
 $$;
 
 -- Quem manda: mexe em serviço, preço, profissional e comissão.
 create or replace function public.e_gestor(p_salao uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select is_super() or papel_no_salao(p_salao) in ('dono','admin')
+  select coalesce(is_super() or papel_no_salao(p_salao) in ('dono','admin'), false)
 $$;
 
 -- Recepção e gestão veem a agenda inteira; profissional vê a dele.
 create or replace function public.ve_agenda_toda(p_salao uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select is_super() or papel_no_salao(p_salao) in ('dono','admin','recepcao')
+  select coalesce(is_super() or papel_no_salao(p_salao) in ('dono','admin','recepcao'), false)
 $$;
 
 -- A ficha DESTA pessoa NESTE salão. É o que amarra o cliente logado aos
