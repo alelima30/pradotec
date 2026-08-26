@@ -386,6 +386,16 @@
   font-size:11px; color:var(--lat-txt3); text-align:center;
   padding:8px 4px 2px; margin:0;
 }
+/* A versão é um botão porque ela responde à pergunta E resolve o problema:
+   quem olha aqui está desconfiando de estar numa página velha, e o clique
+   recarrega passando por cima do cache. 40px de altura pela regra de alvo de
+   toque do tests/celular.test.mjs. */
+.lat-versao{
+  border:0; background:transparent; cursor:pointer; font:inherit;
+  color:var(--lat-txt3); text-decoration:underline;
+  text-underline-offset:2px; padding:12px 8px; min-height:40px;
+}
+.lat-versao:hover{ color:var(--lat-txt2) }
 
 /* ── DUAS ABAS COM PESO PRÓPRIO ────────────────────────────────────────────
    "Ver como cliente" não é mais uma seção: é a única que mostra a página que

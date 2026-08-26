@@ -102,6 +102,12 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   box-shadow:var(--sombra); overflow:auto;
 }
 .grade{display:grid;min-width:min-content}
+/* Tabela larga rola DENTRO da caixa dela, e não empurra a página.
+   O botão do WhatsApp na lista de clientes estourou 301px no celular; a
+   correção não é apertar a tabela até ficar ilegível, é a mesma que a grade
+   da agenda já usa — a caixa rola, o corpo da página não. */
+.tabela-rola{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabela-rola > .tabela{min-width:520px}
 /* Dia | Semana. Duas metades de um botão só, para ler como uma escolha entre
    dois estados e não como dois comandos separados. */
 .vistas{display:inline-flex;border:1px solid var(--borda);border-radius:9px;overflow:hidden}
@@ -363,7 +369,15 @@ body.carregando-tudo .tela{ display:none }
       <span data-ico="menos"></span>Recomeçar demonstração</button>
     <button class="lat-acao" onclick="sair()">
       <span data-ico="sair"></span>Sair</button>
-    <p class="lat-rodape">AgendaPro · <span id="mTipo">salão</span></p>
+    <!-- A VERSÃO, VISÍVEL.
+         Sem ela, "isso já foi corrigido" e "aqui continua errado" são duas
+         afirmações que ninguém consegue conciliar: o navegador pode estar
+         servindo a página de ontem e nada na tela diz isso. Um clique
+         recarrega passando por cima de todo cache. -->
+    <p class="lat-rodape">AgendaPro · <span id="mTipo">salão</span><br>
+      <button class="lat-versao" onclick="recarregarDeVerdade()"
+              title="Recarregar buscando a versão mais nova">
+        versão <span id="mVersao">—</span></button></p>
   </div>
 </aside>
 
@@ -395,6 +409,8 @@ body.carregando-tudo .tela{ display:none }
       <button class="btn btn-p" onclick="abrirNovo()">+ Agendamento</button>
     </div>
     <div class="kpis" id="kpisDia"></div>
+    <!-- Onde a grade confessa que não deu conta. Vazio em dia normal. -->
+    <div id="faltandoNaGrade"></div>
     <div class="grade-wrap"><div class="grade" id="grade"></div></div>
     <p class="nota" id="notaAgenda"></p>
   </section>
@@ -835,7 +851,53 @@ function falarNoWhatsapp(agId){
               '_blank', 'noopener');
 }
 
+/* O mesmo, a partir da FICHA — sem horário nenhum no meio.
+   Na lista de clientes o dono quer falar com a pessoa por qualquer motivo:
+   avisar de promoção, lembrar de retorno, cobrar um pacote. Mandar ele achar
+   um agendamento dela antes é obrigá-lo a dar a volta pelo lugar errado. */
+function falarComCliente(clienteId){
+  const num = zapDoCliente(clienteId);
+  if(!num){
+    alert('Esta ficha não tem telefone.\n\nClique em Editar e cadastre o '
+        + 'WhatsApp dela.');
+    return;
+  }
+  const sl = acharSalao(salaoAtual) || {};
+  const chamarDe = (nomeCliente(clienteId) || '').split(' ')[0];
+  const casa = sl.nome || 'salão';
+  const texto = `Oi ${chamarDe}! Aqui é do ${casa}.`;
+  window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(texto),
+              '_blank', 'noopener');
+}
+
 function nomeCliente(i){ const c = acharCliente(i); return c ? c.nome : '—'; }
+
+/* ⚠ A COR DA COLUNA, SEMPRE VÁLIDA
+
+   Relatado com print: no tema escuro o nome da cliente aparecia no cartão, no
+   tema claro o cartão inteiro sumia. As duas telas, o mesmo dado.
+
+   A causa: o cartão sai com `background:${p.cor}` e `color:#fff` fixo no CSS.
+   Quando `p.cor` não é uma cor — vazia, nula, qualquer coisa — o navegador
+   descarta a declaração inteira e o cartão fica TRANSPARENTE. No escuro, letra
+   branca sobre a grade escura continua legível e ninguém percebe; no claro é
+   branco no branco, e o atendimento desaparece da tela enquanto o contador lá
+   em cima continua contando. Foi assim que "2 atendimentos e a grade vazia"
+   chegou aqui duas vezes.
+
+   Duas correções, e as duas são necessárias: cor sempre válida, e a letra
+   escolhida PELA cor de fundo em vez de branco fixo. Só a primeira deixaria
+   um cartão amarelo com letra branca ilegível. */
+const CORES_EQUIPE = ['#2563EB','#7C3AED','#0E7A6C','#B45309','#BE185D','#0369A1'];
+function corDoProf(p){
+  const c = String((p && p.cor) || '').trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(c)) return c;
+  // Sem cor gravada, uma tirada do id: a mesma pessoa fica sempre com a mesma
+  // cor entre recarregadas, em vez de trocar a cada repintura.
+  let n = 0;
+  for(const ch of String((p && p.id) || '-')) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
+  return CORES_EQUIPE[n % CORES_EQUIPE.length];
+}
 
 /* QUANTAS VEZES ESTA PESSOA JÁ FALTOU AQUI
    O status 'faltou' existia e não servia para nada: ninguém somava, ninguém
@@ -992,10 +1054,37 @@ function mudarDia(n){
 }
 function irHoje(){ diaAtual = hoje(); pintar(); }
 
+/* ── QUE VERSÃO ESTÁ NO AR AQUI ──────────────────────────────────────────
+   Custou uma volta inteira descobrir que a tela reclamada era a de ontem: o
+   navegador serve HTML do cache dele por alguns minutos, e nada na página
+   dizia isso. "Já corrigi" e "aqui continua errado" podiam ser as duas
+   verdadeiras, e não havia como saber.
+
+   Sobe a cada correção publicada. É o mesmo número do `sw.js`, e é de
+   propósito: se os dois discordassem, o carimbo mentiria. */
+const VERSAO_APP = 'v8';
+
+function recarregarDeVerdade(){
+  /* Recarregar com F5 pode devolver a mesma página do cache. Isto derruba o
+     cache do service worker e volta com um endereço que o navegador nunca
+     viu — o único jeito de garantir que veio da rede. */
+  const acabar = () => {
+    const u = new URL(location.href);
+    u.searchParams.set('v', Date.now().toString(36));
+    location.replace(u.toString());
+  };
+  if(!navigator.serviceWorker || !window.caches) return acabar();
+  caches.keys()
+    .then(ns => Promise.all(ns.map(n => caches.delete(n))))
+    .catch(() => {})
+    .then(acabar);
+}
+
 function trocarSalao(sid){
   salaoAtual = sid;
   const s = acharSalao(sid);
   document.getElementById('mTipo').textContent = (s.tipo || 'salão');
+  document.getElementById('mVersao').textContent = VERSAO_APP;
   document.getElementById('tbSalao').textContent = s.nome;
   const sel = document.getElementById('selSalao');
   if(sel && sel.value !== sid) sel.value = sid;   // chamada de código também move o seletor
@@ -1112,6 +1201,10 @@ function pintarAgenda(){
   grade.style.gridTemplateColumns =
     `58px repeat(${profs.length}, minmax(var(--col, 148px), 1fr))`;
 
+  // Todo atendimento que a grade DESENHOU. Conferido no fim contra o que o
+  // contador soma — ver `conferirGrade()`.
+  const desenhados = new Set();
+
   const semVaga = new Set(foraDaCota().map(x => x.id));
   // Quem está na grade só porque tem cliente marcada, já tendo saído da
   // equipe. A coluna precisa dizer isso: sem o aviso, o dono vê o nome de
@@ -1125,7 +1218,7 @@ function pintarAgenda(){
       : 'folga';
     const marcado = semVaga.has(p.id) || desligados.has(p.id);
     html += `<div class="col-h${marcado ? ' sem-vaga' : ''}">
-      <div class="nm"><span class="pnt" style="background:${escapar(p.cor)}"></span>${escapar(p.nome)}</div>
+      <div class="nm"><span class="pnt" style="background:${corDoProf(p)}"></span>${escapar(p.nome)}</div>
       <div class="fn">${desligados.has(p.id) ? 'desativada · ainda tem cliente marcada'
                       : semVaga.has(p.id) ? 'fora do plano' : fx}</div></div>`;
   }
@@ -1167,6 +1260,7 @@ function pintarAgenda(){
 
     // Atendimentos
     for(const a of agendaDoDia(diaAtual).filter(a => a.profissionalId === p.id)){
+      desenhados.add(a.id);
       const alt = Math.max(y(a.fim) - y(a.inicio), 20);
       // Bloco baixo não comporta duas linhas: em vez de cortar a palavra no
       // meio, some com o serviço e deixa hora e nome numa linha só. O serviço
@@ -1184,7 +1278,7 @@ function pintarAgenda(){
          detalhe abre com o botão grande, do tamanho certo. */
       const zap = zapDoCliente(a.clienteId);
       html += `<div class="ag ${a.status}${curto}" style="top:${y(a.inicio)}px;height:${alt}px;
-                    background:${p.cor}" title="${hm(a.inicio)} · ${escapar(nomeCliente(a.clienteId))} · ${escapar(rotuloServicos(a))}"
+                    background:${corDoProf(p)};color:${letraSobre(corDoProf(p))}" title="${hm(a.inicio)} · ${escapar(nomeCliente(a.clienteId))} · ${escapar(rotuloServicos(a))}"
                     onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
                  <b>${hm(a.inicio)} ${escapar(nomeCliente(a.clienteId))}</b>
                  <span>${escapar(rotuloServicos(a))}</span>${zap ? `
@@ -1199,6 +1293,38 @@ function pintarAgenda(){
   grade.innerHTML = html;
   if(window.aplicarIcones) aplicarIcones(grade);
   pintarKpis();
+  conferirGrade(desenhados);
+}
+
+/* ⚠ A GRADE TEM QUE MOSTRAR O QUE O CONTADOR CONTA
+
+   Este defeito já apareceu duas vezes, das duas o mesmo sintoma: o topo
+   dizendo "2 atendimentos" com a grade vazia embaixo. O dono procura o
+   cartão, não acha, e conclui que o sistema perdeu o horário da cliente —
+   que é a pior coisa que uma agenda pode fazer.
+
+   As causas foram diferentes nas duas vezes, e as duas foram corrigidas. O
+   que não dava para corrigir de uma vez era a CLASSE: são duas contas sobre
+   a mesma coisa, e duas contas separadas voltam a discordar um dia.
+
+   Então em vez de só consertar as causas conhecidas, a tela passa a conferir
+   a si mesma. Discordou, ela DIZ, e mostra o que faltou com um clique para
+   abrir. Nunca mais em silêncio. */
+function conferirGrade(desenhados){
+  const alvo = document.getElementById('faltandoNaGrade');
+  if(!alvo) return;
+  const sumidos = agendaDoDia(diaAtual).filter(a => !desenhados.has(a.id));
+  if(!sumidos.length){ alvo.innerHTML = ''; return; }
+
+  alvo.innerHTML = `<div class="aviso atencao">
+    <b>${sumidos.length === 1 ? 'Um atendimento não coube na grade'
+                              : sumidos.length + ' atendimentos não couberam na grade'}.</b><br>
+    Estão contados aí em cima e o dia continua com eles. Clique para abrir:
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">
+      ${sumidos.map(a => `<button class="btn btn-peq"
+          onclick="abrirDetalhe('${a.id}')">${hm(a.inicio)} ·
+          ${escapar(nomeCliente(a.clienteId))}</button>`).join('')}
+    </div></div>`;
 }
 
 /* ── A SEMANA ────────────────────────────────────────────────────────────
@@ -1303,7 +1429,7 @@ function pintarSemana(){
         style="top:${y(a.inicio)}px;height:${alt}px;
                left:calc(${pistaDe.get(a.id) * larg}% + 3px);
                width:calc(${larg}% - 6px);
-               background:${escapar(p ? p.cor : '#94A3B8')}"
+               background:${corDoProf(p)};color:${letraSobre(corDoProf(p))}"
         title="${hm(a.inicio)} · ${escapar(nomeCliente(a.clienteId))} · ${escapar(p ? p.nome : '')}"
         onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
         <b>${hm(a.inicio)} ${escapar(nomeCliente(a.clienteId))}</b>
@@ -1315,6 +1441,10 @@ function pintarSemana(){
   grade.innerHTML = html;
   if(window.aplicarIcones) aplicarIcones(grade);
   pintarKpis();
+  // A semana desenha o dia inteiro de cada coluna, então na prática nunca
+  // sobra ninguém. Confere assim mesmo: o aviso da vista de dia não pode
+  // ficar pendurado na tela depois de trocar para a semana.
+  conferirGrade(new Set(dias.flatMap(x => agendaDoDia(x).map(a => a.id))));
 }
 
 /* Os números do topo somam EXATAMENTE o que a grade está mostrando: um dia
@@ -1380,7 +1510,7 @@ function pintarClientes(){
     return;
   }
 
-  alvo.innerHTML = `<table class="tabela"><thead><tr>
+  alvo.innerHTML = `<div class="tabela-rola"><table class="tabela"><thead><tr>
       <th>Nome</th><th>Telefone</th><th>Última visita</th><th>Visitas</th>
       <th>Faltas</th><th></th>
     </tr></thead><tbody>` + lista.map(c => {
@@ -1396,9 +1526,16 @@ function pintarClientes(){
         <td>${escapar(c.telefone || '—')}</td><td>${ult}</td><td>${dele.length}</td>
         <td>${f ? `<span class="tag ${f >= 2 ? 't-canc' : ''}">${f}</span>`
                 : '<span style="color:var(--txt3)">—</span>'}</td>
-        <td style="text-align:right"><button class="btn btn-peq" onclick="abrirCliente('${c.id}')">Editar</button></td>
+        <td style="text-align:right;white-space:nowrap">${zapDoCliente(c.id) ? `
+          <button class="btn btn-peq btn-zap" onclick="falarComCliente('${c.id}')"
+                  title="Falar com ${escapar(c.nome)} no WhatsApp"
+                  aria-label="Falar com ${escapar(c.nome)} no WhatsApp"
+          ><span data-ico="whatsapp"></span></button>` : ''}
+          <button class="btn btn-peq" onclick="abrirCliente('${c.id}')">Editar</button></td>
       </tr>`;
-    }).join('') + '</tbody></table>';
+    }).join('') + '</tbody></table></div>';
+  // Sem isto o `data-ico` fica no HTML e nenhum ícone é desenhado.
+  if(window.aplicarIcones) aplicarIcones(alvo);
 }
 
 /* ── Desenho: serviços ───────────────────────────────────────────────── */
@@ -1439,7 +1576,7 @@ function pintarEquipe(){
     const dias = [1,2,3,4,5,6,0].filter(d => (j[d]||[]).length)
       .map(d => DIAS[d].slice(0,3)).join(', ') || 'sem jornada';
     return `<div class="card">
-      <h3><span class="eq-rosto" style="background:${escapar(p.cor)}">${
+      <h3><span class="eq-rosto" style="background:${corDoProf(p)};color:${letraSobre(corDoProf(p))}">${
         p.foto ? `<img src="${escapar(p.foto)}" alt="">`
                : escapar((p.nome || '?').trim().charAt(0).toUpperCase())}</span>${escapar(p.nome)}
         ${p.ativo ? '' : '<span class="tag t-canc">inativo</span>'}</h3>
@@ -1509,7 +1646,7 @@ function pintarCaixa(){
     : `<table class="tabela"><thead><tr><th>Profissional</th><th>Vendeu</th><th>Comissão</th></tr></thead><tbody>`
       + chaves.map(k => {
           const p = acharProf(k);
-          return `<tr><td><span class="pnt" style="background:${escapar(p?p.cor:'#999')}"></span>${escapar(p?p.nome:'—')}</td>
+          return `<tr><td><span class="pnt" style="background:${corDoProf(p)}"></span>${escapar(p?p.nome:'—')}</td>
             <td>${real(porProf[k].venda)}</td><td><b>${real(porProf[k].com)}</b></td></tr>`;
         }).join('') + '</tbody></table>';
 }
@@ -1897,7 +2034,7 @@ function abrirDetalhe(agId){
       <tr><td style="color:var(--txt2)">Quando</td><td>${porExtenso(a.data)}<br>
         <b>${hm(a.inicio)} às ${hm(a.fim)}</b> · ${a.fim - a.inicio} min</td></tr>
       <tr><td style="color:var(--txt2)">Profissional</td>
-        <td><span class="pnt" style="background:${escapar(p?p.cor:'#999')}"></span>${escapar(p ? p.nome : '—')}</td></tr>
+        <td><span class="pnt" style="background:${corDoProf(p)}"></span>${escapar(p ? p.nome : '—')}</td></tr>
       <tr><td style="color:var(--txt2)">Serviços</td><td>${rotuloServicos(a)}<br>
         <b>${real(totalDe(a))}</b></td></tr>
       ${a.obs ? `<tr><td style="color:var(--txt2)">Obs.</td><td>${escapar(a.obs)}</td></tr>` : ''}
@@ -4324,6 +4461,7 @@ function iniciar(){
   sel.value = salaoAtual;
   const s = acharSalao(salaoAtual);
   document.getElementById('mTipo').textContent = (s.tipo || 'salão');
+  document.getElementById('mVersao').textContent = VERSAO_APP;
   document.getElementById('tbSalao').textContent = s.nome;
   const t = TELAS.find(x => x[0] === telaAtual);
   document.getElementById('tituloTela').textContent = t ? t[1] : '';
