@@ -817,6 +817,56 @@ function falarNoWhatsapp(agId){
 
 function nomeCliente(i){ const c = acharCliente(i); return c ? c.nome : '—'; }
 
+/* QUANTAS VEZES ESTA PESSOA JÁ FALTOU AQUI
+   O status 'faltou' existia e não servia para nada: ninguém somava, ninguém
+   avisava. Falta é o prejuízo mais comum de salão — a cadeira fica parada e
+   a agenda mostrou "ocupado" para quem teria vindo. Somar é o mínimo para o
+   dono decidir se pede sinal, se confirma antes, ou se prefere não marcar. */
+function faltasDoCliente(cid){
+  if(!cid) return 0;
+  return doSalao(bd.agendamentos)
+    .filter(a => a.clienteId === cid && a.status === 'faltou').length;
+}
+
+/* ⚠ A FICHA QUE JÁ EXISTE COM ESTE TELEFONE
+   O banco tem um índice único em (salao_id, telefone) — é ele que impede a
+   mesma pessoa de virar duas fichas. A TELA não conhecia essa regra.
+
+   O estrago, relatado com print: a recepção abre "Novo agendamento", escolhe
+   "— novo cliente —", digita nome e o número de quem JÁ era cliente, e no
+   fim da gravação vem, em inglês, dentro de um alerta do navegador:
+
+       duplicate key value violates unique constraint "ux_cli_tel"
+       ... violates foreign key constraint "agendamentos_cliente_id_fkey"
+
+   O segundo erro é filho do primeiro: a ficha não entrou, e o agendamento
+   apontava para ela. Resultado — o atendimento INTEIRO não grava, a cliente
+   fica sem horário, e o recado não diz sequer de quem é o telefone repetido.
+
+   O caminho da cliente (`ficha_do_cliente()` no banco) sempre soube fazer
+   isto: telefone que já existe reaproveita a ficha. Quem não sabia era o
+   painel. */
+function fichaPeloTelefone(tel, exceto){
+  if(!tel) return null;
+  return doSalao(bd.clientes).find(c => c.telefone === tel && c.id !== exceto) || null;
+}
+
+// Nome "igual" para gente: sem acento, sem caixa, sem espaço sobrando.
+function nomeAchatado(s){
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/* O recado sobre as faltas, ou string vazia. Um lugar só, porque ele aparece
+   em três telas e três redações do mesmo aviso é como uma delas envelhece. */
+function avisoDeFaltas(cid){
+  const n = faltasDoCliente(cid);
+  if(n < 2) return '';
+  return `<div class="aviso atencao"><b>${escapar(nomeCliente(cid))} já faltou
+    ${n} ${n === 1 ? 'vez' : 'vezes'} aqui.</b><br>
+    Vale confirmar por WhatsApp na véspera${n >= 3 ? ', ou pedir sinal' : ''}.</div>`;
+}
+
 // Duração e preço de um agendamento saem da soma dos serviços dele.
 function totalDe(ag){
   return (ag.servicos || []).reduce((s,x) => s + (x.preco||0), 0);
@@ -1142,15 +1192,21 @@ function pintarClientes(){
   }
 
   alvo.innerHTML = `<table class="tabela"><thead><tr>
-      <th>Nome</th><th>Telefone</th><th>Última visita</th><th>Visitas</th><th></th>
+      <th>Nome</th><th>Telefone</th><th>Última visita</th><th>Visitas</th>
+      <th>Faltas</th><th></th>
     </tr></thead><tbody>` + lista.map(c => {
       const dele = doSalao(bd.agendamentos)
         .filter(a => a.clienteId === c.id && a.status === 'concluido')
         .sort((a,b) => b.data.localeCompare(a.data));
       const ult = dele[0] ? porExtenso(dele[0].data).split(', ')[1] : '—';
+      // Zero falta fica cinza e discreto: a coluna só chama atenção quando
+      // tem o que contar. Uma tabela em que toda linha grita não avisa nada.
+      const f = faltasDoCliente(c.id);
       return `<tr>
         <td><b>${escapar(c.nome)}</b>${c.obs ? `<br><span style="font-size:12px;color:var(--txt2)">${escapar(c.obs)}</span>` : ''}</td>
         <td>${escapar(c.telefone || '—')}</td><td>${ult}</td><td>${dele.length}</td>
+        <td>${f ? `<span class="tag ${f >= 2 ? 't-canc' : ''}">${f}</span>`
+                : '<span style="color:var(--txt3)">—</span>'}</td>
         <td style="text-align:right"><button class="btn btn-peq" onclick="abrirCliente('${c.id}')">Editar</button></td>
       </tr>`;
     }).join('') + '</tbody></table>';
@@ -1493,6 +1549,9 @@ function abrirNovo(profId, min){
 
   document.getElementById('fCliente').addEventListener('change', function(){
     document.getElementById('blocoNovo').style.display = this.value ? 'none' : 'block';
+    // Repinta o aviso: é aqui que a falta anterior tem que aparecer, ANTES
+    // de marcar. Depois de marcado o recado chega tarde.
+    recalcularFim();
   });
   recalcularFim();
 }
@@ -1502,9 +1561,15 @@ function recalcularFim(){
   const aviso = document.getElementById('avisoAg');
   if(!aviso) return;
 
+  // O histórico de faltas vale mesmo antes de escolher serviço: quem já
+  // faltou três vezes é assunto na hora de decidir se marca, não depois.
+  const sel = document.getElementById('fCliente');
+  const faltas = avisoDeFaltas(sel ? sel.value : '');
+
   const escolhidos = [...document.querySelectorAll('.serv-op input:checked')].map(c => c.value);
   if(!escolhidos.length){
-    aviso.innerHTML = '<div class="aviso info">Escolha ao menos um serviço — é a duração dele que reserva o horário.</div>';
+    aviso.innerHTML = faltas
+      + '<div class="aviso info">Escolha ao menos um serviço — é a duração dele que reserva o horário.</div>';
     return;
   }
 
@@ -1524,7 +1589,8 @@ function recalcularFim(){
   const bloq = emBloqueio(profId, data, ini, fim);
   const foraJornada = !dentroDaJornada(prof, data, ini, fim);
 
-  let html = `<div class="aviso ok">${hm(ini)} às ${hm(fim)} · ${dur} min · ${real(preco)}</div>`;
+  let html = faltas
+           + `<div class="aviso ok">${hm(ini)} às ${hm(fim)} · ${dur} min · ${real(preco)}</div>`;
   if(bate){
     html += `<div class="aviso"><b>Choca com outro atendimento.</b><br>
       ${escapar(prof.nome)} já tem ${escapar(nomeCliente(bate.clienteId))} das ${hm(bate.inicio)} às ${hm(bate.fim)}.
@@ -1556,22 +1622,47 @@ function salvarAgendamento(){
   }
 
   let cliId = document.getElementById('fCliente').value;
+  let atendido = '';
   if(!cliId){
     const nome = (document.getElementById('fNome').value || '').trim();
     if(nome.length < 2){ alert('Informe o nome da cliente.'); return; }
-    const novo = {
-      id:id(), salaoId:salaoAtual, nome,
-      telefone: telefoneParaBanco(document.getElementById('fTel').value),
-      obs:'', criadoEm:new Date().toISOString(),
-    };
-    bd.clientes.push(novo);
-    cliId = novo.id;
+    const tel = telefoneParaBanco(document.getElementById('fTel').value);
+
+    // Telefone que já tem dono no salão: reaproveita a ficha em vez de criar
+    // a segunda. Criar era o que derrubava a gravação inteira no `ux_cli_tel`.
+    const ja = fichaPeloTelefone(tel);
+    if(ja){
+      // Mesmo nome: é a mesma pessoa, segue sem perguntar nada.
+      // Nome diferente: pode ser o número do marido, da mãe, ou um dígito
+      // trocado. Aí quem decide é o dono, e a pergunta diz quem é o outro —
+      // sem o nome, "este telefone já existe" não ajuda a resolver.
+      if(nomeAchatado(ja.nome) !== nomeAchatado(nome)){
+        if(!confirm(
+            'O telefone ' + (ja.telefone || '') + ' já é da ficha de '
+          + ja.nome + '.\n\n'
+          + 'Aqui um telefone pertence a uma ficha só — é o que impede a '
+          + 'mesma pessoa de virar duas e o histórico dela rachar no meio.\n\n'
+          + 'OK: marcar na ficha de ' + ja.nome + ', anotando que quem vem é '
+          + nome + '.\n'
+          + 'Cancelar: voltar e corrigir o telefone.')) return;
+        atendido = nome;      // quem de fato vem, guardado no atendimento
+      }
+      cliId = ja.id;
+    } else {
+      const novo = {
+        id:id(), salaoId:salaoAtual, nome, telefone: tel,
+        obs:'', criadoEm:new Date().toISOString(),
+      };
+      bd.clientes.push(novo);
+      cliId = novo.id;
+    }
   }
 
   const prof = acharProf(profId);
   bd.agendamentos.push({
     id:id(), salaoId:salaoAtual, clienteId:cliId, profissionalId:profId,
     data, inicio:ini, fim, status:'confirmado', origem:'recepcao',
+    atendidoNome: atendido,
     servicos: escolhidos.map(i => {
       const sv = acharServico(i);
       return {servicoId:i, duracaoMin:sv.duracaoMin, preco:sv.preco,
@@ -1606,9 +1697,14 @@ function abrirDetalhe(agId){
       <span class="tag ${CLASSE_STATUS[a.status]}">${ROTULO_STATUS[a.status]}</span>
       ${a.origem === 'online' ? '<span class="tag t-conc" style="margin-left:5px">veio pelo link</span>' : ''}
     </div>
+    ${avisoDeFaltas(a.clienteId)}
     <table class="tabela" style="box-shadow:none"><tbody>
       <tr><td style="color:var(--txt2);width:110px">Cliente</td><td><b>${escapar(c ? c.nome : '—')}</b>
         ${c && c.telefone ? `<br><span style="font-size:13px;color:var(--txt2)">${escapar(c.telefone)}</span>` : ''}</td></tr>
+      ${a.atendidoNome ? `<tr><td style="color:var(--txt2)">Quem vem</td>
+        <td><b>${escapar(a.atendidoNome)}</b><br>
+        <span style="font-size:12px;color:var(--txt2)">o horário está na ficha
+        acima, que é a dona do telefone</span></td></tr>` : ''}
       <tr><td style="color:var(--txt2)">Quando</td><td>${porExtenso(a.data)}<br>
         <b>${hm(a.inicio)} às ${hm(a.fim)}</b> · ${a.fim - a.inicio} min</td></tr>
       <tr><td style="color:var(--txt2)">Profissional</td>
@@ -1832,9 +1928,27 @@ function abrirCliente(cid){
 function salvarCliente(cid){
   const nome = (document.getElementById('kNome').value || '').trim();
   if(nome.length < 2){ alert('Informe o nome.'); return; }
+  const tel = telefoneParaBanco(document.getElementById('kTel').value);
+
+  /* Mesma trava do banco, dita antes e em português. Aqui NÃO se pergunta se
+     é a mesma pessoa: no cadastro de cliente juntar duas fichas seria mover
+     agendamento, comanda e histórico de uma para outra — some dinheiro ou
+     some atendimento, e ninguém fica sabendo qual. O que a tela faz é dizer
+     de quem é o número, para o dono ir na ficha certa. */
+  const ja = fichaPeloTelefone(tel, cid);
+  if(ja){
+    alert('Este telefone já é da ficha de ' + ja.nome + '.\n\n'
+        + 'Um telefone pertence a uma ficha só — é o que impede a mesma '
+        + 'pessoa de virar duas.\n\n'
+        + 'Se for a mesma pessoa, edite a ficha de ' + ja.nome + '. Se forem '
+        + 'duas pessoas mesmo (mãe e filha no mesmo número, por exemplo), '
+        + 'deixe uma das fichas sem telefone.');
+    return;
+  }
+
   const dados = {
     nome,
-    telefone: telefoneParaBanco(document.getElementById('kTel').value),
+    telefone: tel,
     nascimento: document.getElementById('kNasc').value || '',
     obs: document.getElementById('kObs').value || '',
   };
