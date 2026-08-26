@@ -724,6 +724,30 @@ const acharSalao   = i => bd.saloes.find(s => s.id === i);
    WhatsApp não explica por quê — só mostra "número de telefone inválido".
    Por isso a limpeza é feita aqui, num lugar só.
    ══════════════════════════════════════════════════════════════════════════ */
+/* ⚠ O TELEFONE VAI PARA O BANCO SÓ EM DÍGITOS — E VAZIO VIRA NULO
+
+   Dois defeitos vinham de guardar o telefone do jeito que foi digitado:
+
+   1. A MESMA PESSOA VIRAVA DUAS FICHAS. A recepção cadastrava
+      "(11) 98888-7777"; a mesma cliente marcava pelo link digitando o mesmo
+      número, e o banco procura a ficha por DÍGITOS (`so_digitos`). Os dois
+      textos não batem, nasce uma segunda ficha, e o histórico da pessoa fica
+      partido ao meio. Reproduzido: duas fichas para a mesma Maria.
+
+   2. O SEGUNDO CLIENTE SEM TELEFONE NÃO GRAVAVA. Campo vazio virava string
+      vazia, que NÃO é nula — e a trava `ux_cli_tel` é `where telefone is not
+      null`. Então a segunda pessoa cadastrada sem número batia em
+      "duplicate key value violates unique constraint", em inglês, na cara da
+      recepção. Cliente que passa e não deixa telefone é rotina em salão.
+
+   Uma função só, usada em todo lugar onde o painel escreve telefone de
+   cliente. A regra é a MESMA do banco, de propósito: se as duas discordarem,
+   o defeito volta por outro caminho. */
+function telefoneParaBanco(txt){
+  const n = String(txt || '').replace(/\D/g, '');
+  return n || null;
+}
+
 function numeroWhatsapp(tel){
   const n = String(tel || '').replace(/\D/g, '');
   if(!n) return null;
@@ -1462,7 +1486,7 @@ function salvarAgendamento(){
     if(nome.length < 2){ alert('Informe o nome da cliente.'); return; }
     const novo = {
       id:id(), salaoId:salaoAtual, nome,
-      telefone:(document.getElementById('fTel').value || '').trim(),
+      telefone: telefoneParaBanco(document.getElementById('fTel').value),
       obs:'', criadoEm:new Date().toISOString(),
     };
     bd.clientes.push(novo);
@@ -1735,7 +1759,7 @@ function salvarCliente(cid){
   if(nome.length < 2){ alert('Informe o nome.'); return; }
   const dados = {
     nome,
-    telefone: (document.getElementById('kTel').value || '').trim(),
+    telefone: telefoneParaBanco(document.getElementById('kTel').value),
     nascimento: document.getElementById('kNasc').value || '',
     obs: document.getElementById('kObs').value || '',
   };

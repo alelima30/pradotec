@@ -125,7 +125,10 @@ dizer(!!vitrine && vitrine.nome.startsWith('Barbearia'),
 // ── O cliente entra pelo código e agenda ──────────────────────────────────
 secao('O cliente entra pelo código do WhatsApp e marca');
 const cliente = novaAba();
-const telCliente = '+5511' + (910000000 + (Date.now() % 89999999));
+// Sem o '+': a ficha do cliente guarda SÓ dígitos — é assim que
+// `ficha_do_cliente()` reencontra a mesma pessoa, e a trava
+// `cli_tel_so_digitos` do banco agora cobra isso.
+const telCliente = '5511' + (910000000 + (Date.now() % 89999999));
 
 {
   const erro = await recusa(() => cliente.conferirCodigo(telCliente, '000000'));

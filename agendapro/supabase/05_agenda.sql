@@ -295,6 +295,78 @@ begin
   end loop;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 4.4) O TELEFONE DA FICHA, SÓ EM DÍGITOS
+--
+-- O painel gravava o telefone do jeito que era digitado — "(11) 98888-7777"
+-- — e o caminho da cliente grava por `so_digitos()`. Duas escritas, dois
+-- formatos, e dois estragos medidos:
+--
+--   · A MESMA PESSOA VIRAVA DUAS FICHAS. A ficha é reencontrada pelo
+--     telefone, e "(11) 98888-7777" nunca é igual a "11988887777". O
+--     histórico da cliente ficava partido em duas.
+--
+--   · O SEGUNDO CLIENTE SEM TELEFONE NÃO GRAVAVA. Campo vazio virava string
+--     vazia, que não é nula, e a trava `ux_cli_tel` é `where telefone is not
+--     null`. A recepção recebia "duplicate key value violates unique
+--     constraint ux_cli_tel", em inglês, ao cadastrar a segunda pessoa que
+--     passou sem deixar número.
+--
+-- A tela já foi corrigida. Isto arruma o que ficou gravado antes, e a regra
+-- passa a valer no banco — que é onde ela não depende de ninguém lembrar.
+-- ---------------------------------------------------------------------------
+
+-- String vazia nunca deveria ter entrado: some.
+update public.clientes
+   set telefone = null
+ where telefone is not null
+   and public.so_digitos(telefone) is null;
+
+-- A máscara vira dígitos, mas só onde isso não cria choque.
+--
+-- Dois casos de choque, e os dois são a mesma pessoa em fichas separadas:
+-- uma ficha que já tem os dígitos, ou duas mascaradas que limpam para o mesmo
+-- número. Juntar fichas é mover agendamento, comanda e histórico de uma para
+-- outra, e isso NAO se faz por migração automática — some dinheiro ou some
+-- atendimento, e ninguém fica sabendo qual. As que colidem ficam como estão,
+-- à espera de o salão decidir qual é qual.
+with alvo as (
+  select c.id,
+         public.so_digitos(c.telefone) as limpo,
+         row_number() over (partition by c.salao_id, public.so_digitos(c.telefone)
+                            order by c.criado_em, c.id) as ordem
+    from public.clientes c
+   where c.telefone is not null
+     and public.so_digitos(c.telefone) is not null
+     and c.telefone <> public.so_digitos(c.telefone)
+)
+update public.clientes c
+   set telefone = a.limpo
+  from alvo a
+ where c.id = a.id
+   and a.ordem = 1
+   and not exists (select 1 from public.clientes o
+                    where o.salao_id = c.salao_id
+                      and o.id <> c.id
+                      and o.telefone = a.limpo);
+
+-- E a regra passa a ser do banco.
+--
+-- `not valid` de propósito: as fichas que colidiram acima continuam com
+-- máscara, e validá-las agora derrubaria a instalação inteira por causa de um
+-- cadastro antigo. `not valid` recusa toda escrita NOVA fora do formato, que
+-- é o que impede o defeito de voltar, e deixa o passado em paz.
+do $trava$
+begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'cli_tel_so_digitos'
+                    and conrelid = 'public.clientes'::regclass) then
+    alter table public.clientes
+      add constraint cli_tel_so_digitos
+      check (telefone is null or telefone ~ '^[0-9]+$') not valid;
+  end if;
+end $trava$;
+
 /* ---------------------------------------------------------------------------
    4.5) ficha_do_cliente() — acha a ficha, ou cria
 

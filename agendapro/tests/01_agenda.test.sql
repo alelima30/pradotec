@@ -45,7 +45,7 @@ insert into public.servicos (id, salao_id, nome, duracao_min, preco) values
 insert into public.clientes (id, salao_id, perfil_id, nome, telefone) values
   ('dddddddd-0000-0000-0000-000000000001',
    'aaaaaaaa-0000-0000-0000-000000000001',
-   '22222222-2222-2222-2222-222222222222', 'Maria Silva', '+5511977776666');
+   '22222222-2222-2222-2222-222222222222', 'Maria Silva', '5511977776666');
 
 
 \echo ''

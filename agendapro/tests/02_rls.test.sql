@@ -58,11 +58,11 @@ insert into public.profissionais (id, salao_id, perfil_id, nome) values
 
 insert into public.clientes (id, salao_id, perfil_id, nome, telefone) values
   ('c1100000-0000-0000-0000-00000000000a', '5a100000-0000-0000-0000-00000000000a',
-   'c0000000-0000-0000-0000-00000000000c', 'Maria', '+5511900000003'),
+   'c0000000-0000-0000-0000-00000000000c', 'Maria', '5511900000003'),
   ('c1100000-0000-0000-0000-00000000000b', '5a100000-0000-0000-0000-00000000000b',
-   'c0000000-0000-0000-0000-00000000000c', 'Maria', '+5511900000003'),
+   'c0000000-0000-0000-0000-00000000000c', 'Maria', '5511900000003'),
   ('c1100000-0000-0000-0000-00000000000d', '5a100000-0000-0000-0000-00000000000a',
-   'd0000000-0000-0000-0000-00000000000d', 'Joana', '+5511900000004');
+   'd0000000-0000-0000-0000-00000000000d', 'Joana', '5511900000004');
 
 -- Maria tem 1 no salão A e 1 no B. Joana tem 1 no A, com a Bia.
 insert into public.agendamentos (salao_id, cliente_id, profissional_id, inicio, fim) values
