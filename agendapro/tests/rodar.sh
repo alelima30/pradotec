@@ -176,6 +176,63 @@ for forma in arquivo "uma linha só"; do
 done
 psql -q -d postgres -c "drop database if exists ${BANCO}_rem;" >/dev/null 2>&1 || true
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O 98_campanhas.sql INSTALA O MÓDULO NUM BANCO QUE NÃO O TEM
+#
+# É o arquivo que o dono cola no Supabase para ganhar as campanhas. Mesma
+# regra do remendo: sem comentário, e colado DAS DUAS FORMAS, porque numa
+# linha só é como ele chega quando alguém copia pelo celular.
+#
+# O banco de teste nasce com o módulo já instalado (vem no 00_tudo.sql), então
+# um teste que só colasse o arquivo aprovaria um arquivo VAZIO. Aqui o módulo
+# é DESFEITO antes — inclusive os auxiliares de permissão, que voltam à versão
+# que devolve NULL.
+# ═══════════════════════════════════════════════════════════════════════════
+echo ""
+echo "▸ 98_campanhas.sql num banco sem o módulo"
+for forma in arquivo "uma linha só"; do
+  psql -q -d postgres -c "drop database if exists ${BANCO}_camp;" \
+                      -c "create database ${BANCO}_camp;" >/dev/null
+  if ! psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" \
+         -f "$AQUI/00_stub_supabase.sql" -f "$RAIZ/supabase/00_tudo.sql" \
+         >/dev/null 2>&1 \
+     || ! psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" \
+            -f "$AQUI/00_ajuda.sql" -f "$AQUI/campanhas_sujar.sql" >/dev/null 2>&1
+  then
+    echo "  ✗ não consegui desfazer o módulo — o arquivo nem foi testado"
+    falhou=1
+    continue
+  fi
+
+  echo "  ── colado como $forma ──"
+  if [ "$forma" = arquivo ]; then
+    colarc() { psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" \
+                 -f "$RAIZ/supabase/98_campanhas.sql"; }
+  else
+    colarc() { tr '\n' ' ' < "$RAIZ/supabase/98_campanhas.sql" \
+                 | psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" -f -; }
+  fi
+
+  if ! saida=$(colarc 2>&1); then
+    echo "  ✗ o arquivo não passou:"
+    echo "$saida" | grep -E "ERROR" | head -3
+    falhou=1
+  else
+    psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" \
+      -f "$AQUI/campanhas_conferir.sql" 2>&1 \
+      | sed "s|^psql:${AQUI}/campanhas_conferir.sql:[0-9]*: NOTICE:  ||"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || falhou=1
+  fi
+  if ! saida=$(colarc 2>&1); then
+    echo "  ✗ a segunda colagem falhou:"
+    echo "$saida" | grep -E "ERROR" | head -3
+    falhou=1
+  else
+    echo "  ✓ colado duas vezes, sem erro"
+  fi
+done
+psql -q -d postgres -c "drop database if exists ${BANCO}_camp;" >/dev/null 2>&1 || true
+
 echo ""
 if [ "$falhou" -eq 0 ]; then
   echo "✓ Tudo passou."
