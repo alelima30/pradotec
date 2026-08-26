@@ -83,3 +83,50 @@ select t_verdade('quem fez login executa o relatório',
 -- Faturamento e comissão não são leitura de visitante.
 select t_falso('anon não executa o relatório',
   has_function_privilege('anon', 'public.relatorio(uuid, date, date)', 'execute'));
+
+-- ── A cobrança, que vem no mesmo arquivo ───────────────────────────────────
+select t_verdade('a tabela cobrancas existe',
+  to_regclass('public.cobrancas') is not null);
+select t_verdade('com RLS ligado',
+  (select relrowsecurity from pg_class where relname = 'cobrancas'));
+
+select t_igual('as 7 funções da cobrança estão lá',
+  (select count(distinct proname) from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('abrir_cobranca','anotar_cobranca','registrar_pagamento',
+                        'dados_do_pagador','minha_cobranca',
+                        'assinaturas_a_vencer','vencer_cobrancas')), 7);
+
+/* ⚠ AS QUATRO LINHAS QUE VALEM DINHEIRO.
+   `registrar_pagamento` é o que move a assinatura. Alcançável por quem fez
+   login, qualquer dono de salão assina o plano de R$ 297 de graça — é uma
+   linha no console do navegador. As outras três são o mesmo furo por portas
+   vizinhas: abrir cobrança fora do fluxo, anotar um pagamento à mão, ou ler a
+   carteira inteira de quem está para vencer. */
+select t_falso('quem fez login NÃO registra pagamento', has_function_privilege(
+  'authenticated', 'public.registrar_pagamento(text, numeric, text)', 'execute'));
+select t_falso('nem abre cobrança direto no banco', has_function_privilege(
+  'authenticated', 'public.abrir_cobranca(uuid, text, text, uuid)', 'execute'));
+select t_falso('nem anota instrumento de pagamento', has_function_privilege(
+  'authenticated', 'public.anotar_cobranca(uuid, text, text, text, text, text, text)', 'execute'));
+select t_falso('nem lê a lista de quem está para vencer', has_function_privilege(
+  'authenticated', 'public.assinaturas_a_vencer(int)', 'execute'));
+-- O CPF do dono mora atrás desta função.
+select t_falso('nem os dados do pagador, que trazem o CPF', has_function_privilege(
+  'authenticated', 'public.dados_do_pagador(uuid)', 'execute'));
+
+select t_verdade('mas lê a própria cobrança, que é onde está o Pix dele',
+  has_function_privilege('authenticated', 'public.minha_cobranca(uuid)', 'execute'));
+select t_falso('anon não lê cobrança nenhuma',
+  has_function_privilege('anon', 'public.minha_cobranca(uuid)', 'execute'));
+select t_falso('nem alcança a tabela',
+  has_table_privilege('anon', 'public.cobrancas', 'select'));
+-- Escrever na tabela seria o mesmo furo: bastaria um INSERT com status 'paga'.
+select t_falso('e quem fez login não ESCREVE na tabela de cobranças',
+  has_table_privilege('authenticated', 'public.cobrancas', 'insert'));
+select t_falso('nem atualiza',
+  has_table_privilege('authenticated', 'public.cobrancas', 'update'));
+-- E a assinatura continua sendo só de leitura para o salão.
+select t_falso('o salão continua sem poder editar a própria assinatura',
+  has_table_privilege('authenticated', 'public.assinaturas', 'update'));

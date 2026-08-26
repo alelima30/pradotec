@@ -35,6 +35,16 @@ drop function if exists public.revogar_convite(uuid) cascade;
 -- E os relatórios, que também vêm no mesmo arquivo colável.
 drop function if exists public.relatorio(uuid, date, date) cascade;
 
+-- E a cobrança.
+drop table if exists public.cobrancas cascade;
+drop function if exists public.abrir_cobranca(uuid, text, text, uuid) cascade;
+drop function if exists public.anotar_cobranca(uuid, text, text, text, text, text, text) cascade;
+drop function if exists public.registrar_pagamento(text, numeric, text) cascade;
+drop function if exists public.dados_do_pagador(uuid) cascade;
+drop function if exists public.minha_cobranca(uuid) cascade;
+drop function if exists public.assinaturas_a_vencer(int) cascade;
+drop function if exists public.vencer_cobrancas() cascade;
+
 -- Os auxiliares como eram antes: sem `coalesce`, devolvendo NULL para quem
 -- não tem vínculo. É o estado em que a instalação de produção está agora.
 create or replace function public.e_equipe(p_salao uuid) returns boolean

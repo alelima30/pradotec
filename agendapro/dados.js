@@ -541,6 +541,47 @@ const Nuvem = {
       method: 'POST', body: JSON.stringify(argumentos || {}) });
   },
 
+  /* ── FUNÇÃO DE BORDA ──────────────────────────────────────────────────────
+     `chamar()` fala com o PostgREST: função dentro do banco, que só enxerga o
+     banco. Isto aqui fala com uma função de borda (Deno), que roda num
+     servidor e é o único lugar do sistema que enxerga credencial de terceiro
+     — o token do Mercado Pago, o do WhatsApp.
+
+     É por isso que existe como caminho separado, e não como mais uma linha do
+     `chamar()`: o que passa por aqui sai do banco. E é por isso que manda o
+     token da SESSÃO no `Authorization` — a borda não confia no que o corpo
+     diz sobre quem está pedindo; ela verifica o token contra o próprio
+     Supabase e usa o uuid que voltar de lá.
+
+     O erro vem de `{ erro }`, e é ele que chega na tela. A borda nunca
+     devolve a mensagem crua do Mercado Pago: ela ecoa parte do pedido, e o
+     pedido carrega e-mail de quem está pagando.
+     ─────────────────────────────────────────────────────────────────────── */
+  async borda(nome, corpo){
+    if(!LIGADO) throw new Error('Sem servidor configurado.');
+    if(!sessao || !sessao.token) throw new Error('Faça login de novo.');
+    const base = (window.AGENDAPRO.url || '').replace(/\/+$/, '');
+    let r;
+    try{
+      r = await fetch(base + '/functions/v1/' + nome, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: window.AGENDAPRO.chave,
+          Authorization: 'Bearer ' + sessao.token,
+        },
+        body: JSON.stringify(corpo || {}),
+      });
+    }catch(e){
+      // Rede caiu, ou a função nem existe ainda. As duas coisas são "tente de
+      // novo", e nenhuma delas é culpa de quem clicou.
+      throw new Error('Não consegui falar com o servidor. Tente de novo.');
+    }
+    const dados = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(dados.erro || ('Falhou (' + r.status + ')'));
+    return dados;
+  },
+
   /* ── A vitrine, que abre sem login ────────────────────────────────────
      Antes isto lia a vista `saloes_publicos` filtrando pelo apelido. Lia bem,
      e vazava do lado que ninguém olha: quem tirasse o filtro recebia TODOS os
@@ -735,6 +776,10 @@ const Demo = {
     // As funções do banco não existem aqui; as telas têm a versão de tela.
     console.info('[dados] rpc "' + funcao + '" ignorada no modo demonstração.');
     return null;
+  },
+  async borda(nome, corpo){
+    // Sem servidor não há Mercado Pago. A tela trata isto e explica.
+    throw new Error('Na demonstração não há cobrança de verdade.');
   },
   async salaoPorSlug(slug){
     return (lerDemo().saloes || []).find(s => s.slug === slug) || null;

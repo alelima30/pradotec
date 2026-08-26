@@ -56,6 +56,7 @@ partes = [limpar(a) for a in auxiliares]
 partes.append(limpar(open('supabase/10_campanhas.sql', encoding='utf-8').read()))
 partes.append(limpar(open('supabase/11_equipe.sql', encoding='utf-8').read()))
 partes.append(limpar(open('supabase/12_relatorios.sql', encoding='utf-8').read()))
+partes.append(limpar(open('supabase/13_cobranca.sql', encoding='utf-8').read()))
 
 saida = '\n\n'.join(partes) + '\n'
 assert '--' not in saida, 'sobrou comentário: o arquivo perde a imunidade'

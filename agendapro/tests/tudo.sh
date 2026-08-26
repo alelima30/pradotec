@@ -129,10 +129,12 @@ rodar "abas do salão"      node "$AQUI/abas-salao.test.mjs"
 rodar "convite da equipe"  node "$AQUI/convite.test.mjs"
 rodar "papéis no painel"   node "$AQUI/papeis.test.mjs"
 rodar "relatórios"         node "$AQUI/relatorios.test.mjs"
+rodar "assinatura do webhook" node "$AQUI/webhook-assinatura.test.js"
+rodar "checkout"           node "$AQUI/cobranca.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 32 suítes."
+  echo "✓ Tudo passou — as 34 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

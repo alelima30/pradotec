@@ -61,6 +61,13 @@ const PROIBIDOS = [
   { nome: 'token do WhatsApp (EAA...)', re: /\bEAA[A-Za-z0-9]{40,}/ },
   { nome: 'WHATSAPP_TOKEN com valor', re: /WHATSAPP_TOKEN\s*[:=]\s*['"][^'"]{8,}/ },
   { nome: 'segredo de webhook com valor', re: /(webhook|verify)[_-]?(token|secret)\s*[:=]\s*['"][^'"]{8,}/i },
+  /* Mercado Pago. O access token de produção começa com APP_USR- (o de teste,
+     TEST-), e com ele qualquer pessoa cria cobrança e MOVE DINHEIRO na conta
+     que recebe. É o segredo mais caro do projeto: vazar o do WhatsApp custa o
+     número; vazar este custa a conta. */
+  { nome: 'access token do Mercado Pago', re: /\b(APP_USR|TEST)-\d{6,}-\d{6}-[a-f0-9]{20,}/ },
+  { nome: 'MP_ACCESS_TOKEN com valor', re: /MP_ACCESS_TOKEN\s*[:=]\s*['"][^'"]{8,}/ },
+  { nome: 'MP_WEBHOOK_SECRET com valor', re: /MP_WEBHOOK_SECRET\s*[:=]\s*['"][^'"]{8,}/ },
 ];
 
 console.log('\nNenhum segredo nos arquivos que o navegador baixa');
@@ -89,6 +96,10 @@ console.log('\nA varredura sabe achar o que procura');
     ['const k = "sb_secret_abcdefgh12345678";', 'chave secreta nova (sb_secret_)'],
     ['EAA' + 'x'.repeat(45), 'token do WhatsApp (EAA...)'],
     ['WHATSAPP_TOKEN: "EAAGxyz123456"', 'WHATSAPP_TOKEN com valor'],
+    ['APP_USR-1234567890123456-011512-' + 'a'.repeat(32) + '-123456789',
+     'access token do Mercado Pago'],
+    ['MP_ACCESS_TOKEN = "APP_USR-alguma-coisa"', 'MP_ACCESS_TOKEN com valor'],
+    ['MP_WEBHOOK_SECRET = "abcdef123456"', 'MP_WEBHOOK_SECRET com valor'],
   ];
   for(const [texto, esperado] of iscas){
     const pegou = PROIBIDOS.filter(p => p.re.test(texto)).map(p => p.nome);
@@ -101,23 +112,41 @@ console.log('\nA varredura sabe achar o que procura');
     PROIBIDOS.every(p => !p.re.test(publicavel)));
 }
 
-console.log('\nO worker lê os segredos do ambiente, nunca de arquivo');
-{
-  const f = path.join(RAIZ, 'supabase/functions/enviar-campanha/index.ts');
-  verdade('a função de borda existe', fs.existsSync(f));
-  if(fs.existsSync(f)){
-    const txt = fs.readFileSync(f, 'utf8');
-    for(const v of ['WHATSAPP_TOKEN','WHATSAPP_PHONE_ID','SUPABASE_SERVICE_ROLE_KEY']){
-      verdade(`${v} vem de Deno.env`,
-        new RegExp(`Deno\\.env\\.get\\(['"]${v}['"]\\)`).test(txt));
-    }
-    for(const p of PROIBIDOS){
-      verdade(`e nenhum valor de ${p.nome} está escrito nela`, !p.re.test(txt));
-    }
-    // Log com o token dentro vaza o segredo para quem lê o painel de logs.
-    verdade('não há console.log do cabeçalho nem do corpo da requisição',
-      !/console\.(log|info)\s*\(\s*(req|corpo|headers)/.test(txt));
+console.log('\nAs funções de borda leem os segredos do ambiente, nunca de arquivo');
+for(const [rel, exigidas] of [
+  ['supabase/functions/enviar-campanha/index.ts',
+   ['WHATSAPP_TOKEN','WHATSAPP_PHONE_ID','SUPABASE_SERVICE_ROLE_KEY']],
+  ['supabase/functions/criar-cobranca/index.ts',
+   ['MP_ACCESS_TOKEN','SUPABASE_SERVICE_ROLE_KEY']],
+  ['supabase/functions/webhook-mp/index.ts',
+   ['MP_ACCESS_TOKEN','MP_WEBHOOK_SECRET','SUPABASE_SERVICE_ROLE_KEY']],
+]){
+  const f = path.join(RAIZ, rel);
+  verdade(`${path.basename(path.dirname(rel))} existe`, fs.existsSync(f));
+  if(!fs.existsSync(f)) continue;
+  const txt = fs.readFileSync(f, 'utf8');
+  for(const v of exigidas){
+    verdade(`${path.basename(path.dirname(rel))}: ${v} vem de Deno.env`,
+      new RegExp(`Deno\\.env\\.get\\(['"]${v}['"]\\)`).test(txt));
   }
+  for(const p of PROIBIDOS){
+    if(p.re.test(txt)) nao(`${rel}: valor de ${p.nome} escrito no arquivo`);
+  }
+  // Log com o token dentro vaza o segredo para quem lê o painel de logs.
+  verdade(`${path.basename(path.dirname(rel))}: não loga requisição nem corpo`,
+    !/console\.(log|info)\s*\(\s*(req|corpo|headers)\b/.test(txt));
+}
+
+/* ⚠ E as funções de borda NÃO podem estar entre os arquivos que o navegador
+   baixa. Elas são servidas pelo Supabase, não pelo GitHub Pages — mas basta
+   alguém mover a pasta `functions` para dentro do site para o token do
+   Mercado Pago virar uma requisição HTTP de qualquer pessoa. */
+console.log('\nAs funções de borda não são servidas ao navegador');
+{
+  const doNavegador = arquivosDoNavegador(RAIZ).map(f => path.relative(RAIZ, f));
+  const vazadas = doNavegador.filter(f => f.includes('supabase/functions'));
+  verdade('nenhuma função de borda no que o site publica', vazadas.length === 0,
+    vazadas.join('; '));
 }
 
 console.log('');

@@ -4557,16 +4557,64 @@ function pintarPlano(){
         ${real(recomendado.precoMes)}<span style="font-size:14px;font-weight:600;
         color:var(--txt2)"> /mês</span></div>
       <p>Até ${recomendado.maxProfissionais} profissional(is) na agenda.</p>
-      <div class="card-acoes">
-        <button class="btn btn-p" onclick="assinar('${recomendado.codigo}')">
-          Assinar ${escapar(recomendado.nome)}</button>
+      <div class="card-acoes" style="gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="assinar('${recomendado.codigo}','pix')">
+          ${NA_NUVEM ? 'Pagar com Pix' : 'Assinar ' + escapar(recomendado.nome)}</button>
+        ${NA_NUVEM ? `<button class="btn" onclick="assinar('${recomendado.codigo}','boleto')">
+          Boleto</button>` : ''}
       </div>
       <p style="font-size:12px;color:var(--txt3);margin-top:10px">
-        Nesta demonstração o botão troca o plano na hora. No sistema de
-        verdade ele leva ao pagamento, e quem muda a assinatura é a
-        plataforma — o dono não edita o próprio plano, senão assinaria o
-        maior de graça.</p>
-    </div>` : '';
+        ${NA_NUVEM
+          ? 'O Pix cai em segundos e a assinatura já vale. Boleto compensa em '
+            + 'até 3 dias úteis. Quem confirma o pagamento é o banco — esta '
+            + 'tela não troca o plano sozinha.'
+          : 'Nesta demonstração o botão troca o plano na hora. No sistema de '
+            + 'verdade ele abre o Pix, e quem ativa a assinatura é a '
+            + 'confirmação do pagamento — o dono não edita o próprio plano, '
+            + 'senão assinaria o maior de graça.'}</p>
+    </div>
+    ${NA_NUVEM ? '<div id="cobrancaPendente"></div>' : ''}` : '';
+
+  if(NA_NUVEM) mostrarCobrancaPendente();
+}
+
+/* Se ficou um Pix por pagar, ele aparece na tela do Plano — e não só dentro
+   da janela que já foi fechada. Sem isto o dono que fechou a janela por
+   engano acha que precisa começar de novo, e a segunda tentativa esbarra na
+   cobrança que ainda está aberta. */
+async function mostrarCobrancaPendente(){
+  const alvo = document.getElementById('cobrancaPendente');
+  if(!alvo || !souGestor()) return;
+  try{
+    const r = await Dados.chamar('minha_cobranca', { p_salao: salaoAtual });
+    const c = (Array.isArray(r) ? r[0] : r) || {};
+    if(!c.aberta) return;
+    const p = planoDe(c.aberta.plano);
+    alvo.innerHTML = `<div class="aviso atencao" style="margin-top:14px">
+      <b>Você tem um pagamento em aberto</b> — ${escapar(p ? p.nome : c.aberta.plano)},
+      ${real(Number(c.aberta.valor))}, por ${c.aberta.metodo === 'boleto' ? 'boleto' : 'Pix'}.
+      <div style="margin-top:9px">
+        <button class="btn btn-peq" onclick="reabrirCobranca()">Ver o código</button>
+      </div></div>`;
+    cobrancaAberta = {
+      id: c.aberta.id, plano: c.aberta.plano, valor: c.aberta.valor,
+      metodo: c.aberta.metodo, venceEm: c.aberta.vence_em,
+      pixCopiaCola: c.aberta.pix_copia_cola, pixQrBase64: c.aberta.pix_qr_base64,
+      boletoUrl: c.aberta.boleto_url, linhaDigitavel: c.aberta.linha_digitavel,
+    };
+  }catch(e){
+    // Sem cobrança, sem servidor, sem permissão: nada disso é erro de tela.
+    console.info('minha_cobranca:', e.message);
+  }
+}
+
+function reabrirCobranca(){
+  if(!cobrancaAberta) return;
+  const p = planoDe(cobrancaAberta.plano);
+  abrirModal('Assinar ' + (p ? p.nome : cobrancaAberta.plano),
+    '<div class="vazio" id="pgtoCorpo">…</div>',
+    [['Fechar','fecharModal();pintar()','btn-p']]);
+  desenharPagamento(cobrancaAberta);
 }
 
 /* Trocar de plano é operação da plataforma, não da tela do dono — a policy
@@ -4578,22 +4626,160 @@ function pintarPlano(){
    dizer "Time · 3 de 3" enquanto o banco seguia no Grátis de 1 — o dono
    cadastrava o segundo profissional e levava um erro que contradizia o que
    estava escrito na frente dele. */
-function assinar(codigo){
-  const a = assinaturaAtual();
-  if(!a) return;
+/* ═══════════════════════════════════════════════════════════════════════════
+   ASSINAR — Pix e boleto, pelo Mercado Pago
+   ---------------------------------------------------------------------------
+   Esta tela NÃO troca o plano. Ela pede uma cobrança e mostra o código para
+   pagar; quem move a assinatura é o webhook, no servidor, depois que o
+   Mercado Pago confirma. É a mesma regra de sempre, e é a que impede o dono
+   de assinar o plano de R$ 297 abrindo o console do navegador.
 
-  if(NA_NUVEM){
-    const p = planoDe(codigo);
-    alert('Para assinar o ' + (p ? p.nome : codigo) + ', o pagamento passa '
-        + 'pela plataforma.\n\nEsta tela não troca o plano sozinha: quem muda '
-        + 'assinatura somos nós, senão qualquer dono assinaria o plano maior '
-        + 'de graça.');
+   E nem o VALOR sai daqui. O que vai para a borda é o código do plano; o
+   preço é lido de `planos` dentro do banco. Se o navegador mandasse quanto
+   pagar, o checkout seria um formulário onde o cliente digita o próprio
+   preço.
+   ═══════════════════════════════════════════════════════════════════════════ */
+let cobrancaAberta = null;
+
+function assinar(codigo, metodo){
+  /* ⚠ O PAPEL É CONFERIDO ANTES DE QUALQUER OUTRA COISA, E TEM MOTIVO.
+     A ordem natural seria buscar a assinatura primeiro. Só que a recepção NÃO
+     LÊ `assinaturas` — a policy é `e_gestor(salao_id)` —, então para ela
+     `assinaturaAtual()` volta nulo e a função saía calada num `return`. O
+     botão não fazia nada e não dizia nada, que é a pior das duas respostas:
+     ela clicaria de novo, e depois ligaria para o dono dizendo que o sistema
+     travou. */
+  if(NA_NUVEM && !souGestor()){
+    alert('Só o proprietário ou um administrador pode assinar o plano.\n\n'
+        + 'Peça para quem responde pelo salão entrar e fazer a assinatura.');
     return;
   }
 
-  a.plano = codigo; a.status = 'ativa'; a.trialAte = null; a.venceEm = null;
-  salvar();
-  pintar();
+  const a = assinaturaAtual();
+  if(!a) return;
+
+  if(!NA_NUVEM){
+    // Demonstração: não há Mercado Pago nem servidor. Trocar na hora é o que
+    // deixa a pessoa ver o resto do sistema sem plano no caminho.
+    a.plano = codigo; a.status = 'ativa'; a.trialAte = null; a.venceEm = null;
+    salvar(); pintar();
+    return;
+  }
+  abrirPagamento(codigo, metodo || 'pix');
+}
+
+async function abrirPagamento(codigo, metodo){
+  const p = planoDe(codigo);
+  abrirModal('Assinar ' + (p ? p.nome : codigo), `
+    <div class="vazio" id="pgtoCorpo">Falando com o Mercado Pago…</div>
+  `, [['Fechar','fecharModal();pintar()','btn-p']]);
+
+  try{
+    // Só o salão e o plano. Nem o preço, nem o CPF: os dois já estão no
+    // banco, e a borda lê de lá.
+    const r = await Dados.borda('criar-cobranca', {
+      salaoId: salaoAtual, plano: codigo, metodo });
+    cobrancaAberta = r.cobranca;
+    desenharPagamento(r.cobranca);
+  }catch(e){
+    const alvo = document.getElementById('pgtoCorpo');
+    if(alvo) alvo.innerHTML = '<b>Não consegui abrir a cobrança</b>'
+      + escapar(e.message || 'Tente de novo em alguns minutos.');
+  }
+}
+
+function desenharPagamento(c){
+  const alvo = document.getElementById('pgtoCorpo');
+  if(!alvo) return;
+  const p = planoDe(c.plano);
+  const vence = c.venceEm ? new Date(c.venceEm) : null;
+
+  alvo.outerHTML = `
+    <div id="pgtoCorpo">
+      <div class="aviso info" style="margin-top:0">
+        <b>${escapar(p ? p.nome : c.plano)} · ${real(Number(c.valor))} por mês.</b><br>
+        A assinatura passa a valer assim que o pagamento cair — costuma ser em
+        segundos no Pix. Você não precisa avisar ninguém.
+      </div>
+
+      ${c.metodo === 'pix' ? `
+        ${c.pixQrBase64 ? `<div style="text-align:center;margin:14px 0">
+          <img src="data:image/png;base64,${escapar(c.pixQrBase64)}"
+               alt="QR Code do Pix" style="width:220px;height:220px;
+               border:1px solid var(--borda);border-radius:12px;background:#fff;padding:8px">
+        </div>` : ''}
+        <div class="campo"><label>Pix copia e cola</label>
+          <textarea id="pixCodigo" readonly rows="3" onclick="this.select()"
+            style="font-family:ui-monospace,monospace;font-size:12px"
+            >${escapar(c.pixCopiaCola || '')}</textarea></div>
+        <button class="btn btn-p" onclick="copiarPix()">Copiar código Pix</button>
+      ` : `
+        <div class="campo"><label>Linha digitável</label>
+          <input id="pixCodigo" readonly onclick="this.select()"
+                 value="${escapar(c.linhaDigitavel || '')}"
+                 style="font-family:ui-monospace,monospace;font-size:12.5px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-peq" onclick="copiarPix()">Copiar linha digitável</button>
+          ${c.boletoUrl ? `<a class="btn btn-p" target="_blank" rel="noopener"
+             href="${escapar(c.boletoUrl)}">Abrir o boleto</a>` : ''}
+        </div>
+        <p style="font-size:12.5px;color:var(--txt2);margin-top:11px">
+          Boleto compensa em até 3 dias úteis — a assinatura só passa a valer
+          quando o banco avisar. Se for para hoje, pague no Pix.</p>
+      `}
+
+      ${vence ? `<p style="font-size:12.5px;color:var(--txt2);margin-top:12px">
+        Este código vale até ${escapar(vence.toLocaleString('pt-BR',
+          { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }))}.
+        Depois disso é só pedir outro.</p>` : ''}
+
+      <div style="margin-top:14px;padding-top:13px;border-top:1px solid var(--borda)">
+        <button class="btn btn-peq" onclick="conferirPagamento()">Já paguei</button>
+        <span style="font-size:12.5px;color:var(--txt2);margin-left:8px"
+              id="pgtoRecado">Confere sozinho, mas você pode apressar.</span>
+      </div>
+    </div>`;
+  if(window.aplicarIcones) aplicarIcones();
+}
+
+function copiarPix(){
+  const el = document.getElementById('pixCodigo');
+  if(!el) return;
+  el.select();
+  const pronto = () => {
+    const r = document.getElementById('pgtoRecado');
+    if(r) r.textContent = 'Copiado. Cole no aplicativo do seu banco.';
+  };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(el.value).then(pronto)
+      .catch(e => console.error('Falha ao copiar:', e));
+  } else {
+    try{ document.execCommand('copy'); pronto(); }
+    catch(e){ console.error('Falha ao copiar:', e); }
+  }
+}
+
+/* "Já paguei" não confirma nada — só relê o que o banco sabe.
+   Quem diz que pagou é o Mercado Pago, pelo webhook. Um botão que ativasse a
+   assinatura por ter sido clicado seria o produto de graça para quem clica. */
+async function conferirPagamento(){
+  const r = document.getElementById('pgtoRecado');
+  if(r) r.textContent = 'Conferindo…';
+  try{
+    bd = await carregarTudo();
+    const a = assinaturaAtual();
+    if(a && a.status === 'ativa' && a.venceEm && a.venceEm >= hoje()){
+      fecharModal();
+      pintar();
+      alert('Pagamento confirmado. Sua assinatura está ativa até '
+          + porExtenso(a.venceEm) + '.');
+      return;
+    }
+    if(r) r.textContent = 'Ainda não caiu. No Pix costuma levar segundos; '
+                        + 'no boleto, até 3 dias úteis.';
+  }catch(e){
+    if(r) r.textContent = 'Não consegui conferir agora.';
+  }
 }
 
 /* ── A ponte com o banco ─────────────────────────────────────────────────
