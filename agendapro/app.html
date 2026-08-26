@@ -493,7 +493,8 @@ body.carregando-tudo .tela{ display:none }
   <section class="tela" id="tela-servicos">
     <div class="barra">
       <span class="espaco"></span>
-      <button class="btn btn-p" onclick="abrirServico()">+ Serviço</button>
+      <button class="btn btn-p" id="btNovoServico"
+              onclick="abrirServico()">+ Serviço</button>
     </div>
     <div id="listaServicos"></div>
   </section>
@@ -1034,20 +1035,77 @@ function rotuloServicos(ag){
 /* As seções, em grupos. O agrupamento não é enfeite: com oito itens soltos
    a pessoa lê a lista inteira toda vez. Separados por assunto — o dia a dia,
    os cadastros, a conta — o olho pula direto para o bloco certo. */
+/* ⚠ QUEM VÊ CADA ABA — E A LISTA SAI DO QUE O BANCO JÁ DECIDE.
+
+   Até aqui o painel era o mesmo para todo mundo: a recepcionista entrava e
+   via Plano, Meu salão e Equipe. O banco recusava a escrita dela — o RLS
+   sempre esteve certo — mas a tela oferecia. O resultado prático é uma
+   recepcionista lendo o valor do plano e a comissão das colegas, e levando
+   erro em inglês quando tentava salvar algo que a tela deixou ela abrir.
+
+   A quarta coluna é a lista de papéis, e ela NÃO é uma regra nova: é a mesma
+   que o 02_rls.sql já aplica, escrita aqui para a tela combinar com o banco.
+
+     e_gestor       (dono, admin)                  → serviços, equipe,
+                                                     salão, plano
+     ve_agenda_toda (dono, admin, recepcao)        → agenda inteira, caixa
+     e_equipe       (+ profissional)               → clientes, a própria agenda
+
+   Isto NÃO é segurança: segurança é o RLS, e ele continua sendo quem recusa.
+   Isto é honestidade da tela — não oferecer o que vai ser negado. */
+const GESTAO  = ['dono','admin'];
+const BALCAO  = ['dono','admin','recepcao'];
+const EQUIPE  = ['dono','admin','recepcao','profissional'];
+
 const TELAS = [
-  ['agenda',   'Agenda',           'calendario', 'Dia a dia'],
-  ['caixa',    'Caixa',            'cartao',     'Dia a dia'],
-  ['clientes', 'Clientes',         'usuario',    'Cadastros'],
-  ['servicos', 'Serviços',         'tesoura',    'Cadastros'],
-  ['equipe',   'Equipe',           'equipe',     'Cadastros'],
-  ['salao',    'Meu salão',        'predio',     'Cadastros'],
-  ['publico',  'Ver como cliente', 'olho',       'A conta'],
-  ['plano',    'Plano',            'etiqueta',   'A conta'],
+  ['agenda',   'Agenda',           'calendario', 'Dia a dia', EQUIPE],
+  ['caixa',    'Caixa',            'cartao',     'Dia a dia', EQUIPE],
+  ['clientes', 'Clientes',         'usuario',    'Cadastros', EQUIPE],
+  ['servicos', 'Serviços',         'tesoura',    'Cadastros', EQUIPE],
+  ['equipe',   'Equipe',           'equipe',     'Cadastros', GESTAO],
+  ['salao',    'Meu salão',        'predio',     'Cadastros', GESTAO],
+  ['publico',  'Ver como cliente', 'olho',       'A conta',   EQUIPE],
+  ['plano',    'Plano',            'etiqueta',   'A conta',   GESTAO],
 ];
+
+/* O papel desta pessoa NESTE salão.
+
+   Em demonstração não há login, e quem está mexendo é o dono do computador:
+   devolver 'dono' ali não afrouxa nada (não existe conta nem servidor) e
+   evita uma demonstração pela metade, com abas escondidas sem motivo. */
+function meuPapel(){
+  if(!NA_NUVEM) return 'dono';
+  // `montarAbas()` roda na abertura, antes de o banco chegar.
+  if(!bd || !bd.vinculos) return 'dono';
+  const eu = (Dados.sessaoAtual() || {}).usuarioId;
+  if(!eu) return 'dono';
+  const v = (bd.vinculos || []).find(x =>
+    x.perfilId === eu && x.salaoId === salaoAtual && x.status === 'ativo'
+    && x.papel !== 'cliente');
+  return v ? v.papel : 'dono';
+}
+const souGestor = () => GESTAO.includes(meuPapel());
+
+/* A ficha de profissional DESTA pessoa neste salão, quando existe.
+   É o espelho de `meu_profissional_id()` do 02_rls.sql — a mesma pergunta
+   que o banco faz para decidir quais atendimentos ela enxerga. */
+function minhaFichaDeProf(){
+  if(!NA_NUVEM || !bd) return null;
+  const eu = (Dados.sessaoAtual() || {}).usuarioId;
+  if(!eu) return null;
+  return doSalao(bd.profissionais).find(p => p.perfilId === eu) || null;
+}
+const vejoTudo  = () => BALCAO.includes(meuPapel());
+
+// As abas que ESTA pessoa alcança.
+const minhasTelas = () => {
+  const p = meuPapel();
+  return TELAS.filter(t => t[4].includes(p));
+};
 
 function montarAbas(){
   let html = '', grupoAtual = null;
-  for(const [k, rotulo, icone, grupo] of TELAS){
+  for(const [k, rotulo, icone, grupo] of minhasTelas()){
     if(grupo !== grupoAtual){
       html += `<div class="lat-grupo">${grupo}</div>`;
       grupoAtual = grupo;
@@ -1068,6 +1126,11 @@ function montarAbas(){
 }
 
 function irPara(k){
+  /* Aba que esta pessoa não alcança: volta para a agenda em vez de abrir uma
+     tela que o banco vai negar. Não é a trava — a trava é o RLS — é o que
+     impede uma tela meio carregada quando o endereço vem de um atalho antigo
+     ou de um clique programático. */
+  if(!minhasTelas().some(t => t[0] === k)) k = 'agenda';
   telaAtual = k;
   document.querySelectorAll('.tela').forEach(t => t.classList.remove('on'));
   document.getElementById('tela-' + k).classList.add('on');
@@ -1205,6 +1268,15 @@ function pintarDataTopo(){
    (`on delete restrict`), então a ficha sempre existe para dar nome à
    coluna. */
 function profsDaGrade(dia){
+  /* ⚠ QUEM ATENDE VÊ SÓ A PRÓPRIA COLUNA — e não é preferência de layout.
+
+     O RLS entrega a esta pessoa só os atendimentos dela. Desenhar as colunas
+     das colegas assim mesmo faria a agenda MENTIR: a coluna da Bia apareceria
+     vazia o dia inteiro, e quem olha conclui que a Bia está livre. Dizer a uma
+     cliente "a Bia tem 14h" com a Bia cheia é pior do que não mostrar a Bia. */
+  const so = BALCAO.includes(meuPapel()) ? null : minhaFichaDeProf();
+  if(so) return [so];
+
   const lista = profsAtivos();
   const tem = new Set(lista.map(p => p.id));
   for(const a of agendaDoDia(dia)){
@@ -1610,6 +1682,12 @@ function pintarClientes(){
 
 /* ── Desenho: serviços ───────────────────────────────────────────────── */
 function pintarServicos(){
+  /* A LISTA fica para todo mundo da equipe: a recepção precisa conferir
+     preço e duração no balcão, e o banco deixa ela ler (`serv_ler` usa
+     `tem_acesso`). O que sai são os botões de MEXER — que o banco negaria. */
+  const bt = document.getElementById('btNovoServico');
+  if(bt) bt.style.display = souGestor() ? '' : 'none';
+
   const lista = doSalao(bd.servicos);
   const alvo = document.getElementById('listaServicos');
   if(!lista.length){
@@ -1627,7 +1705,9 @@ function pintarServicos(){
       <td>${s.duracaoMin} min</td>
       <td>${real(s.preco)}</td>
       <td>${s.comissaoPct != null ? s.comissaoPct + '%' : '<span style="color:var(--txt3)">do profissional</span>'}</td>
-      <td style="text-align:right"><button class="btn btn-peq" onclick="abrirServico('${s.id}')">Editar</button></td>
+      <td style="text-align:right">${souGestor()
+        ? `<button class="btn btn-peq" onclick="abrirServico('${s.id}')">Editar</button>`
+        : ''}</td>
     </tr>`).join('') + '</tbody></table>';
 }
 
