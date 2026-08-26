@@ -114,16 +114,21 @@ select t_texto('cancelar duas vezes é recusado, dizendo o que houve',
 -- Cadeira cancelada em cima da hora não é revendida, e o prejuízo é do salão.
 -- Quem precisa cancelar depois disso fala com a casa — é uma conversa, não
 -- um botão.
+-- ⚠ `encaixe` aqui não é enfeite. Este lançamento usa `now()`, então a hora
+-- dele depende do relógio de quem roda a suíte — às 19h ele cai fora da
+-- jornada 09:00–18:00 da Ana, e o motor recusa (com razão). Marcar como
+-- encaixe diz a verdade sobre o que este agendamento é, em vez de afrouxar a
+-- jornada para todo mundo só para o teste passar.
 insert into public.agendamentos
   (id, salao_id, cliente_id, profissional_id, inicio, fim, status, origem,
-   gerenciar_token)
+   gerenciar_token, encaixe)
 select '44444444-0000-0000-0000-000000000001',
        '11111111-0000-0000-0000-000000000001',
        (select cliente_id from public.agendamentos where id = (select id from marcado)),
        '22222222-0000-0000-0000-000000000001',
        now() + interval '30 minutes', now() + interval '90 minutes',
        'confirmado', 'online',
-       '55555555-0000-4000-8000-000000000001';
+       '55555555-0000-4000-8000-000000000001', true;
 
 select t_texto('faltando menos de 2 horas, o botão não resolve — manda falar com o salão',
   erro_de($$select public.cancelar_agendamento('55555555-0000-4000-8000-000000000001'::uuid)$$),

@@ -167,8 +167,15 @@ secao('A trava de horário funciona vinda da tela');
   const erro = await recusa(() => dono.inserir('agendamentos', {
     salaoId, clienteId: ficha.id, profissionalId: profs[0].id,
     inicio: '2026-09-14T12:15:00Z', fim: '2026-09-14T12:50:00Z' }));
-  dizer(!!erro && /conflit|exclus|choque|agenda_sem_choque/i.test(erro),
+  /* A recusa agora vem do motor (`porque_nao_cabe`), que roda num gatilho
+     BEFORE e chega antes da constraint — e diz COM QUEM está o horário, em
+     vez de "agenda_sem_choque". A constraint continua sendo a autoridade no
+     empate de verdade, quando duas gravações acontecem no mesmo instante e
+     nenhum gatilho enxerga a outra ainda. */
+  dizer(!!erro && /conflit|exclus|choque|agenda_sem_choque|já tem/i.test(erro),
     'horário em cima de outro é recusado pelo banco');
+  dizer(!!erro && /das \d{2}:\d{2} às \d{2}:\d{2}/.test(erro),
+    'e a recusa diz de que horas até que horas, para resolver no balcão');
   if(erro) console.log('      banco disse: ' + erro.slice(0,90));
 }
 

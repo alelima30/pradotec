@@ -52,6 +52,7 @@ const COLUNAS = {
                    canceladoMotivo:'cancelado_motivo', atendidoNome:'atendido_nome',
                    sinalExigido:'sinal_exigido', sinalPago:'sinal_pago',
                    sinalRef:'sinal_ref', criadoPor:'criado_por', criadoEm:'criado_em',
+                   encaixePor:'encaixe_por',
                    arquivadoEm:'arquivado_em' },
   agendamento_servicos: { agendamentoId:'agendamento_id', servicoId:'servico_id',
                    duracaoMin:'duracao_min', comissaoPct:'comissao_pct' },
@@ -115,6 +116,15 @@ const VAZIO_E_NULO = new Set([
   'comissao_pct', 'comissao_valor', 'total', 'duracao_min', 'preco',
   'trial_ate', 'vence_em', 'indicado_por', 'cliente_id', 'sinal_exigido',
   'sinal_pago', 'nascimento_dia', 'arquivado_em',
+  /* Estas duas entraram quando o `colunas.test.js` passou a ler também as
+     colunas criadas por `alter table`. Ele não as via antes — e por isso não
+     acusava —, mas o Postgres via: `invalid input syntax for type uuid: ""`
+     derruba a gravação inteira, não só o campo.
+
+     `marketing_saiu_em` já estava assim desde o módulo de campanhas. Ficou
+     escondido porque nada exercitava o caminho de "a pessoa saiu da lista e
+     depois voltou". */
+  'marketing_saiu_em', 'encaixe_por',
 ]);
 
 function paraBanco(tabela, obj){

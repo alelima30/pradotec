@@ -19,7 +19,14 @@ const fs = require('fs');
 const path = require('path');
 
 const RAIZ = path.join(__dirname, '..');
-const sql = ['supabase/01_schema.sql', 'supabase/03_onboarding.sql']
+/* ⚠ Arquivo que cria ou ALTERA tabela precisa entrar nesta lista.
+   O `14_motor.sql` acrescenta `encaixe` e `encaixe_por` em `agendamentos` por
+   `alter table`. Sem ele aqui, a varredura lê um schema desatualizado e acusa
+   o mapa do dados.js de inventar coluna — foi o que aconteceu, e a mensagem
+   apontava para o lugar errado. */
+const sql = ['supabase/01_schema.sql', 'supabase/03_onboarding.sql',
+             'supabase/09_cliente.sql', 'supabase/10_campanhas.sql',
+             'supabase/13_cobranca.sql', 'supabase/14_motor.sql']
   .map(f => fs.readFileSync(path.join(RAIZ, f), 'utf8')).join('\n');
 
 let ok = 0, falhas = 0;
@@ -81,6 +88,29 @@ function lerTabelas(texto){
     }
     tabelas[nome] = colunas;
   }
+
+  /* ── E as colunas que chegam depois, por ALTER TABLE ────────────────────
+     Nem toda coluna nasce dentro do `create table`. Módulo novo acrescenta
+     coluna em tabela antiga — `aceita_marketing` nas fichas, `gerenciar_token`
+     e `encaixe` nos agendamentos — e é assim que tem que ser, porque o banco
+     de produção já existe e não se recria.
+
+     Sem ler isto, a varredura enxerga um schema desatualizado e acusa o mapa
+     do `dados.js` de inventar coluna. A mensagem sai apontando para o lugar
+     errado, e quem for consertar vai mexer no arquivo certo. */
+  const reAlter = /alter table\s+(?:only\s+)?public\.(\w+)\s+add column\s+(?:if not exists\s+)?([a-z_][a-z0-9_]*)\s+((?:timestamp with time zone|time without time zone|double precision|[a-z]+)(?:\(\s*[\d,\s]*\))?)([^;]*);/gi;
+  let a;
+  while((a = reAlter.exec(texto)) !== null){
+    const [, tabela, coluna, tipo, resto] = a;
+    if(!tabelas[tabela]) tabelas[tabela] = [];
+    if(tabelas[tabela].some(c => c.nome === coluna)) continue;
+    tabelas[tabela].push({
+      nome: coluna,
+      tipo: tipo.trim().toLowerCase(),
+      nulo: !/not null|primary key|generated always as/i.test(resto),
+    });
+  }
+
   return tabelas;
 }
 

@@ -130,3 +130,38 @@ select t_falso('nem atualiza',
 -- E a assinatura continua sendo só de leitura para o salão.
 select t_falso('o salão continua sem poder editar a própria assinatura',
   has_table_privilege('authenticated', 'public.assinaturas', 'update'));
+
+-- ── O motor da agenda, que vem no mesmo arquivo ────────────────────────────
+select t_verdade('a coluna encaixe existe',
+  exists (select 1 from information_schema.columns
+           where table_name = 'agendamentos' and column_name = 'encaixe'));
+select t_verdade('e encaixe_por, para a exceção ter dono',
+  exists (select 1 from information_schema.columns
+           where table_name = 'agendamentos' and column_name = 'encaixe_por'));
+
+select t_igual('as 7 funções do motor estão lá',
+  (select count(distinct proname) from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('jornada_costurada','cabe_na_jornada','ha_bloqueio',
+                        'ha_choque','porque_nao_cabe','avaliar_horario',
+                        'checar_cabe_agendamento')), 7);
+
+/* ⚠ O GATILHO É A PEÇA. Sem ele as funções existem e não valem nada: a
+   jornada volta a ser um aviso de tela, contornável por qualquer chamada
+   direta à API. */
+select t_verdade('e o gatilho está ligado na tabela',
+  exists (select 1 from pg_trigger
+           where tgname = 'tg_agend_cabe'
+             and tgrelid = 'public.agendamentos'::regclass
+             and not tgisinternal));
+
+-- Jornada e folga da equipe não são assunto de quem só abriu o link.
+select t_falso('anon não pergunta pela jornada da equipe',
+  has_function_privilege('anon',
+    'public.porque_nao_cabe(uuid, timestamptz, timestamptz, uuid)', 'execute'));
+select t_verdade('mas o painel logado pergunta',
+  has_function_privilege('authenticated',
+    'public.avaliar_horario(uuid, timestamptz, timestamptz, uuid)', 'execute'));
+select t_falso('e ninguém alcança os auxiliares direto',
+  has_function_privilege('authenticated', 'public.jornada_costurada(uuid, date)', 'execute'));

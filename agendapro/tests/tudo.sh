@@ -131,10 +131,11 @@ rodar "papéis no painel"   node "$AQUI/papeis.test.mjs"
 rodar "relatórios"         node "$AQUI/relatorios.test.mjs"
 rodar "assinatura do webhook" node "$AQUI/webhook-assinatura.test.js"
 rodar "checkout"           node "$AQUI/cobranca.test.mjs"
+rodar "motor da agenda"    node "$AQUI/motor.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 34 suítes."
+  echo "✓ Tudo passou — as 35 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

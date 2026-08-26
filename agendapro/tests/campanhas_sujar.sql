@@ -45,6 +45,20 @@ drop function if exists public.minha_cobranca(uuid) cascade;
 drop function if exists public.assinaturas_a_vencer(int) cascade;
 drop function if exists public.vencer_cobrancas() cascade;
 
+-- E o motor da agenda, que também vem no mesmo arquivo colável. Voltar ao
+-- estado anterior é tirar o gatilho: era assim que a jornada era só um aviso
+-- de tela, e o banco aceitava 03:00 numa jornada das 09:00 às 18:00.
+drop trigger if exists tg_agend_cabe on public.agendamentos;
+drop function if exists public.checar_cabe_agendamento() cascade;
+drop function if exists public.porque_nao_cabe(uuid, timestamptz, timestamptz, uuid) cascade;
+drop function if exists public.avaliar_horario(uuid, timestamptz, timestamptz, uuid) cascade;
+drop function if exists public.jornada_costurada(uuid, date) cascade;
+drop function if exists public.cabe_na_jornada(uuid, timestamptz, timestamptz) cascade;
+drop function if exists public.ha_bloqueio(uuid, timestamptz, timestamptz) cascade;
+drop function if exists public.ha_choque(uuid, timestamptz, timestamptz, uuid) cascade;
+alter table public.agendamentos drop column if exists encaixe;
+alter table public.agendamentos drop column if exists encaixe_por;
+
 -- Os auxiliares como eram antes: sem `coalesce`, devolvendo NULL para quem
 -- não tem vínculo. É o estado em que a instalação de produção está agora.
 create or replace function public.e_equipe(p_salao uuid) returns boolean

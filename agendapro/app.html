@@ -824,7 +824,18 @@ function jornadaDo(prof, data){
   return (prof.jornada && prof.jornada[diaDaSemana(data)]) || [];
 }
 
+/* Jornada NENHUMA cadastrada não é "não trabalha": é "ainda não configurou".
+   O espelho da mesma decisão que está no `cabe_na_jornada()` do banco, e pelo
+   mesmo motivo — um salão recém-cadastrado tem profissional e não tem
+   jornada, e recusar tudo faria o primeiro dia dele ser o último. Ter jornada
+   em outros dias e não neste é outra coisa: é folga, e folga se respeita. */
+function temJornadaAlguma(prof){
+  return !!(prof && prof.jornada
+            && Object.values(prof.jornada).some(f => f && f.length));
+}
+
 function dentroDaJornada(prof, data, ini, fim){
+  if(!temJornadaAlguma(prof)) return true;
   return jornadaDo(prof, data).some(j => ini >= j[0] && fim <= j[1]);
 }
 
@@ -834,6 +845,70 @@ function emBloqueio(profId, data, ini, fim){
     (b.profissionalId === profId || b.profissionalId === null) &&
     sobrepoe(ini, fim, b.inicio, b.fim)
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   O ESPELHO DO MOTOR
+   ---------------------------------------------------------------------------
+   Esta é a versão de tela do `porque_nao_cabe()` do banco. As duas existem de
+   propósito, e é importante saber por quê:
+
+     · a do banco é a AUTORIDADE. Ela roda num gatilho, e não tem como ser
+       contornada — nem por outra tela, nem chamando a API direto, nem com o
+       JavaScript desligado.
+
+     · esta aqui é a EXPLICAÇÃO, e ela precisa ser instantânea. O aviso muda a
+       cada tecla no campo de horário; uma ida ao servidor por tecla seria
+       lenta na recepção e inútil no 3G.
+
+   A ordem das conferências é a mesma da função do banco, e a redação das
+   mensagens também — para a recepção nunca ler uma coisa na tela e outra no
+   erro de gravação.
+
+   ⚠ E é por isso que existe o `tests/motor.test.mjs`: ele pergunta a mesma
+   coisa às duas, sobre os mesmos dados, e compara. Duas implementações da
+   mesma regra divergem calado; a que ninguém confere é a que quebra.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function porqueNaoCabe(profId, data, ini, fim, ignorar){
+  if(!(fim > ini)) return 'Confira o horário: o fim tem que ser depois do início.';
+
+  const p = acharProf(profId);
+  if(!p) return 'Profissional não encontrado.';
+  if(!p.ativo) return p.nome + ' está desativado(a) na equipe.';
+
+  // Choque primeiro: é o mais provável e o único que consegue dizer COM QUEM
+  // está o horário — que é a informação que resolve a conversa no balcão.
+  const bate = conflito(profId, data, ini, fim, ignorar || null);
+  if(bate){
+    return p.nome + ' já tem ' + nomeCliente(bate.clienteId)
+         + ' das ' + hm(bate.inicio) + ' às ' + hm(bate.fim) + '.';
+  }
+
+  const b = bd.bloqueios.find(x =>
+    x.salaoId === salaoAtual && x.data === data &&
+    (x.profissionalId === profId || x.profissionalId === null) &&
+    sobrepoe(ini, fim, x.inicio, x.fim));
+  if(b) return 'Horário bloqueado na agenda de ' + p.nome + ': '
+              + (b.motivo || 'bloqueado') + '.';
+
+  // Por último a jornada, que é a única que o encaixe afrouxa.
+  if(!dentroDaJornada(p, data, ini, fim))
+    return 'Fora da jornada de ' + p.nome + ' neste dia.';
+
+  return null;
+}
+
+/* O motivo mais a informação que decide o botão: dá para encaixar?
+   Só quebra de jornada é encaixável. Oferecer encaixe sobre um choque ou um
+   bloqueio seria oferecer um botão que o banco vai recusar — e botão que
+   falha depois do clique é pior que botão que não está lá. */
+function avaliarHorario(profId, data, ini, fim, ignorar){
+  const motivo = porqueNaoCabe(profId, data, ini, fim, ignorar);
+  if(!motivo) return { cabe: true };
+  const p = acharProf(profId);
+  const temChoque = !!conflito(profId, data, ini, fim, ignorar || null);
+  const temBloqueio = emBloqueio(profId, data, ini, fim);
+  return { cabe: false, motivo, encaixavel: !temChoque && !temBloqueio };
 }
 
 // Horários livres para um serviço com um profissional, num dia.
@@ -2558,10 +2633,15 @@ function confirmarPublico(profId, servId, data, min){
   const s = acharServico(servId);
   const dur = s.duracaoMin + (s.intervaloMin||0);
 
-  // A mesma conferência que a recepção faz. No banco, quem decide é a
-  // constraint — aqui é só para não deixar a tela mentir.
-  if(conflito(profId, data, min, min + dur, null)){
-    alert('Esse horário acabou de ser ocupado. Escolha outro.');
+  /* A mesma conferência que a recepção faz — pelo mesmo motor. No banco quem
+     decide é o gatilho; aqui é só para não deixar a tela mentir.
+
+     ⚠ E aqui NÃO existe encaixe. Encaixe é decisão de quem trabalha no salão,
+     tomada com a pessoa na frente; a cliente marcando sozinha pelo link nunca
+     pode furar a jornada de ninguém. Por isso este caminho só recusa. */
+  const motivo = porqueNaoCabe(profId, data, min, min + dur, null);
+  if(motivo){
+    alert(motivo + '\n\nEscolha outro horário.');
     fecharModal(); pintarPublico(); return;
   }
 
@@ -2701,22 +2781,24 @@ function recalcularFim(){
   const ini = minDe(document.getElementById('fInicio').value);
   const fim = ini + dur;
 
-  const prof = acharProf(profId);
-  const bate = conflito(profId, data, ini, fim, null);
-  const bloq = emBloqueio(profId, data, ini, fim);
-  const foraJornada = !dentroDaJornada(prof, data, ini, fim);
+  /* Uma pergunta só, ao motor — em vez das três conferências soltas que
+     estavam aqui. É a mesma que o gatilho do banco vai fazer na gravação,
+     então o que a tela promete é o que o banco cumpre. */
+  const r = avaliarHorario(profId, data, ini, fim, null);
 
   let html = faltas
            + `<div class="aviso ok">${hm(ini)} às ${hm(fim)} · ${dur} min · ${real(preco)}</div>`;
-  if(bate){
-    html += `<div class="aviso"><b>Choca com outro atendimento.</b><br>
-      ${escapar(prof.nome)} já tem ${escapar(nomeCliente(bate.clienteId))} das ${hm(bate.inicio)} às ${hm(bate.fim)}.
-      O banco recusaria este agendamento.</div>`;
-  } else if(bloq){
-    html += `<div class="aviso"><b>Horário bloqueado</b> na agenda de ${escapar(prof.nome)}.</div>`;
-  } else if(foraJornada){
-    html += `<div class="aviso"><b>Fora da jornada de ${escapar(prof.nome)}.</b><br>
-      Dá para marcar assim mesmo (encaixe), mas confira com ela.</div>`;
+
+  if(!r.cabe){
+    html += r.encaixavel
+      /* Encaixável = só a jornada está no caminho. A tela diz que dá, e diz
+         que vai perguntar — em vez do antigo "dá para marcar assim mesmo",
+         que soava como permissão e não pedia nada a ninguém. */
+      ? `<div class="aviso atencao"><b>${escapar(r.motivo)}</b><br>
+         Dá para encaixar, e o sistema vai pedir sua confirmação. O encaixe
+         fica registrado com o seu nome.</div>`
+      : `<div class="aviso"><b>${escapar(r.motivo)}</b><br>
+         Escolha outro horário — este o sistema não aceita.</div>`;
   }
   aviso.innerHTML = html;
 }
@@ -2733,9 +2815,31 @@ function salvarAgendamento(){
   }, 0);
   const fim = ini + dur;
 
-  if(conflito(profId, data, ini, fim, null)){
-    alert('Esse horário choca com outro atendimento. Escolha outro.');
-    return;
+  /* ⚠ A CONFERÊNCIA DE VERDADE ACONTECE AQUI, NÃO NO AVISO.
+     Antes, o Salvar conferia só choque: bloqueio e jornada eram avisados em
+     `recalcularFim()` e nunca reconferidos. Quem lesse o aviso e clicasse
+     mesmo assim gravava — no caso do bloqueio, o banco recusava e o
+     atendimento aparecia na tela e sumia, que é o pior efeito possível numa
+     agenda.
+
+     Agora é a mesma pergunta do gatilho, feita antes de tocar no `bd`. */
+  const r = avaliarHorario(profId, data, ini, fim, null);
+  let ehEncaixe = false;
+
+  if(!r.cabe){
+    if(!r.encaixavel){
+      alert(r.motivo + '\n\nEscolha outro horário.');
+      return;
+    }
+    /* O encaixe é legítimo — é o que salva o dia num salão. O que não pode é
+       ele acontecer por descuido, sem ninguém saber que aconteceu. Por isso
+       pergunta, e por isso fica registrado com quem confirmou. */
+    if(!confirm(r.motivo + '\n\n'
+      + 'Dá para encaixar assim mesmo. O horário fica marcado como ENCAIXE, '
+      + 'com o seu nome, para todo mundo saber que foi uma exceção combinada '
+      + 'e não um engano.\n\n'
+      + 'Confirmar o encaixe?')) return;
+    ehEncaixe = true;
   }
 
   let cliId = document.getElementById('fCliente').value;
@@ -2780,6 +2884,12 @@ function salvarAgendamento(){
     id:id(), salaoId:salaoAtual, clienteId:cliId, profissionalId:profId,
     data, inicio:ini, fim, status:'confirmado', origem:'recepcao',
     atendidoNome: atendido,
+    // A exceção fica nomeada e com dono. Sem `encaixePor`, "quem marcou fora
+    // da jornada da Ana?" não teria resposta — que é exatamente a pergunta
+    // que se faz quando dá errado.
+    encaixe: ehEncaixe,
+    encaixePor: ehEncaixe && NA_NUVEM
+      ? (Dados.sessaoAtual() || {}).usuarioId || null : null,
     servicos: escolhidos.map(i => {
       const sv = acharServico(i);
       return {servicoId:i, duracaoMin:sv.duracaoMin, preco:sv.preco,
@@ -2813,7 +2923,14 @@ function abrirDetalhe(agId){
     <div class="campo">
       <span class="tag ${CLASSE_STATUS[a.status]}">${ROTULO_STATUS[a.status]}</span>
       ${a.origem === 'online' ? '<span class="tag t-conc" style="margin-left:5px">veio pelo link</span>' : ''}
+      <!-- Exceção que não aparece volta a ser buraco: o encaixe precisa ser
+           visível para quem abre o atendimento depois. -->
+      ${a.encaixe ? '<span class="tag t-pend" style="margin-left:5px">encaixe</span>' : ''}
     </div>
+    ${a.encaixe ? `<div class="aviso info">
+      <b>Este horário foi um encaixe.</b> Está fora da jornada de
+      ${escapar(acharProf(a.profissionalId)?.nome || 'quem atende')}, e alguém
+      do salão confirmou isso na hora de marcar.</div>` : ''}
     ${avisoDeFaltas(a.clienteId)}
     <table class="tabela" style="box-shadow:none"><tbody>
       <tr><td style="color:var(--txt2);width:110px">Cliente</td><td><b>${escapar(c ? c.nome : '—')}</b>
