@@ -414,6 +414,11 @@ create table if not exists public.agendamentos (
 
   criado_por      uuid references public.perfis(id) on delete set null,
   criado_em       timestamptz not null default now(),
+
+  -- Tirado da vista sem ser apagado. O porquê está logo abaixo da tabela,
+  -- junto da migração para quem já tem o banco instalado.
+  arquivado_em    timestamptz,
+
   check (fim > inicio),
 
   -- ── A TRAVA ──────────────────────────────────────────────────────────────
@@ -427,15 +432,53 @@ create table if not exists public.agendamentos (
   -- '[)' = fim exclusivo, então 09:00-10:00 e 10:00-11:00 NÃO se chocam.
   --
   -- Cancelado e faltou saem da regra: o horário volta a ficar livre.
+  -- Arquivado também sai: ver `arquivado_em` logo abaixo.
   constraint agenda_sem_choque exclude using gist (
     profissional_id with =,
     tstzrange(inicio, fim, '[)') with &&
-  ) where (status in ('pendente','confirmado','em_atendimento','concluido'))
+  ) where (status in ('pendente','confirmado','em_atendimento','concluido')
+           and arquivado_em is null)
 );
 
 create index if not exists ix_agend_dia     on public.agendamentos(salao_id, inicio);
 create index if not exists ix_agend_prof    on public.agendamentos(profissional_id, inicio);
 create index if not exists ix_agend_cliente on public.agendamentos(cliente_id, inicio desc);
+
+-- ── ARQUIVAR EM VEZ DE APAGAR ───────────────────────────────────────────────
+-- "Excluir" apagava a linha. Sumia o atendimento, sumiam os serviços dele (o
+-- banco apaga em cascata) e sumia a comanda — sem lixeira, sem desfazer.
+-- Um clique errado custava o histórico, e o histórico é o que diz quanto o
+-- salão faturou.
+--
+-- Arquivar guarda a linha e a tira da vista. O horário volta a ficar livre na
+-- hora (é por isso que `arquivado_em` entra na trava anti-choque acima e em
+-- toda conta de ocupação), mas o registro fica — dá para desfazer, e a
+-- contabilidade do mês não muda de valor porque alguém errou o clique.
+alter table public.agendamentos
+  add column if not exists arquivado_em timestamptz;
+
+-- A trava nasceu sem esta coluna nas instalações que já existem. Sem refazer,
+-- arquivar não liberaria o horário: o dono apagaria o lançamento errado e
+-- continuaria sem conseguir marcar em cima.
+do $trava_choque$
+begin
+  if exists (select 1 from pg_constraint
+              where conname = 'agenda_sem_choque'
+                and conrelid = 'public.agendamentos'::regclass
+                and pg_get_constraintdef(oid) not like '%arquivado_em%') then
+    alter table public.agendamentos drop constraint agenda_sem_choque;
+  end if;
+  if not exists (select 1 from pg_constraint
+                  where conname = 'agenda_sem_choque'
+                    and conrelid = 'public.agendamentos'::regclass) then
+    alter table public.agendamentos add constraint agenda_sem_choque
+      exclude using gist (
+        profissional_id with =,
+        tstzrange(inicio, fim, '[)') with &&
+      ) where (status in ('pendente','confirmado','em_atendimento','concluido')
+               and arquivado_em is null);
+  end if;
+end $trava_choque$;
 
 -- ── A SEGUNDA TRAVA: bloqueio e atendimento não convivem ────────────────────
 -- A trava `agenda_sem_choque` só olha agendamento contra agendamento. Almoço,
@@ -458,8 +501,9 @@ as $$
 declare
   motivo_conflito text;
 begin
-  if new.status not in ('pendente','confirmado','em_atendimento','concluido') then
-    return new;                                   -- cancelado e faltou liberam
+  if new.status not in ('pendente','confirmado','em_atendimento','concluido')
+     or new.arquivado_em is not null then
+    return new;                    -- cancelado, faltou e arquivado liberam
   end if;
 
   select coalesce(b.motivo, 'bloqueado') into motivo_conflito
@@ -490,6 +534,7 @@ begin
    where a.salao_id = new.salao_id
      and (new.profissional_id is null or a.profissional_id = new.profissional_id)
      and a.status in ('pendente','confirmado','em_atendimento','concluido')
+     and a.arquivado_em is null
      and tstzrange(a.inicio, a.fim, '[)') && tstzrange(new.inicio, new.fim, '[)');
 
   if n > 0 then
@@ -557,6 +602,7 @@ begin
     from public.agendamentos a
    where a.salao_id = new.salao_id
      and a.status in ('pendente','confirmado','em_atendimento','concluido')
+     and a.arquivado_em is null
      and a.inicio >= v_ini and a.inicio < v_fim
      and (tg_op = 'INSERT' or a.id <> new.id);
 

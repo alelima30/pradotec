@@ -448,6 +448,11 @@ create table if not exists public.agendamentos (
 
   criado_por      uuid references public.perfis(id) on delete set null,
   criado_em       timestamptz not null default now(),
+
+  -- Tirado da vista sem ser apagado. O porquê está logo abaixo da tabela,
+  -- junto da migração para quem já tem o banco instalado.
+  arquivado_em    timestamptz,
+
   check (fim > inicio),
 
   -- ── A TRAVA ──────────────────────────────────────────────────────────────
@@ -461,15 +466,53 @@ create table if not exists public.agendamentos (
   -- '[)' = fim exclusivo, então 09:00-10:00 e 10:00-11:00 NÃO se chocam.
   --
   -- Cancelado e faltou saem da regra: o horário volta a ficar livre.
+  -- Arquivado também sai: ver `arquivado_em` logo abaixo.
   constraint agenda_sem_choque exclude using gist (
     profissional_id with =,
     tstzrange(inicio, fim, '[)') with &&
-  ) where (status in ('pendente','confirmado','em_atendimento','concluido'))
+  ) where (status in ('pendente','confirmado','em_atendimento','concluido')
+           and arquivado_em is null)
 );
 
 create index if not exists ix_agend_dia     on public.agendamentos(salao_id, inicio);
 create index if not exists ix_agend_prof    on public.agendamentos(profissional_id, inicio);
 create index if not exists ix_agend_cliente on public.agendamentos(cliente_id, inicio desc);
+
+-- ── ARQUIVAR EM VEZ DE APAGAR ───────────────────────────────────────────────
+-- "Excluir" apagava a linha. Sumia o atendimento, sumiam os serviços dele (o
+-- banco apaga em cascata) e sumia a comanda — sem lixeira, sem desfazer.
+-- Um clique errado custava o histórico, e o histórico é o que diz quanto o
+-- salão faturou.
+--
+-- Arquivar guarda a linha e a tira da vista. O horário volta a ficar livre na
+-- hora (é por isso que `arquivado_em` entra na trava anti-choque acima e em
+-- toda conta de ocupação), mas o registro fica — dá para desfazer, e a
+-- contabilidade do mês não muda de valor porque alguém errou o clique.
+alter table public.agendamentos
+  add column if not exists arquivado_em timestamptz;
+
+-- A trava nasceu sem esta coluna nas instalações que já existem. Sem refazer,
+-- arquivar não liberaria o horário: o dono apagaria o lançamento errado e
+-- continuaria sem conseguir marcar em cima.
+do $trava_choque$
+begin
+  if exists (select 1 from pg_constraint
+              where conname = 'agenda_sem_choque'
+                and conrelid = 'public.agendamentos'::regclass
+                and pg_get_constraintdef(oid) not like '%arquivado_em%') then
+    alter table public.agendamentos drop constraint agenda_sem_choque;
+  end if;
+  if not exists (select 1 from pg_constraint
+                  where conname = 'agenda_sem_choque'
+                    and conrelid = 'public.agendamentos'::regclass) then
+    alter table public.agendamentos add constraint agenda_sem_choque
+      exclude using gist (
+        profissional_id with =,
+        tstzrange(inicio, fim, '[)') with &&
+      ) where (status in ('pendente','confirmado','em_atendimento','concluido')
+               and arquivado_em is null);
+  end if;
+end $trava_choque$;
 
 -- ── A SEGUNDA TRAVA: bloqueio e atendimento não convivem ────────────────────
 -- A trava `agenda_sem_choque` só olha agendamento contra agendamento. Almoço,
@@ -492,8 +535,9 @@ as $$
 declare
   motivo_conflito text;
 begin
-  if new.status not in ('pendente','confirmado','em_atendimento','concluido') then
-    return new;                                   -- cancelado e faltou liberam
+  if new.status not in ('pendente','confirmado','em_atendimento','concluido')
+     or new.arquivado_em is not null then
+    return new;                    -- cancelado, faltou e arquivado liberam
   end if;
 
   select coalesce(b.motivo, 'bloqueado') into motivo_conflito
@@ -524,6 +568,7 @@ begin
    where a.salao_id = new.salao_id
      and (new.profissional_id is null or a.profissional_id = new.profissional_id)
      and a.status in ('pendente','confirmado','em_atendimento','concluido')
+     and a.arquivado_em is null
      and tstzrange(a.inicio, a.fim, '[)') && tstzrange(new.inicio, new.fim, '[)');
 
   if n > 0 then
@@ -591,6 +636,7 @@ begin
     from public.agendamentos a
    where a.salao_id = new.salao_id
      and a.status in ('pendente','confirmado','em_atendimento','concluido')
+     and a.arquivado_em is null
      and a.inicio >= v_ini and a.inicio < v_fim
      and (tg_op = 'INSERT' or a.id <> new.id);
 
@@ -1929,6 +1975,36 @@ returns text language sql immutable set search_path = public as $$
   select nullif(regexp_replace(coalesce(p_texto, ''), '[^0-9]', '', 'g'), '')
 $$;
 
+/* MESMA PESSOA? — pelo primeiro nome, e sem fingir certeza.
+
+   Serve a UMA decisão: uma ficha achada pelo TELEFONE pode ser amarrada à
+   conta de quem está marcando? Sem verificação por SMS não existe prova de
+   que o número seja de quem digitou, então a resposta tem que ser um palpite
+   — e um palpite conservador.
+
+   Igualdade exata não serve, e isso foi medido: a mesma mulher marcou sem
+   login como "Juliana Ferreira" e depois, com conta, como "Ju Barbosa".
+   Recusar ali deixaria a pessoa desamarrada da própria ficha para sempre.
+
+   Então compara só o PRIMEIRO nome, e por prefixo nos dois sentidos: "ju"
+   casa com "juliana", "maria" não casa com "ana". Dois caracteres é o mínimo
+   — abaixo disso qualquer inicial casaria com meio salão.
+
+   Isto erra nos dois sentidos e não tem como não errar: duas Marias
+   diferentes no mesmo número passam, e "Bia"/"Beatriz" não passa. É o preço
+   de não ter SMS, e está escrito aqui para ninguém confundir com garantia. */
+create or replace function public.mesmo_primeiro_nome(a text, b text)
+returns boolean language sql immutable set search_path = public as $$
+  select case when a is null or b is null then false else (
+    select p <> '' and q <> ''
+       and length(p) >= 2 and length(q) >= 2
+       and left(p, least(length(p), length(q)))
+         = left(q, least(length(p), length(q)))
+      from (select lower(split_part(btrim(a), ' ', 1)) as p,
+                   lower(split_part(btrim(b), ' ', 1)) as q) n
+  ) end
+$$;
+
 -- Até quando o salão aceita marcação. Serve para dois problemas reais: quem
 -- marca para daqui a seis meses quase sempre falta, e agenda aberta até o
 -- infinito tira do dono a liberdade de mudar jornada, preço ou equipe.
@@ -2166,6 +2242,7 @@ begin
            select 1 from public.agendamentos a
             where a.profissional_id = p_profissional
               and a.status in ('pendente','confirmado','em_atendimento','concluido')
+              and a.arquivado_em is null
               and tstzrange(a.inicio, a.fim, '[)') && tstzrange(v_ini, v_fim, '[)'))
          and not exists (
            select 1 from public.bloqueios b
@@ -2313,7 +2390,20 @@ begin
      está aqui para marcar horário, não para arrumar cadastro. Na dúvida fica
      o que já estava, e o salão conserta pelo painel. */
   update public.clientes c
-     set perfil_id = coalesce(c.perfil_id, v_perfil),
+     set perfil_id = case
+           when c.perfil_id is not null then c.perfil_id
+           when v_perfil is null then null
+           /* A ficha foi achada pelo TELEFONE, não pelo login. Sem SMS não
+              existe prova de que o número é de quem digitou: pode ser o do
+              marido, o da mãe, ou um dígito trocado. Amarrar a conta à ficha
+              nesse caso adotaria o histórico de outra pessoa PARA SEMPRE —
+              dali em diante toda marcação cairia lá.
+
+              Com o nome batendo, é a mesma pessoa criando conta depois de já
+              ter sido cadastrada no balcão — o caso comum, e esse continua
+              amarrando. */
+           when public.mesmo_primeiro_nome(c.nome, p_nome) then v_perfil
+           else null end,
          telefone  = case
            when p_tel is null or p_tel = c.telefone then c.telefone
            when exists (select 1 from public.clientes o
@@ -2376,6 +2466,7 @@ declare
   v_fim      timestamptz;
   v_valor    numeric(10,2);
   v_abertos  int;
+  v_quem     text;
   v_ordem    smallint := 1;
   s          record;
 begin
@@ -2435,6 +2526,26 @@ begin
   -- existe (ver o comentário lá em cima).
   v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
+  /* QUEM DE FATO VEM, quando o nome informado não é o da ficha.
+
+     A ficha é reencontrada pelo telefone, e sem SMS não há prova de que o
+     número seja de quem digitou. Se alguém marca com o número da mãe, o
+     horário cai na ficha da mãe — e o salão liga para a mãe perguntando de
+     um horário que ela não marcou.
+
+     Não dá para impedir sem verificar o número de verdade. Dá para o salão
+     saber: o nome informado fica registrado em `atendido_nome`, que o painel
+     mostra como "Quem vem". Melhor um nome a mais na tela do que um telefone
+     errado em silêncio. */
+  if nullif(btrim(coalesce(p_atendido_nome, '')), '') is null then
+    select case when not public.mesmo_primeiro_nome(c.nome, v_nome)
+                  then v_nome end
+      into v_quem
+      from public.clientes c where c.id = v_cliente;
+  else
+    v_quem := btrim(p_atendido_nome);
+  end if;
+
   -- ── Freio de spam ────────────────────────────────────────────────────────
   -- Marcação online sem senha é um formulário aberto na internet. Sem limite,
   -- um número só entope a agenda inteira de um salão em dois minutos — e o
@@ -2446,6 +2557,7 @@ begin
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
      and a.status in ('pendente','confirmado')
+     and a.arquivado_em is null
      and a.inicio > now();
 
   if v_abertos >= 3 then
@@ -2460,7 +2572,7 @@ begin
        valor_previsto, atendido_nome, obs, criado_por)
     values
       (v_salao, v_cliente, p_profissional, p_inicio, v_fim, 'confirmado', 'online',
-       v_valor, nullif(btrim(coalesce(p_atendido_nome, '')), ''),
+       v_valor, v_quem,
        nullif(btrim(coalesce(p_obs, '')), ''), v_perfil)
     returning agendamentos.id into v_agend;
   exception
@@ -2890,6 +3002,7 @@ begin
             select count(*) from public.agendamentos ag
              where ag.salao_id = s.id
                and ag.status in ('pendente','confirmado','em_atendimento','concluido')
+               and ag.arquivado_em is null
                and (ag.inicio at time zone s.fuso)::date
                    >= date_trunc('month', (now() at time zone s.fuso))::date),
           'ultimoAgendamento', (
@@ -3258,6 +3371,7 @@ declare
   v_fim      timestamptz;
   v_valor    numeric(10,2);
   v_abertos  int;
+  v_quem     text;
   v_ordem    smallint := 1;
   s          record;
 begin
@@ -3310,9 +3424,30 @@ begin
   -- e era ESTA a que rodava: o 09 substitui o agendar() do 05.
   v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
+  /* QUEM DE FATO VEM, quando o nome informado não é o da ficha.
+
+     A ficha é reencontrada pelo telefone, e sem SMS não há prova de que o
+     número seja de quem digitou. Se alguém marca com o número da mãe, o
+     horário cai na ficha da mãe — e o salão liga para a mãe perguntando de
+     um horário que ela não marcou.
+
+     Não dá para impedir sem verificar o número de verdade. Dá para o salão
+     saber: o nome informado fica registrado em `atendido_nome`, que o painel
+     mostra como "Quem vem". Melhor um nome a mais na tela do que um telefone
+     errado em silêncio. */
+  if nullif(btrim(coalesce(p_atendido_nome, '')), '') is null then
+    select case when not public.mesmo_primeiro_nome(c.nome, v_nome)
+                  then v_nome end
+      into v_quem
+      from public.clientes c where c.id = v_cliente;
+  else
+    v_quem := btrim(p_atendido_nome);
+  end if;
+
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
      and a.status in ('pendente','confirmado')
+     and a.arquivado_em is null
      and a.inicio > now();
 
   if v_abertos >= 3 then
@@ -3326,7 +3461,7 @@ begin
        valor_previsto, atendido_nome, obs, criado_por)
     values
       (v_salao, v_cliente, p_profissional, p_inicio, v_fim, 'confirmado', 'online',
-       v_valor, nullif(btrim(coalesce(p_atendido_nome, '')), ''),
+       v_valor, v_quem,
        nullif(btrim(coalesce(p_obs, '')), ''), v_perfil)
     returning agendamentos.id, agendamentos.gerenciar_token into v_agend, v_token;
   exception
@@ -3410,6 +3545,7 @@ language sql stable security definer set search_path = public as $$
       join public.saloes sa        on sa.id = a.salao_id
       join public.profissionais p  on p.id  = a.profissional_id
      where a.gerenciar_token = any(coalesce(p_tokens, '{}'::uuid[]))
+       and a.arquivado_em is null
   ) t
 $$;
 

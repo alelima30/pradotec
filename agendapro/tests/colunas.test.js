@@ -39,9 +39,26 @@ function lerTabelas(texto){
   while((m = re.exec(texto)) !== null){
     const nome = m[1];
     const colunas = [];
-    for(let linha of m[2].split('\n')){
-      linha = linha.replace(/--.*$/, '').trim();
-      if(!linha) continue;
+    /* Profundidade de parênteses ao COMEÇAR a linha. Definição de coluna só
+       existe no nível zero do corpo da tabela.
+
+       Sem isto, a continuação de uma constraint de várias linhas era lida
+       como coluna: a trava anti-choque quebrada em linhas fez o analisador
+       inventar `agendamentos.and` do tipo `arquivado`, e a conferência de
+       "vazio vira null" cobrou uma coluna que não existe. Analisador que
+       erra o nome da coluna estraga o teste que depende dele. */
+    let fundo = 0;
+    for(let bruta of m[2].split('\n')){
+      const linha = bruta.replace(/--.*$/, '').trim();
+      const antes = fundo;
+      // Sem os literais: `tstzrange(inicio, fim, '[)')` tem um `)` DENTRO de
+      // aspas, e contá-lo zerava a profundidade no meio da constraint — que
+      // era exatamente como a linha seguinte voltava a parecer uma coluna.
+      for(const ch of linha.replace(/'[^']*'/g, "''")){
+        if(ch === '(') fundo++;
+        else if(ch === ')') fundo--;
+      }
+      if(!linha || antes > 0) continue;
       // Pula o que não é definição de coluna
       if(/^(primary key|unique|check|constraint|foreign key|exclude)\b/i.test(linha)) continue;
       /* Nome e tipo. O tipo passou a importar quando um campo de data vazio

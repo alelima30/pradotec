@@ -102,6 +102,21 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
   box-shadow:var(--sombra); overflow:auto;
 }
 .grade{display:grid;min-width:min-content}
+/* Dia | Semana. Duas metades de um botão só, para ler como uma escolha entre
+   dois estados e não como dois comandos separados. */
+.vistas{display:inline-flex;border:1px solid var(--borda);border-radius:9px;overflow:hidden}
+/* 40px de altura é a regra de alvo de toque do tests/celular.test.mjs, e ela
+   pegou este botão: nasceu com 34, que no polegar é a medida que faz errar. */
+.vistas button{
+  border:0;background:transparent;color:var(--txt2);cursor:pointer;
+  padding:0 14px;height:40px;font:inherit;font-size:13px;font-weight:600;
+}
+.vistas button + button{border-left:1px solid var(--borda)}
+.vistas button.on{background:var(--az-soft);color:var(--marca)}
+/* Cabeçalho de dia na visão da semana: o de hoje puxa a vista. */
+.col-h.hoje{background:var(--az-soft)}
+.col-h.hoje .nm{color:var(--marca)}
+.col-h.clicavel{cursor:pointer}
 .col-h{
   position:sticky;top:0;z-index:20;background:var(--painel);
   border-bottom:1px solid var(--borda);padding:10px 8px;text-align:center;
@@ -375,15 +390,13 @@ body.carregando-tudo .tela{ display:none }
       <span class="dia" id="rotuloDia"></span>
       <button class="btn btn-x" onclick="mudarDia(1)">&rsaquo;</button>
       <button class="btn btn-peq" onclick="irHoje()">Hoje</button>
+      <span class="vistas" id="vistas"></span>
       <span class="espaco"></span>
       <button class="btn btn-p" onclick="abrirNovo()">+ Agendamento</button>
     </div>
     <div class="kpis" id="kpisDia"></div>
     <div class="grade-wrap"><div class="grade" id="grade"></div></div>
-    <p class="nota">
-      Clique num espaço vazio da coluna para marcar naquele horário. Clique num
-      atendimento para mudar o status ou abrir a comanda.
-    </p>
+    <p class="nota" id="notaAgenda"></p>
   </section>
 
   <!-- ══════════ CLIENTES ══════════ -->
@@ -665,6 +678,7 @@ function conflito(profId, data, ini, fim, ignorar){
     a.profissionalId === profId &&
     a.data === data &&
     a.id !== ignorar &&
+    !a.arquivadoEm &&
     ATIVOS.includes(a.status) &&
     sobrepoe(ini, fim, a.inicio, a.fim)
   ) || null;
@@ -721,7 +735,13 @@ const doSalao = lista => lista.filter(x => x.salaoId === salaoAtual);
 const profsAtivos = () => doSalao(bd.profissionais).filter(p => p.ativo);
 const servsAtivos = () => doSalao(bd.servicos).filter(s => s.ativo);
 const clientesDo  = () => doSalao(bd.clientes);
-const agendaDoDia = d => doSalao(bd.agendamentos).filter(a => a.data === d);
+/* TODO agendamento do salão que ainda VALE — arquivado não vale.
+   Um lugar só, porque a agenda, os indicadores, a checagem de choque, a
+   contagem de faltas e o teto do plano têm que enxergar exatamente o mesmo
+   conjunto. Foi o desencontro entre duas dessas contas que fez o topo dizer
+   "1 atendimento" com a grade vazia. */
+const agendaDoSalao = () => doSalao(bd.agendamentos).filter(a => !a.arquivadoEm);
+const agendaDoDia = d => agendaDoSalao().filter(a => a.data === d);
 
 const acharCliente = i => bd.clientes.find(c => c.id === i);
 const acharProf    = i => bd.profissionais.find(p => p.id === i);
@@ -824,7 +844,7 @@ function nomeCliente(i){ const c = acharCliente(i); return c ? c.nome : '—'; }
    dono decidir se pede sinal, se confirma antes, ou se prefere não marcar. */
 function faltasDoCliente(cid){
   if(!cid) return 0;
-  return doSalao(bd.agendamentos)
+  return agendaDoSalao()
     .filter(a => a.clienteId === cid && a.status === 'faltou').length;
 }
 
@@ -938,7 +958,38 @@ function fecharLateral(){
   document.body.classList.remove('lateral-aberta');
 }
 
-function mudarDia(n){ diaAtual = somarDias(diaAtual, n); pintar(); }
+/* ── Dia ou semana ───────────────────────────────────────────────────────
+   A agenda só sabia mostrar um dia. Para saber se quinta está cheia o dono
+   tinha que clicar em ‹ › até chegar lá, e voltar contando os dias — e é
+   olhando a semana que se decide encaixe, folga e promoção de terça vazia. */
+let vistaAgenda = 'dia';
+
+function trocarVista(v){
+  if(vistaAgenda === v) return;
+  vistaAgenda = v;
+  pintar();
+}
+
+// Segunda-feira da semana em que `dia` cai. Semana de salão começa na
+// segunda: domingo é o fim dela, não o começo.
+function segundaDa(dia){
+  const [y,m,d] = dia.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const dow = dt.getDay();                    // 0 = domingo
+  return somarDias(dia, dow === 0 ? -6 : 1 - dow);
+}
+function diasDaSemana(dia){
+  const s = segundaDa(dia);
+  return [0,1,2,3,4,5,6].map(i => somarDias(s, i));
+}
+
+// Um passo é um dia na visão de dia e uma semana inteira na de semana — o
+// botão ‹ › tem que andar o que a tela mostra, senão navegar a semana vira
+// sete cliques.
+function mudarDia(n){
+  diaAtual = somarDias(diaAtual, vistaAgenda === 'semana' ? n * 7 : n);
+  pintar();
+}
 function irHoje(){ diaAtual = hoje(); pintar(); }
 
 function trocarSalao(sid){
@@ -1025,6 +1076,18 @@ function faixaDaGrade(dia, profs){
 
 /* ── Desenho: agenda ─────────────────────────────────────────────────── */
 function pintarAgenda(){
+  document.getElementById('vistas').innerHTML = ['dia','semana']
+    .map(v => `<button class="${vistaAgenda===v?'on':''}"
+                 ${vistaAgenda===v?'aria-current="true"':''}
+                 onclick="trocarVista('${v}')">${v==='dia'?'Dia':'Semana'}</button>`)
+    .join('');
+  document.getElementById('notaAgenda').textContent = vistaAgenda === 'semana'
+    ? 'Clique no dia para abri-lo. Clique num atendimento para ver o detalhe.'
+    : 'Clique num espaço vazio da coluna para marcar naquele horário. '
+      + 'Clique num atendimento para mudar o status ou abrir a comanda.';
+
+  if(vistaAgenda === 'semana') return pintarSemana();
+
   document.getElementById('rotuloDia').textContent = porExtenso(diaAtual);
 
   const profs = profsDaGrade(diaAtual);
@@ -1138,23 +1201,149 @@ function pintarAgenda(){
   pintarKpis();
 }
 
+/* ── A SEMANA ────────────────────────────────────────────────────────────
+   Sete colunas, uma por dia, e dentro de cada uma os atendimentos de TODA a
+   equipe, na cor de quem atende. A pergunta que esta tela responde não é
+   "quem atende às 14h" — essa é a do dia — e sim "onde tem buraco esta
+   semana", que é o que decide encaixe, folga e promoção de terça vazia.
+
+   Quando dois atendimentos se cruzam no mesmo dia eles dividem a largura em
+   pistas. Sem isso um cobriria o outro e a semana mentiria dizendo que há
+   uma cadeira livre onde há duas ocupadas. */
+function pintarSemana(){
+  const dias = diasDaSemana(diaAtual);
+  const grade = document.getElementById('grade');
+  const eq = profsAtivos();
+
+  const s = dias[0].split('-'), f = dias[6].split('-');
+  document.getElementById('rotuloDia').textContent =
+    `${s[2]}/${s[1]} a ${f[2]}/${f[1]}/${f[0]}`;
+
+  // Mesmo recado da visão de dia: sete colunas vazias não explicam por quê.
+  if(!eq.length && !dias.some(d => agendaDoDia(d).length)){
+    grade.innerHTML = '<div class="vazio"><b>Nenhum profissional cadastrado</b>'
+                    + 'Vá em Equipe e adicione quem atende.</div>';
+    document.getElementById('kpisDia').innerHTML = '';
+    return;
+  }
+
+  // A faixa é a UNIÃO dos sete dias: com uma faixa por dia as colunas ficariam
+  // com alturas diferentes e as horas não bateriam de uma para a outra.
+  let ini = 24*60, fim = 0;
+  for(const dia of dias){
+    const [a,b] = faixaDaGrade(dia, profsDaGrade(dia));
+    ini = Math.min(ini, a); fim = Math.max(fim, b);
+  }
+  gradeIni = ini; gradeFim = fim;
+  const altura = ((fim - ini) / PASSO) * 15;
+  const y = m => ((m - ini) / PASSO) * 15;
+
+  grade.style.gridTemplateColumns = '58px repeat(7, minmax(120px, 1fr))';
+
+  const hj = hoje();
+  let html = '<div class="col-h" style="position:sticky;left:0;z-index:25"></div>';
+  for(const dia of dias){
+    const [ , mm, dd] = dia.split('-');
+    const dow = new Date(+dia.split('-')[0], +mm-1, +dd).getDay();
+    const qtd = agendaDoDia(dia).filter(a => ATIVOS.includes(a.status)).length;
+    html += `<div class="col-h clicavel${dia === hj ? ' hoje' : ''}"
+                  onclick="diaAtual='${dia}';trocarVista('dia')"
+                  title="Abrir ${porExtenso(dia)}">
+      <div class="nm">${DIAS[dow].slice(0,3)} ${dd}/${mm}</div>
+      <div class="fn">${qtd ? qtd + (qtd === 1 ? ' atend.' : ' atends.') : '—'}</div>
+    </div>`;
+  }
+
+  html += '<div class="col-horas">';
+  for(let m = ini; m < fim; m += 60) html += `<div class="hora">${hm(m)}</div>`;
+  html += '</div>';
+
+  for(const dia of dias){
+    html += `<div class="col" style="height:${altura}px"
+                  onclick="diaAtual='${dia}';trocarVista('dia')">`;
+    for(let m = ini; m < fim; m += 30){
+      html += `<div class="faixa${(m%60)?' meia':''}" style="top:${y(m)}px"></div>`;
+    }
+
+    // Sombreado: fora de TODA jornada do dia. Se ninguém trabalha às 08:00,
+    // a faixa das 08:00 é riscada; basta uma pessoa para deixar de ser.
+    const janelas = [];
+    for(const p of eq) for(const j of jornadaDo(p, dia)) janelas.push(j);
+    janelas.sort((a,b) => a[0] - b[0]);
+    let cursor = ini;
+    for(const [ji,jf] of janelas){
+      if(ji > cursor) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(ji)-y(cursor)}px"></div>`;
+      cursor = Math.max(cursor, jf);
+    }
+    if(cursor < fim) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(fim)-y(cursor)}px"></div>`;
+
+    /* Pistas: o primeiro corredor livre em que o atendimento cabe.
+
+       A pista fica num Map, e NÃO num campo do próprio agendamento. Escrever
+       `a._pista = n` sujaria o objeto que `Dados.subir()` compara com o
+       retrato do banco: a linha passaria a "ter mudado" a cada repintura, e
+       um campo que não existe em `agendamentos` iria junto na gravação. */
+    const doDia = agendaDoDia(dia).slice().sort((a,b) => a.inicio - b.inicio
+                                                     || a.fim - b.fim);
+    const pistaDe = new Map();
+    const fimDaPista = [];
+    for(const a of doDia){
+      let pista = fimDaPista.findIndex(t => t <= a.inicio);
+      if(pista < 0){ pista = fimDaPista.length; fimDaPista.push(0); }
+      fimDaPista[pista] = a.fim;
+      pistaDe.set(a.id, pista);
+    }
+    const pistas = Math.max(fimDaPista.length, 1);
+
+    for(const a of doDia){
+      const p = acharProf(a.profissionalId);
+      const alt = Math.max(y(a.fim) - y(a.inicio), 18);
+      const larg = 100 / pistas;
+      html += `<div class="ag ${a.status}${alt < 42 ? ' curto' : ''}"
+        style="top:${y(a.inicio)}px;height:${alt}px;
+               left:calc(${pistaDe.get(a.id) * larg}% + 3px);
+               width:calc(${larg}% - 6px);
+               background:${escapar(p ? p.cor : '#94A3B8')}"
+        title="${hm(a.inicio)} · ${escapar(nomeCliente(a.clienteId))} · ${escapar(p ? p.nome : '')}"
+        onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
+        <b>${hm(a.inicio)} ${escapar(nomeCliente(a.clienteId))}</b>
+        <span>${escapar(p ? p.nome : '')}</span></div>`;
+    }
+    html += '</div>';
+  }
+
+  grade.innerHTML = html;
+  if(window.aplicarIcones) aplicarIcones(grade);
+  pintarKpis();
+}
+
+/* Os números do topo somam EXATAMENTE o que a grade está mostrando: um dia
+   na visão de dia, os sete na de semana. Deixá-los sempre no dia faria o
+   topo dizer "1 atendimento" com sete dias de agenda embaixo — que é a
+   mesma classe de defeito que já custou caro aqui: contador e grade
+   contando coisas diferentes. */
 function pintarKpis(){
-  const doDia = agendaDoDia(diaAtual);
-  const validos = doDia.filter(a => ATIVOS.includes(a.status));
+  const semana = vistaAgenda === 'semana';
+  const dias = semana ? diasDaSemana(diaAtual) : [diaAtual];
+
+  const todos = dias.flatMap(d => agendaDoDia(d));
+  const validos = todos.filter(a => ATIVOS.includes(a.status));
   const receita = validos.reduce((s,a) => s + totalDe(a), 0);
   const minutos = validos.reduce((s,a) => s + (a.fim - a.inicio), 0);
 
-  // Ocupação = minutos vendidos ÷ minutos de jornada disponíveis no dia
+  // Ocupação = minutos vendidos ÷ minutos de jornada disponíveis no período
   let capacidade = 0;
-  for(const p of profsAtivos())
-    for(const [i,f] of jornadaDo(p, diaAtual)) capacidade += (f - i);
+  for(const dia of dias)
+    for(const p of profsAtivos())
+      for(const [i,f] of jornadaDo(p, dia)) capacidade += (f - i);
   const ocup = capacidade ? Math.round(minutos / capacidade * 100) : 0;
 
-  const faltas = doDia.filter(a => a.status === 'faltou').length;
+  const faltas = todos.filter(a => a.status === 'faltou').length;
 
   document.getElementById('kpisDia').innerHTML = `
     <div class="kpi"><div class="v">${validos.length}</div><div class="r">atendimentos</div></div>
-    <div class="kpi"><div class="v">${real(receita)}</div><div class="r">previsto no dia</div></div>
+    <div class="kpi"><div class="v">${real(receita)}</div>
+      <div class="r">previsto ${semana ? 'na semana' : 'no dia'}</div></div>
     <div class="kpi"><div class="v">${ocup}%</div><div class="r">ocupação da equipe</div></div>
     <div class="kpi"><div class="v">${faltas}</div><div class="r">faltas</div></div>`;
 }
@@ -1195,7 +1384,7 @@ function pintarClientes(){
       <th>Nome</th><th>Telefone</th><th>Última visita</th><th>Visitas</th>
       <th>Faltas</th><th></th>
     </tr></thead><tbody>` + lista.map(c => {
-      const dele = doSalao(bd.agendamentos)
+      const dele = agendaDoSalao()
         .filter(a => a.clienteId === c.id && a.status === 'concluido')
         .sort((a,b) => b.data.localeCompare(a.data));
       const ult = dele[0] ? porExtenso(dele[0].data).split(', ')[1] : '—';
@@ -1719,7 +1908,7 @@ function abrirDetalhe(agId){
         `<option value="${k}"${k===a.status?' selected':''}>${ROTULO_STATUS[k]}</option>`).join('')}</select>
     </div>
   `, [
-    ['Excluir', `excluirAgendamento('${agId}')`, ''],
+    ['Arquivar', `excluirAgendamento('${agId}')`, ''],
     /* O WhatsApp só aparece quando há para onde ligar. Botão que existe e
        avisa "esta ficha não tem telefone" depois do clique é pior que botão
        que não está lá. */
@@ -1751,16 +1940,67 @@ function salvarStatus(agId){
    dois. Quem quer desmarcar uma cliente lê isso e clica. */
 function excluirAgendamento(agId){
   const a = bd.agendamentos.find(x => x.id === agId);
-  const quem = a ? nomeCliente(a.clienteId) : 'esta pessoa';
+  if(!a) return;
+  const quem = nomeCliente(a.clienteId);
   if(!confirm(
-      'Excluir apaga este atendimento do histórico, e ele SOME da tela de '
-    + quem + ' sem nenhum aviso — ela pode vir ao salão achando que está '
-    + 'marcada.\n\n'
+      'Arquivar tira este atendimento da agenda e da tela de ' + quem
+    + ' — ela pode vir ao salão achando que está marcada.\n\n'
     + 'Para desmarcar alguém, feche esta janela e mude a situação para '
     + '"Cancelado": aí ela vê o cancelamento no aplicativo.\n\n'
-    + 'Excluir mesmo assim? (use para lançamento errado, teste ou duplicata)')) return;
-  bd.agendamentos = bd.agendamentos.filter(x => x.id !== agId);
+    + 'Arquivar mesmo assim? (use para lançamento errado, teste ou duplicata)\n\n'
+    + 'O registro fica guardado, e dá para desfazer.')) return;
+
+  /* ⚠ ARQUIVAR, NÃO APAGAR
+     Apagar a linha levava junto os serviços e a comanda (o banco apaga em
+     cascata), sem lixeira e sem desfazer: um clique errado custava o
+     histórico, e é o histórico que diz quanto o salão faturou.
+
+     `arquivado_em` sai da trava anti-choque no banco, então o horário volta
+     a ficar livre na hora — que é o que o dono quer ao apagar um lançamento
+     errado. O que não some é o registro. */
+  a.arquivadoEm = new Date().toISOString();
   salvar(); fecharModal(); pintar();
+  oferecerDesfazer(agId, quem);
+}
+
+/* O desfazer tem que ser um CLIQUE, não um caminho.
+   Aviso que só diz "arquivado" transfere para a pessoa o trabalho de
+   descobrir como voltar — e como não há tela de arquivados, não há como. */
+function oferecerDesfazer(agId, quem){
+  let el = document.getElementById('recadoDesfazer');
+  if(el) el.remove();
+  el = document.createElement('div');
+  el.id = 'recadoDesfazer';
+  el.className = 'aviso';
+  el.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:90;'
+    + 'max-width:320px;box-shadow:var(--sombra-md);display:flex;'
+    + 'align-items:center;gap:10px';
+  el.innerHTML = `<span style="flex:1">Atendimento de <b>${escapar(quem)}</b>
+    arquivado.</span>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-peq';
+  btn.textContent = 'Desfazer';
+  btn.onclick = () => { desarquivarAgendamento(agId); el.remove(); };
+  el.appendChild(btn);
+  document.body.appendChild(el);
+  clearTimeout(el._sumir);
+  el._sumir = setTimeout(() => el.remove(), 12000);
+}
+
+function desarquivarAgendamento(agId){
+  const a = bd.agendamentos.find(x => x.id === agId);
+  if(!a) return;
+  /* O horário pode ter sido ocupado por outra pessoa enquanto esteve
+     arquivado — arquivar libera na hora, de propósito. Melhor descobrir aqui
+     do que o banco recusar a gravação inteira depois, com a mensagem dele. */
+  if(conflito(a.profissionalId, a.data, a.inicio, a.fim, a.id)){
+    alert('Não dá para desfazer: esse horário já foi ocupado por outro '
+        + 'atendimento enquanto este estava arquivado.\n\n'
+        + 'Arquivar libera a vaga na hora — é para isso que serve.');
+    return;
+  }
+  a.arquivadoEm = null;
+  salvar(); pintar();
 }
 
 /* ── Comanda ─────────────────────────────────────────────────────────── */
@@ -3111,7 +3351,7 @@ function recursoDoPlano(chave){
 // igual ao gatilho no banco.
 function agendamentosDoMes(){
   const mes = diaAtual.slice(0, 7);
-  return doSalao(bd.agendamentos)
+  return agendaDoSalao()
     .filter(a => a.data.slice(0, 7) === mes && ATIVOS.includes(a.status)).length;
 }
 

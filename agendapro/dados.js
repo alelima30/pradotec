@@ -51,7 +51,8 @@ const COLUNAS = {
                    profissionalId:'profissional_id', valorPrevisto:'valor_previsto',
                    canceladoMotivo:'cancelado_motivo', atendidoNome:'atendido_nome',
                    sinalExigido:'sinal_exigido', sinalPago:'sinal_pago',
-                   sinalRef:'sinal_ref', criadoPor:'criado_por', criadoEm:'criado_em' },
+                   sinalRef:'sinal_ref', criadoPor:'criado_por', criadoEm:'criado_em',
+                   arquivadoEm:'arquivado_em' },
   agendamento_servicos: { agendamentoId:'agendamento_id', servicoId:'servico_id',
                    duracaoMin:'duracao_min', comissaoPct:'comissao_pct' },
   lista_espera:  { salaoId:'salao_id', clienteId:'cliente_id',
@@ -113,7 +114,7 @@ const VAZIO_E_NULO = new Set([
   'agendamento_id', 'criado_por', 'aberta_por', 'fechada_em', 'avisado_em',
   'comissao_pct', 'comissao_valor', 'total', 'duracao_min', 'preco',
   'trial_ate', 'vence_em', 'indicado_por', 'cliente_id', 'sinal_exigido',
-  'sinal_pago', 'nascimento_dia',
+  'sinal_pago', 'nascimento_dia', 'arquivado_em',
 ]);
 
 function paraBanco(tabela, obj){

@@ -1,6 +1,40 @@
+alter table public.agendamentos
+  add column if not exists arquivado_em timestamptz;
+do $trava_choque$
+begin
+  if exists (select 1 from pg_constraint
+              where conname = 'agenda_sem_choque'
+                and conrelid = 'public.agendamentos'::regclass
+                and pg_get_constraintdef(oid) not like '%arquivado_em%') then
+    alter table public.agendamentos drop constraint agenda_sem_choque;
+  end if;
+  if not exists (select 1 from pg_constraint
+                  where conname = 'agenda_sem_choque'
+                    and conrelid = 'public.agendamentos'::regclass) then
+    alter table public.agendamentos add constraint agenda_sem_choque
+      exclude using gist (
+        profissional_id with =,
+        tstzrange(inicio, fim, '[)') with &&
+      ) where (status in ('pendente','confirmado','em_atendimento','concluido')
+               and arquivado_em is null);
+  end if;
+end $trava_choque$;
+
 create or replace function public.so_digitos(p_texto text)
 returns text language sql immutable set search_path = public as $$
   select nullif(regexp_replace(coalesce(p_texto, ''), '[^0-9]', '', 'g'), '')
+$$;
+
+create or replace function public.mesmo_primeiro_nome(a text, b text)
+returns boolean language sql immutable set search_path = public as $$
+  select case when a is null or b is null then false else (
+    select p <> '' and q <> ''
+       and length(p) >= 2 and length(q) >= 2
+       and left(p, least(length(p), length(q)))
+         = left(q, least(length(p), length(q)))
+      from (select lower(split_part(btrim(a), ' ', 1)) as p,
+                   lower(split_part(btrim(b), ' ', 1)) as q) n
+  ) end
 $$;
 
 update public.clientes
@@ -93,6 +127,7 @@ begin
            select 1 from public.agendamentos a
             where a.profissional_id = p_profissional
               and a.status in ('pendente','confirmado','em_atendimento','concluido')
+              and a.arquivado_em is null
               and tstzrange(a.inicio, a.fim, '[)') && tstzrange(v_ini, v_fim, '[)'))
          and not exists (
            select 1 from public.bloqueios b
@@ -134,7 +169,11 @@ begin
     return v_cliente;
   end if;
   update public.clientes c
-     set perfil_id = coalesce(c.perfil_id, v_perfil),
+     set perfil_id = case
+           when c.perfil_id is not null then c.perfil_id
+           when v_perfil is null then null
+           when public.mesmo_primeiro_nome(c.nome, p_nome) then v_perfil
+           else null end,
          telefone  = case
            when p_tel is null or p_tel = c.telefone then c.telefone
            when exists (select 1 from public.clientes o
@@ -181,6 +220,7 @@ declare
   v_fim      timestamptz;
   v_valor    numeric(10,2);
   v_abertos  int;
+  v_quem     text;
   v_ordem    smallint := 1;
   s          record;
 begin
@@ -219,9 +259,18 @@ begin
   v_fim     := p_inicio + make_interval(mins => v_duracao);
   v_perfil := auth.uid();
   v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
+  if nullif(btrim(coalesce(p_atendido_nome, '')), '') is null then
+    select case when not public.mesmo_primeiro_nome(c.nome, v_nome)
+                  then v_nome end
+      into v_quem
+      from public.clientes c where c.id = v_cliente;
+  else
+    v_quem := btrim(p_atendido_nome);
+  end if;
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
      and a.status in ('pendente','confirmado')
+     and a.arquivado_em is null
      and a.inicio > now();
   if v_abertos >= 3 then
     raise exception 'Você já tem 3 horários marcados aqui. Cancele um antes de marcar outro.'
@@ -233,7 +282,7 @@ begin
        valor_previsto, atendido_nome, obs, criado_por)
     values
       (v_salao, v_cliente, p_profissional, p_inicio, v_fim, 'confirmado', 'online',
-       v_valor, nullif(btrim(coalesce(p_atendido_nome, '')), ''),
+       v_valor, v_quem,
        nullif(btrim(coalesce(p_obs, '')), ''), v_perfil)
     returning agendamentos.id, agendamentos.gerenciar_token into v_agend, v_token;
   exception
@@ -291,6 +340,7 @@ language sql stable security definer set search_path = public as $$
       join public.saloes sa        on sa.id = a.salao_id
       join public.profissionais p  on p.id  = a.profissional_id
      where a.gerenciar_token = any(coalesce(p_tokens, '{}'::uuid[]))
+       and a.arquivado_em is null
   ) t
 $$;
 create or replace function public.cancelar_agendamento(p_token uuid)

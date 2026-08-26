@@ -130,6 +130,7 @@ begin
             select count(*) from public.agendamentos ag
              where ag.salao_id = s.id
                and ag.status in ('pendente','confirmado','em_atendimento','concluido')
+               and ag.arquivado_em is null
                and (ag.inicio at time zone s.fuso)::date
                    >= date_trunc('month', (now() at time zone s.fuso))::date),
           'ultimoAgendamento', (

@@ -120,10 +120,12 @@ rodar "whatsapp"           node "$AQUI/whatsapp.test.mjs"
 rodar "varredura"          node "$AQUI/varredura.test.mjs"
 rodar "grade"              node "$AQUI/grade.test.mjs"
 rodar "ficha repetida"     node "$AQUI/ficha-repetida.test.mjs"
+rodar "semana"             node "$AQUI/semana.test.mjs"
+rodar "arquivar"           node "$AQUI/arquivar.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 23 suítes."
+  echo "✓ Tudo passou — as 25 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

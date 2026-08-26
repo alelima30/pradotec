@@ -43,6 +43,36 @@ returns text language sql immutable set search_path = public as $$
   select nullif(regexp_replace(coalesce(p_texto, ''), '[^0-9]', '', 'g'), '')
 $$;
 
+/* MESMA PESSOA? — pelo primeiro nome, e sem fingir certeza.
+
+   Serve a UMA decisão: uma ficha achada pelo TELEFONE pode ser amarrada à
+   conta de quem está marcando? Sem verificação por SMS não existe prova de
+   que o número seja de quem digitou, então a resposta tem que ser um palpite
+   — e um palpite conservador.
+
+   Igualdade exata não serve, e isso foi medido: a mesma mulher marcou sem
+   login como "Juliana Ferreira" e depois, com conta, como "Ju Barbosa".
+   Recusar ali deixaria a pessoa desamarrada da própria ficha para sempre.
+
+   Então compara só o PRIMEIRO nome, e por prefixo nos dois sentidos: "ju"
+   casa com "juliana", "maria" não casa com "ana". Dois caracteres é o mínimo
+   — abaixo disso qualquer inicial casaria com meio salão.
+
+   Isto erra nos dois sentidos e não tem como não errar: duas Marias
+   diferentes no mesmo número passam, e "Bia"/"Beatriz" não passa. É o preço
+   de não ter SMS, e está escrito aqui para ninguém confundir com garantia. */
+create or replace function public.mesmo_primeiro_nome(a text, b text)
+returns boolean language sql immutable set search_path = public as $$
+  select case when a is null or b is null then false else (
+    select p <> '' and q <> ''
+       and length(p) >= 2 and length(q) >= 2
+       and left(p, least(length(p), length(q)))
+         = left(q, least(length(p), length(q)))
+      from (select lower(split_part(btrim(a), ' ', 1)) as p,
+                   lower(split_part(btrim(b), ' ', 1)) as q) n
+  ) end
+$$;
+
 -- Até quando o salão aceita marcação. Serve para dois problemas reais: quem
 -- marca para daqui a seis meses quase sempre falta, e agenda aberta até o
 -- infinito tira do dono a liberdade de mudar jornada, preço ou equipe.
@@ -280,6 +310,7 @@ begin
            select 1 from public.agendamentos a
             where a.profissional_id = p_profissional
               and a.status in ('pendente','confirmado','em_atendimento','concluido')
+              and a.arquivado_em is null
               and tstzrange(a.inicio, a.fim, '[)') && tstzrange(v_ini, v_fim, '[)'))
          and not exists (
            select 1 from public.bloqueios b
@@ -427,7 +458,20 @@ begin
      está aqui para marcar horário, não para arrumar cadastro. Na dúvida fica
      o que já estava, e o salão conserta pelo painel. */
   update public.clientes c
-     set perfil_id = coalesce(c.perfil_id, v_perfil),
+     set perfil_id = case
+           when c.perfil_id is not null then c.perfil_id
+           when v_perfil is null then null
+           /* A ficha foi achada pelo TELEFONE, não pelo login. Sem SMS não
+              existe prova de que o número é de quem digitou: pode ser o do
+              marido, o da mãe, ou um dígito trocado. Amarrar a conta à ficha
+              nesse caso adotaria o histórico de outra pessoa PARA SEMPRE —
+              dali em diante toda marcação cairia lá.
+
+              Com o nome batendo, é a mesma pessoa criando conta depois de já
+              ter sido cadastrada no balcão — o caso comum, e esse continua
+              amarrando. */
+           when public.mesmo_primeiro_nome(c.nome, p_nome) then v_perfil
+           else null end,
          telefone  = case
            when p_tel is null or p_tel = c.telefone then c.telefone
            when exists (select 1 from public.clientes o
@@ -490,6 +534,7 @@ declare
   v_fim      timestamptz;
   v_valor    numeric(10,2);
   v_abertos  int;
+  v_quem     text;
   v_ordem    smallint := 1;
   s          record;
 begin
@@ -549,6 +594,26 @@ begin
   -- existe (ver o comentário lá em cima).
   v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
+  /* QUEM DE FATO VEM, quando o nome informado não é o da ficha.
+
+     A ficha é reencontrada pelo telefone, e sem SMS não há prova de que o
+     número seja de quem digitou. Se alguém marca com o número da mãe, o
+     horário cai na ficha da mãe — e o salão liga para a mãe perguntando de
+     um horário que ela não marcou.
+
+     Não dá para impedir sem verificar o número de verdade. Dá para o salão
+     saber: o nome informado fica registrado em `atendido_nome`, que o painel
+     mostra como "Quem vem". Melhor um nome a mais na tela do que um telefone
+     errado em silêncio. */
+  if nullif(btrim(coalesce(p_atendido_nome, '')), '') is null then
+    select case when not public.mesmo_primeiro_nome(c.nome, v_nome)
+                  then v_nome end
+      into v_quem
+      from public.clientes c where c.id = v_cliente;
+  else
+    v_quem := btrim(p_atendido_nome);
+  end if;
+
   -- ── Freio de spam ────────────────────────────────────────────────────────
   -- Marcação online sem senha é um formulário aberto na internet. Sem limite,
   -- um número só entope a agenda inteira de um salão em dois minutos — e o
@@ -560,6 +625,7 @@ begin
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
      and a.status in ('pendente','confirmado')
+     and a.arquivado_em is null
      and a.inicio > now();
 
   if v_abertos >= 3 then
@@ -574,7 +640,7 @@ begin
        valor_previsto, atendido_nome, obs, criado_por)
     values
       (v_salao, v_cliente, p_profissional, p_inicio, v_fim, 'confirmado', 'online',
-       v_valor, nullif(btrim(coalesce(p_atendido_nome, '')), ''),
+       v_valor, v_quem,
        nullif(btrim(coalesce(p_obs, '')), ''), v_perfil)
     returning agendamentos.id into v_agend;
   exception

@@ -32,6 +32,7 @@ def limpar(sql):
         if linha.strip(): fora.append(linha.rstrip())
     return '\n'.join(fora)
 
+fonte01 = open('supabase/01_schema.sql', encoding='utf-8').read()
 fonte05 = open('supabase/05_agenda.sql', encoding='utf-8').read()
 
 def recortar(fonte, cabeca):
@@ -46,6 +47,10 @@ ficha = recortar(fonte05, 'create or replace function public.ficha_do_cliente')
 # `so_digitos` é a régua do telefone, e a migração logo abaixo chama ela. Vem
 # junto para o remendo não depender de a instalação já ter a versão certa.
 digitos = recortar(fonte05, 'create or replace function public.so_digitos(')
+# `mesmo_primeiro_nome` decide se uma ficha achada pelo telefone pode virar
+# "minha". `ficha_do_cliente` e `agendar` chamam as duas; sem ela aqui o
+# remendo instala funções que referenciam algo que não existe.
+primeiro = recortar(fonte05, 'create or replace function public.mesmo_primeiro_nome(')
 # A migração do telefone da ficha (seção 4.4) não é função: é UPDATE mais a
 # trava `cli_tel_so_digitos`. O recortador antigo só sabia achar funções, e por
 # isso a correção que arruma os cadastros já gravados ficava fora do remendo —
@@ -53,6 +58,14 @@ digitos = recortar(fonte05, 'create or replace function public.so_digitos(')
 telefone = recortar_ate(fonte05,
                         'update public.clientes\n   set telefone = null',
                         'end $trava$;')
+# `arquivado_em` e a trava anti-choque refeita. Sem a COLUNA, tudo o que vem
+# depois aqui referencia campo que não existe e o remendo inteiro morre na
+# primeira linha — e o painel, que já sabe arquivar, levaria 400 a cada
+# gravação. A trava precisa ser refeita junto: a antiga não conhece a coluna,
+# e sem isso arquivar não libera o horário, que é metade do que arquivar é.
+arquivar = recortar_ate(fonte01,
+                        'alter table public.agendamentos\n  add column if not exists arquivado_em',
+                        'end $trava_choque$;')
 # `horarios_livres` entra no remendo desde que ela passou a costurar as faixas
 # de jornada. Sem ela aqui, quem só cola o remendo continua com a lista de
 # horários duplicada e fora de ordem — o remendo tem que levar a correção
@@ -60,7 +73,9 @@ telefone = recortar_ate(fonte05,
 livres = recortar(fonte05, 'create or replace function public.horarios_livres(')
 
 partes = [
+    limpar(arquivar),
     limpar(digitos),
+    limpar(primeiro),
     limpar(telefone),
     limpar(livres),
     "revoke all on function public.horarios_livres(uuid, date, uuid[]) from public;",

@@ -86,6 +86,7 @@ declare
   v_fim      timestamptz;
   v_valor    numeric(10,2);
   v_abertos  int;
+  v_quem     text;
   v_ordem    smallint := 1;
   s          record;
 begin
@@ -138,9 +139,30 @@ begin
   -- e era ESTA a que rodava: o 09 substitui o agendar() do 05.
   v_cliente := public.ficha_do_cliente(v_salao, v_nome, v_tel);
 
+  /* QUEM DE FATO VEM, quando o nome informado não é o da ficha.
+
+     A ficha é reencontrada pelo telefone, e sem SMS não há prova de que o
+     número seja de quem digitou. Se alguém marca com o número da mãe, o
+     horário cai na ficha da mãe — e o salão liga para a mãe perguntando de
+     um horário que ela não marcou.
+
+     Não dá para impedir sem verificar o número de verdade. Dá para o salão
+     saber: o nome informado fica registrado em `atendido_nome`, que o painel
+     mostra como "Quem vem". Melhor um nome a mais na tela do que um telefone
+     errado em silêncio. */
+  if nullif(btrim(coalesce(p_atendido_nome, '')), '') is null then
+    select case when not public.mesmo_primeiro_nome(c.nome, v_nome)
+                  then v_nome end
+      into v_quem
+      from public.clientes c where c.id = v_cliente;
+  else
+    v_quem := btrim(p_atendido_nome);
+  end if;
+
   select count(*) into v_abertos from public.agendamentos a
    where a.cliente_id = v_cliente
      and a.status in ('pendente','confirmado')
+     and a.arquivado_em is null
      and a.inicio > now();
 
   if v_abertos >= 3 then
@@ -154,7 +176,7 @@ begin
        valor_previsto, atendido_nome, obs, criado_por)
     values
       (v_salao, v_cliente, p_profissional, p_inicio, v_fim, 'confirmado', 'online',
-       v_valor, nullif(btrim(coalesce(p_atendido_nome, '')), ''),
+       v_valor, v_quem,
        nullif(btrim(coalesce(p_obs, '')), ''), v_perfil)
     returning agendamentos.id, agendamentos.gerenciar_token into v_agend, v_token;
   exception
@@ -238,6 +260,7 @@ language sql stable security definer set search_path = public as $$
       join public.saloes sa        on sa.id = a.salao_id
       join public.profissionais p  on p.id  = a.profissional_id
      where a.gerenciar_token = any(coalesce(p_tokens, '{}'::uuid[]))
+       and a.arquivado_em is null
   ) t
 $$;
 
