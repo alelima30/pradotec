@@ -125,10 +125,11 @@ rodar "semana"             node "$AQUI/semana.test.mjs"
 rodar "arquivar"           node "$AQUI/arquivar.test.mjs"
 rodar "confere grade"      node "$AQUI/confere-grade.test.mjs"
 rodar "cartão legível"     node "$AQUI/cartao-legivel.test.mjs"
+rodar "abas do salão"      node "$AQUI/abas-salao.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 28 suítes."
+  echo "✓ Tudo passou — as 29 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

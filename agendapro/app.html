@@ -120,6 +120,34 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
    com sombra. Sem esse relevo os dois lados pesavam igual e não dava para
    ver, de relance, em qual vista a agenda está — que é a única pergunta que
    este controle responde. */
+/* As duas metades de "Meu salão". Mesma linguagem do Dia | Semana da agenda:
+   trilho afundado, pastilha erguida na escolhida. Duas peças com a mesma
+   função devem ter a mesma cara, senão cada tela ensina um jeito diferente
+   de fazer a mesma coisa. */
+.sub-abas{
+  display:inline-flex; padding:3px; gap:2px; margin-bottom:16px;
+  border:1px solid var(--borda); border-radius:11px;
+  background:var(--painel2);
+  box-shadow:inset 0 1px 2px rgba(60,48,30,.07);
+}
+.sub-abas button{
+  border:0; background:transparent; color:var(--txt2); cursor:pointer;
+  padding:0 16px; height:40px; min-height:40px; border-radius:8px;
+  font:inherit; font-size:13.5px; font-weight:600;
+  transition:background .12s, color .12s, box-shadow .12s;
+}
+.sub-abas button:hover{ color:var(--txt) }
+.sub-abas button.on{
+  background:var(--painel); color:var(--marca);
+  box-shadow:0 1px 1px rgba(60,48,30,.07), 0 2px 4px -1px rgba(60,48,30,.07);
+}
+.sub-tela{ display:none }
+.sub-tela.on{ display:block }
+@media (max-width:520px){
+  .sub-abas{ display:flex; width:100% }
+  .sub-abas button{ flex:1; padding:0 8px }
+}
+
 .vistas{
   display:inline-flex; padding:3px; gap:2px;
   border:1px solid var(--borda); border-radius:11px;
@@ -2751,6 +2779,21 @@ function pintarSalao(){
   const doc = (bd.documentosCobranca || []).find(d => d.salaoId === salaoAtual);
 
   document.getElementById('painelSalao').innerHTML = `
+    <!-- ⚠ DUAS ABAS, E O MOTIVO É A PRÉVIA.
+         "Meu salão" era uma página só, com três cartões empilhados: dados,
+         aparência e identidade visual. A prévia do celular gruda ao lado da
+         aparência — mas a identidade visual (logo, capa, fotos, fundo) ficava
+         DEPOIS dela, num cartão de largura inteira. Ou seja: trocar a capa,
+         que é a maior mudança visual que existe, era feito com a prévia fora
+         da tela.
+         Agora as duas coisas que mudam a cara da página moram na mesma aba,
+         dentro da mesma coluna que rola, contra a mesma prévia grudada. -->
+    <div class="sub-abas" id="subAbasSalao">
+      <button type="button" data-sub="dados"     onclick="trocarAbaSalao('dados')">Dados</button>
+      <button type="button" data-sub="aparencia" onclick="trocarAbaSalao('aparencia')">Aparência do link</button>
+    </div>
+
+    <div class="sub-tela" data-sub="dados">
     <div class="card" style="margin-bottom:16px">
       <h3 class="secao">Dados do estabelecimento</h3>
       <p class="secao-sub">É o que aparece para o cliente na página de
@@ -2836,6 +2879,9 @@ function pintarSalao(){
       </div>
     </div>
 
+    </div><!-- /sub-tela dados -->
+
+    <div class="sub-tela" data-sub="aparencia">
     <div class="card">
       <h3 class="secao">Aparência do link do cliente</h3>
       <p class="secao-sub">A cara da página que a cliente abre. Mexa aqui e
@@ -2893,25 +2939,18 @@ function pintarSalao(){
         tempos em tempos. Quem pediu ao celular para reduzir animações não vê
         o movimento — o acabamento fica de qualquer forma.</p>
 
-      </div><!-- /ap-controles -->
-
-      <!-- A prévia gruda: rolando a lista de escolhas, o celular acompanha.
-           Sem isso, mexer no último controle é mexer às cegas — a prévia já
-           saiu da tela. -->
-      <div class="ap-previa">
-        <div class="previa-fone" id="previaFone"></div>
-      </div>
-      </div><!-- /ap-grade -->
-
-      <div class="card-acoes">
+      <div class="card-acoes" style="margin-top:18px">
         <button class="btn btn-p" onclick="salvarAparencia()">Salvar aparência</button>
         <span id="salvouAparencia" class="salvou"></span>
       </div>
-    </div>
 
-    <div class="card">
+      <!-- As imagens continuam nesta MESMA coluna, e é o ponto da mudança:
+           trocar a capa é a maior alteração visual que existe, e antes era
+           feita com a prévia fora da tela. -->
+      <div class="linha-fina" style="margin:26px 0 20px"></div>
       <h3 class="secao">Identidade visual</h3>
-      <p class="secao-sub">O que o cliente vê ao abrir o link do salão.</p>
+      <p class="secao-sub">As imagens da página. Cada troca aparece na prévia
+        ao lado, sem precisar salvar antes.</p>
       ${cartao('logo', 'Logo',
         'Aparece no topo da página do cliente e na lista de salões dele.',
         'Quadrada. JPG, PNG ou WEBP.')}
@@ -2928,7 +2967,18 @@ function pintarSalao(){
       + 'legível. Foto de ambiente funciona melhor que foto com gente ou '
       + 'letreiro — o que aparece dela é a atmosfera, não o detalhe.',
         'Em pé, tipo 9 por 16. JPG, PNG ou WEBP.')}
-    </div>
+
+      </div><!-- /ap-controles -->
+
+      <!-- A prévia gruda: rolando a coluna da esquerda — escolhas E imagens —
+           o celular acompanha. Sem isso, mexer no último controle é mexer às
+           cegas, porque a prévia já saiu da tela. -->
+      <div class="ap-previa">
+        <div class="previa-fone" id="previaFone"></div>
+      </div>
+      </div><!-- /ap-grade -->
+    </div><!-- /card -->
+    </div><!-- /sub-tela aparencia -->
     ${Dados.ligado ? '' : `
     <div class="aviso info" style="margin-top:14px">
       <b>Nesta demonstração as fotos ficam no seu navegador.</b><br>
@@ -2940,6 +2990,30 @@ function pintarSalao(){
   // Depois do innerHTML: os botões da janela só existem agora.
   pintarJanelaAgenda();
   pintarAparencia();
+  trocarAbaSalao(subAbaSalao);
+}
+
+/* Qual das duas metades de "Meu salão" está aberta.
+   Guardada FORA da função porque `pintarSalao()` refaz o innerHTML inteiro a
+   cada foto trocada: sem lembrar aqui, escolher uma capa jogaria o dono de
+   volta para a aba de dados, no meio do trabalho dele. */
+let subAbaSalao = 'dados';
+
+function trocarAbaSalao(qual){
+  subAbaSalao = qual;
+  const abas = document.getElementById('subAbasSalao');
+  if(!abas) return;
+  for(const b of abas.querySelectorAll('button')){
+    const dele = b.dataset.sub === qual;
+    b.classList.toggle('on', dele);
+    // `aria-current` para quem usa leitor de tela: a classe pinta, ela conta.
+    if(dele) b.setAttribute('aria-current', 'true');
+    else b.removeAttribute('aria-current');
+  }
+  for(const t of document.querySelectorAll('#painelSalao .sub-tela')){
+    t.classList.toggle('on', t.dataset.sub === qual);
+  }
+  if(window.aplicarIcones) aplicarIcones(document.getElementById('painelSalao'));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
