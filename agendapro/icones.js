@@ -52,6 +52,10 @@ const D = {
   cartao:     '<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6 14.5h3"/>',
   predio:     '<rect x="4.5" y="3" width="15" height="18" rx="2"/><path d="M9 7.5h2M13 7.5h2M9 11.5h2M13 11.5h2M10 21v-4h4v4"/>',
   etiqueta:   '<path d="M3.5 11V4.5H10L20 14.5 13.5 21 3.5 11Z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+  // Três barras crescendo sobre uma linha de base. Barra é o que todo mundo
+  // reconhece como "relatório" sem legenda — pizza e linha, nesse tamanho,
+  // viram borrão.
+  grafico:    '<path d="M3.5 20.5h17"/><path d="M7 20.5v-5.5M12 20.5v-11M17 20.5v-7.5"/>',
   tema:       '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor" stroke="none"/>',
   saida:      '<path d="M14 4.5h4a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-4"/><path d="M10 8.5 6 12l4 3.5M6 12h9"/>',
   seta:       '<path d="M5 12h13M13 6.5 18.5 12 13 17.5"/>',

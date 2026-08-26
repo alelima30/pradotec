@@ -141,6 +141,130 @@ function semear(){
   marcar('c6','p4','v8', 10*60+30,  'confirmado');
   marcar('c5','p5','v9', 11*60,     'confirmado');
 
+  /* ── DOIS MESES DE CAIXA JÁ FECHADO ──────────────────────────────────────
+     A demonstração tinha agenda e não tinha história: `comandas: []`. Servia
+     enquanto o painel só mostrava o dia — mas o Relatórios abre perguntando
+     "quanto eu faturei no mês", e a resposta era uma tela vazia. Quem abre a
+     demonstração para decidir se assina veria justamente a tela que mais
+     vende parecendo quebrada.
+
+     São 59 dias para trás de propósito: dois meses cheios, então o período
+     ANTERIOR também tem movimento e a comparação percentual aparece. Com um
+     mês só, o relatório do mês passado voltaria vazio e a variação não teria
+     contra o que comparar.
+     ─────────────────────────────────────────────────────────────────────── */
+  const comandas = [];
+  {
+    /* Sorteio DETERMINÍSTICO. `Math.random()` faria o faturamento mudar a
+       cada F5 — e quem está avaliando o sistema veria o número dançar e
+       concluiria, com razão, que não dá para confiar na conta.
+
+       ⚠ E determinístico não basta: tem que ser BEM misturado. A primeira
+       versão era o congruente linear clássico (`x*1103515245+12345 % 2^31`),
+       que é determinístico e parece aleatório sozinho — mas os valores dele
+       caem em hiperplanos, e sorteios vizinhos ficam correlacionados. Aqui
+       isso apareceu na tela: a falta que deveria virar cancelamento em 40%
+       dos casos virou 1 vez em 12, porque o sorteio do cancelamento vinha
+       sempre quatro posições depois do que decidia se havia falta.
+
+       Este é o mulberry32 — mesmo tamanho, mesma reprodutibilidade, e sem a
+       estrutura que enviesa sorteios encadeados. */
+    let semente = 20260826;
+    const sorteio = () => {
+      semente = (semente + 0x6D2B79F5) | 0;
+      let t = Math.imul(semente ^ (semente >>> 15), 1 | semente);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const escolher = lista => lista[Math.floor(sorteio() * lista.length)];
+
+    const catalogo = servs.filter(x => x.salaoId === s1);
+    const equipe   = profs.filter(x => x.salaoId === s1 && x.ativo !== false);
+    const carteira = clis.filter(x => x.salaoId === s1);
+    const gondola  = prods.filter(x => x.salaoId === s1);
+    let n = 0;
+
+    for(let volta = 59; volta >= 1; volta--){
+      const dia = somarDias(d, -volta);
+      if(new Date(dia + 'T12:00').getDay() === 0) continue;   // domingo, fechado
+
+      /* Cada comanda do passado ganha o atendimento que a originou. Sem
+         isso, o relatório mostrava 73 comandas fechadas ao lado de "1
+         atendimento concluído" — as duas contas certas, e a tela mentindo
+         por omissão, porque no salão de verdade uma vem da outra.
+
+         A agenda de cada profissional anda em fila: o próximo entra quando o
+         anterior acaba. Atendimento em cima de atendimento é um dado que não
+         pode existir, nem na demonstração. */
+      const livre = {};
+      const proximaVaga = (pid, sv) => {
+        const ini = livre[pid] == null ? 9*60 : livre[pid];
+        livre[pid] = ini + sv.duracaoMin + (sv.intervaloMin || 0);
+        return ini;
+      };
+
+      const quantas = 2 + Math.floor(sorteio() * 4);
+      for(let k = 0; k < quantas; k++){
+        const sv  = escolher(catalogo);
+        const pro = escolher(equipe);
+        const cli = escolher(carteira);
+        const ini = proximaVaga(pro.id, sv);
+        ags.push({
+          id:id(), salaoId:s1, clienteId:cli.id, profissionalId:pro.id,
+          data:dia, inicio:ini, fim: ini + sv.duracaoMin + (sv.intervaloMin||0),
+          status:'concluido', origem: sorteio() < 0.35 ? 'online' : 'recepcao',
+          valorPrevisto: sv.preco,
+          servicos:[{ servicoId:sv.id, duracaoMin:sv.duracaoMin, preco:sv.preco,
+            comissaoPct: sv.comissaoPct != null ? sv.comissaoPct : pro.comissaoPct }],
+          obs:'',
+        });
+        const itens = [{ tipo:'servico', descricao:sv.nome, qtd:1,
+          precoUnit:sv.preco, profissionalId:pro.id,
+          comissaoPct: sv.comissaoPct != null ? sv.comissaoPct : pro.comissaoPct }];
+        // Uma em cada cinco leva produto. É o que faz "o que mais saiu"
+        // misturar serviço e prateleira, como no salão de verdade.
+        if(sorteio() < 0.2 && gondola.length){
+          const pr = escolher(gondola);
+          itens.push({ tipo:'produto', descricao:pr.nome, qtd:1,
+            precoUnit:pr.preco, profissionalId:pro.id, comissaoPct:pr.comissaoPct });
+        }
+        const total = itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0);
+        const forma = escolher(['pix','credito','debito','dinheiro','credito']);
+        // A maquininha cobra; sem a taxa aqui, a coluna "líquido" do
+        // relatório mostraria o bruto e ensinaria a conta errada.
+        const taxa = forma === 'credito' ? Math.round(total * 4.49) / 100
+                   : forma === 'debito'  ? Math.round(total * 1.99) / 100 : 0;
+
+        comandas.push({
+          id:id(), salaoId:s1, clienteId:cli.id, numero: ++n, data: dia,
+          status:'fechada', desconto:0,
+          // O instante do fechamento é o que diz de que mês é esse dinheiro.
+          fechadaEm: dia + 'T19:30:00-03:00',
+          itens, pagamentos:[{ forma, valor: total, parcelas:1, taxa }],
+        });
+      }
+
+      /* E um dia sim, outro não, alguém não aparece. Sem falta nenhuma o
+         relatório mostraria "R$ 0,00 ficou na mesa" — que é o número que
+         justifica lembrete e sinal, e o único que nenhum salão tem zerado. */
+      if(sorteio() < 0.28){
+        const sv  = escolher(catalogo);
+        const pro = escolher(equipe);
+        const cli = escolher(carteira);
+        const ini = proximaVaga(pro.id, sv);
+        ags.push({
+          id:id(), salaoId:s1, clienteId:cli.id, profissionalId:pro.id,
+          data:dia, inicio:ini, fim: ini + sv.duracaoMin + (sv.intervaloMin||0),
+          status: sorteio() < 0.6 ? 'faltou' : 'cancelado',
+          origem:'online', valorPrevisto: sv.preco,
+          servicos:[{ servicoId:sv.id, duracaoMin:sv.duracaoMin, preco:sv.preco,
+            comissaoPct: sv.comissaoPct != null ? sv.comissaoPct : pro.comissaoPct }],
+          obs:'',
+        });
+      }
+    }
+  }
+
   return {
     // Espelha os planos do 01_schema.sql. `recursos` é o que separa o Grátis
     // do Individual: sem ele, um profissional com tudo liberado é exatamente
@@ -198,7 +322,7 @@ function semear(){
       {id:id(), salaoId:s1, profissionalId:'p1', data:d, inicio:13*60, fim:14*60, motivo:'Almoço'},
       {id:id(), salaoId:s1, profissionalId:'p3', data:d, inicio:12*60+15, fim:13*60+15, motivo:'Almoço'},
     ],
-    comandas: [],
+    comandas,
   };
 }
 

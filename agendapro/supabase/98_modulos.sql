@@ -530,3 +530,124 @@ grant execute on function public.aceitar_convite(uuid)            to authenticat
 grant execute on function public.equipe_com_acesso(uuid)          to authenticated;
 grant execute on function public.remover_acesso(uuid, uuid, text) to authenticated;
 grant execute on function public.revogar_convite(uuid)            to authenticated;
+
+create or replace function public.relatorio(
+  p_salao uuid, p_de date, p_ate date)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  v_fuso  text;
+  v_ini   timestamptz;
+  v_fim   timestamptz;
+  v_dias  int;
+  v_ini_a timestamptz;
+  v_fim_a timestamptz;
+begin
+  if not public.e_gestor(p_salao) then
+    raise exception 'Sem permissão neste salão.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_de is null or p_ate is null or p_ate < p_de then
+    raise exception 'Confira as datas do período.' using errcode = 'check_violation';
+  end if;
+  select fuso into v_fuso from public.saloes where id = p_salao;
+  v_fuso := coalesce(v_fuso, 'America/Sao_Paulo');
+  v_ini := (p_de::timestamp) at time zone v_fuso;
+  v_fim := ((p_ate + 1)::timestamp) at time zone v_fuso;
+  v_dias  := (p_ate - p_de) + 1;
+  v_fim_a := v_ini;
+  v_ini_a := v_ini - make_interval(days => v_dias);
+  return jsonb_build_object(
+    'de',  p_de,
+    'ate', p_ate,
+    'dias', v_dias,
+    'faturamento', coalesce((
+      select round(sum(t.total), 2) from public.comandas_totais t
+        join public.comandas c on c.id = t.id
+       where c.salao_id = p_salao and c.status = 'fechada'
+         and c.fechada_em >= v_ini and c.fechada_em < v_fim), 0),
+    'atendimentos', (
+      select count(*) from public.comandas c
+       where c.salao_id = p_salao and c.status = 'fechada'
+         and c.fechada_em >= v_ini and c.fechada_em < v_fim),
+    'descontos', coalesce((
+      select round(sum(c.desconto), 2) from public.comandas c
+       where c.salao_id = p_salao and c.status = 'fechada'
+         and c.fechada_em >= v_ini and c.fechada_em < v_fim), 0),
+    'faturamentoAntes', coalesce((
+      select round(sum(t.total), 2) from public.comandas_totais t
+        join public.comandas c on c.id = t.id
+       where c.salao_id = p_salao and c.status = 'fechada'
+         and c.fechada_em >= v_ini_a and c.fechada_em < v_fim_a), 0),
+    'formas', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'forma', f.forma, 'valor', f.valor, 'taxa', f.taxa)
+             order by f.valor desc)
+        from (select pg.forma,
+                     round(sum(pg.valor), 2) as valor,
+                     round(sum(pg.taxa), 2)  as taxa
+                from public.pagamentos pg
+                join public.comandas c on c.id = pg.comanda_id
+               where c.salao_id = p_salao and c.status = 'fechada'
+                 and c.fechada_em >= v_ini and c.fechada_em < v_fim
+               group by pg.forma) f), '[]'::jsonb),
+    'comissoes', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'profissionalId', x.pid, 'nome', x.nome,
+               'vendido', x.vendido, 'comissao', x.comissao,
+               'itens', x.itens)
+             order by x.comissao desc)
+        from (select i.profissional_id as pid,
+                     coalesce(pr.apelido, pr.nome, 'sem profissional') as nome,
+                     round(sum(i.total), 2)          as vendido,
+                     round(sum(i.comissao_valor), 2) as comissao,
+                     count(*)                        as itens
+                from public.comanda_itens i
+                join public.comandas c on c.id = i.comanda_id
+                left join public.profissionais pr on pr.id = i.profissional_id
+               where c.salao_id = p_salao and c.status = 'fechada'
+                 and c.fechada_em >= v_ini and c.fechada_em < v_fim
+               group by i.profissional_id, coalesce(pr.apelido, pr.nome, 'sem profissional')) x),
+      '[]'::jsonb),
+    'servicos', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'nome', y.nome, 'qtd', y.qtd, 'valor', y.valor)
+             order by y.valor desc)
+        from (select i.descricao as nome,
+                     round(sum(i.qtd), 2)   as qtd,
+                     round(sum(i.total), 2) as valor
+                from public.comanda_itens i
+                join public.comandas c on c.id = i.comanda_id
+               where c.salao_id = p_salao and c.status = 'fechada'
+                 and c.fechada_em >= v_ini and c.fechada_em < v_fim
+               group by i.descricao
+               order by 3 desc limit 12) y), '[]'::jsonb),
+    'agenda', (
+      select jsonb_build_object(
+        'concluidos', count(*) filter (where a.status = 'concluido'),
+        'faltas',     count(*) filter (where a.status = 'faltou'),
+        'cancelados', count(*) filter (where a.status = 'cancelado'),
+        'marcados',   count(*),
+        'perdido', coalesce(round(sum(a.valor_previsto)
+                     filter (where a.status in ('faltou','cancelado')), 2), 0))
+        from public.agendamentos a
+       where a.salao_id = p_salao
+         and a.arquivado_em is null
+         and a.inicio >= v_ini and a.inicio < v_fim),
+    'clientes', (
+      select jsonb_build_object(
+        'atendidas', count(distinct c.cliente_id),
+        'novas', count(distinct c.cliente_id) filter (
+          where not exists (
+            select 1 from public.comandas c2
+             where c2.cliente_id = c.cliente_id
+               and c2.salao_id = p_salao
+               and c2.status = 'fechada'
+               and c2.fechada_em < v_ini)))
+        from public.comandas c
+       where c.salao_id = p_salao and c.status = 'fechada'
+         and c.fechada_em >= v_ini and c.fechada_em < v_fim)
+  );
+end $$;
+revoke all on function public.relatorio(uuid, date, date) from public;
+grant execute on function public.relatorio(uuid, date, date) to authenticated;

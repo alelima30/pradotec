@@ -74,3 +74,12 @@ select t_falso('nem aceita convite sem estar logado',
   has_function_privilege('anon', 'public.aceitar_convite(uuid)', 'execute'));
 select t_falso('e não alcança a tabela onde moram os segredos dos links',
   has_table_privilege('anon', 'public.convites_equipe', 'select'));
+
+-- ── Os relatórios, que vêm no mesmo arquivo ────────────────────────────────
+select t_verdade('a função relatorio() existe',
+  to_regprocedure('public.relatorio(uuid, date, date)') is not null);
+select t_verdade('quem fez login executa o relatório',
+  has_function_privilege('authenticated', 'public.relatorio(uuid, date, date)', 'execute'));
+-- Faturamento e comissão não são leitura de visitante.
+select t_falso('anon não executa o relatório',
+  has_function_privilege('anon', 'public.relatorio(uuid, date, date)', 'execute'));

@@ -150,9 +150,11 @@ const abasDe = p => p.evaluate(() =>
 secao('A dona');
 const pgDona = await abrirPainel(dDona, 'dona');
 const abasDona = await abasDe(pgDona);
-igual('vê as 8 abas', abasDona.length, 8);
+igual('vê as 9 abas', abasDona.length, 9);
 verdade('inclusive Plano e Meu salão',
   abasDona.includes('plano') && abasDona.includes('salao'));
+verdade('e os Relatórios, que trazem faturamento e comissão da casa',
+  abasDona.includes('relatorios'), JSON.stringify(abasDona));
 igual('e o papel dela aparece na lateral',
   (await pgDona.evaluate(() =>
     (document.getElementById('latQuemPapel') || {}).textContent) || '').trim(),
@@ -172,6 +174,22 @@ verdade('NÃO vê o Plano', !abasRecep.includes('plano'), JSON.stringify(abasRec
 verdade('NÃO vê Meu salão', !abasRecep.includes('salao'), JSON.stringify(abasRecep));
 verdade('NÃO vê Equipe — que traz a comissão das colegas',
   !abasRecep.includes('equipe'), JSON.stringify(abasRecep));
+verdade('NÃO vê Relatórios — faturamento do mês não é assunto do balcão',
+  !abasRecep.includes('relatorios'), JSON.stringify(abasRecep));
+
+/* ⚠ E ESCONDER A ABA NÃO É PROTEGER O DADO.
+   Quem barra é o banco: `relatorio()` é `security definer` com `e_gestor()`
+   na porta. Sem esta linha o teste aprovaria uma tela escondida sobre uma
+   função aberta — que é o furo que a gente já teve uma vez, no placar da
+   campanha. */
+const relRecusado = await pgRecep.evaluate(async s => {
+  try{ await Dados.chamar('relatorio',
+         { p_salao:s, p_de:'2026-01-01', p_ate:'2026-12-31' });
+       return null;
+  }catch(e){ return e.message || 'recusado'; }
+}, SALAO);
+verdade('e o BANCO recusa o relatório para ela, não só a tela',
+  relRecusado !== null, 'a recepção leu o faturamento do salão inteiro');
 
 // A lista de serviços continua: ela precisa conferir preço no balcão.
 verdade('vê a lista de Serviços', abasRecep.includes('servicos'));
@@ -211,8 +229,8 @@ const pgProf = await abrirPainel(dProf, 'profissional');
 const abasProf = await abasDe(pgProf);
 
 verdade('vê a agenda', abasProf.includes('agenda'), JSON.stringify(abasProf));
-verdade('NÃO vê Plano, Meu salão nem Equipe',
-  !['plano','salao','equipe'].some(k => abasProf.includes(k)),
+verdade('NÃO vê Plano, Meu salão, Equipe nem Relatórios',
+  !['plano','salao','equipe','relatorios'].some(k => abasProf.includes(k)),
   JSON.stringify(abasProf));
 
 await pgProf.evaluate(dd => { diaAtual = dd; pintar(); }, AMANHA);

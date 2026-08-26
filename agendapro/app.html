@@ -111,8 +111,17 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
    O botão do WhatsApp na lista de clientes estourou 301px no celular; a
    correção não é apertar a tabela até ficar ilegível, é a mesma que a grade
    da agenda já usa — a caixa rola, o corpo da página não. */
-.tabela-rola{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.tabela-rola > .tabela{min-width:520px}
+/* ⚠ E SÓ ENQUANTO ELA FOR UMA TABELA.
+   Abaixo de 720px o estilo.css desmonta a tabela em cartões empilhados, e aí
+   este min-width deixa de resolver e passa a causar: cada ficha de cliente
+   ficava com 520px dentro de um celular de 360px, rolando de lado à toa. A
+   regra mora numa media query em vez de ser desfeita lá embaixo porque o
+   <style> desta página vem DEPOIS do estilo.css — um `min-width:0` de lá
+   perderia para esta linha, e a correção pareceria escrita e não estaria. */
+@media (min-width:721px){
+  .tabela-rola{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tabela-rola > .tabela{min-width:520px}
+}
 /* Dia | Semana. Duas metades de um botão só, para ler como uma escolha entre
    dois estados e não como dois comandos separados.
 
@@ -291,6 +300,29 @@ body.carregando-tudo .tela{ display:none }
 }
 .kpi .v{font-size:23px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
 .kpi .r{font-size:12px;color:var(--txt2);font-weight:600}
+
+/* ── Relatórios ──────────────────────────────────────────────────────── */
+.rel-de{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;color:var(--txt2);font-weight:600;
+}
+.rel-de input{
+  padding:8px 10px;border:1px solid var(--borda);border-radius:9px;
+  background:var(--painel);color:var(--txt);font:inherit;font-size:13px;
+}
+/* A variação contra o período anterior. Verde e vermelho SOZINHOS não podem
+   carregar o sentido — 8% dos homens não distinguem os dois. Por isso a seta
+   e o sinal vêm junto no texto. */
+.rel-var{font-size:12.5px;font-weight:650;margin-top:3px}
+.rel-sobe{color:var(--su-500)}
+.rel-desce{color:var(--er-500)}
+.rel-igual{color:var(--txt2)}
+.rel-secao{margin:24px 0 11px;font-size:16px}
+.rel-secao small{font-weight:500;color:var(--txt2);font-size:12.5px;display:block;margin-top:2px}
+/* A barra proporcional dentro da tabela: comparar 12 números é mais rápido
+   com comprimento do que lendo dígito por dígito. */
+.rel-barra{height:6px;border-radius:3px;background:var(--lat-2);overflow:hidden;min-width:60px}
+.rel-barra i{display:block;height:100%;background:var(--marca);border-radius:3px}
 
 /* ── Modal ───────────────────────────────────────────────────────────── */
 .fundo{
@@ -525,6 +557,22 @@ body.carregando-tudo .tela{ display:none }
     <div id="listaComandas"></div>
     <h2 style="margin:22px 0 11px;font-size:16px">Comissão por profissional</h2>
     <div id="listaComissao"></div>
+  </section>
+
+  <!-- ══════════ RELATÓRIOS ══════════
+       O Caixa responde "e hoje?". Esta tela responde "e o mês?" — que é a
+       pergunta que decide comissão, preço e contratação, e que hoje se
+       responde na calculadora do celular no dia 30. -->
+  <section class="tela" id="tela-relatorios">
+    <div class="barra">
+      <span class="vistas" id="relAtalhos"></span>
+      <span class="espaco"></span>
+      <label class="rel-de">De
+        <input type="date" id="relDe" onchange="mudarPeriodo()"></label>
+      <label class="rel-de">até
+        <input type="date" id="relAte" onchange="mudarPeriodo()"></label>
+    </div>
+    <div id="relCorpo"></div>
   </section>
 
   <!-- ══════════ PLANO E ASSINATURA ══════════ -->
@@ -1060,6 +1108,10 @@ const EQUIPE  = ['dono','admin','recepcao','profissional'];
 const TELAS = [
   ['agenda',   'Agenda',           'calendario', 'Dia a dia', EQUIPE],
   ['caixa',    'Caixa',            'cartao',     'Dia a dia', EQUIPE],
+  // Faturamento e comissão da casa inteira não são assunto de quem atende
+  // nem da recepção — é a mesma linha que a função `relatorio()` do banco
+  // desenha com `e_gestor()`. Esconder aqui é conforto; quem barra é o banco.
+  ['relatorios','Relatórios',      'grafico',    'Dia a dia', GESTAO],
   ['clientes', 'Clientes',         'usuario',    'Cadastros', EQUIPE],
   ['servicos', 'Serviços',         'tesoura',    'Cadastros', EQUIPE],
   ['equipe',   'Equipe',           'equipe',     'Cadastros', GESTAO],
@@ -1937,7 +1989,18 @@ async function tirarAcesso(perfilId, papel, botao){
 /* ── Desenho: caixa ──────────────────────────────────────────────────── */
 function pintarCaixa(){
   document.getElementById('rotuloCaixa').textContent = porExtenso(diaAtual);
-  const comandas = doSalao(bd.comandas).filter(c => c.data === diaAtual);
+  const todas = doSalao(bd.comandas).filter(c => c.data === diaAtual);
+
+  /* ⚠ O CAIXA TEM QUE CONTAR A MESMA COISA QUE O RELATÓRIO
+     Antes daqui saía a soma de TUDO que estava aberto no dia, e o Relatórios
+     — que só conta comanda fechada — mostrava outro número para o mesmo dia.
+     Dois faturamentos diferentes na mesma tela é o tipo de coisa que faz o
+     dono parar de confiar no sistema inteiro, e ele estaria certo.
+
+     Então o faturamento aqui é o das FECHADAS, e o que ainda está aberto
+     aparece do lado, com nome próprio: é o que falta receber hoje. */
+  const comandas = todas.filter(c => comandaFechada(c));
+  const abertas  = todas.filter(c => !comandaFechada(c) && c.status !== 'cancelada');
 
   let bruto = 0, comissao = 0;
   const porProf = {};
@@ -1954,32 +2017,43 @@ function pintarCaixa(){
     }
   }
   const descontos = comandas.reduce((s,c) => s + (c.desconto||0), 0);
+  const emAberto = abertas.reduce((s,c) => s + totalDaComanda(c), 0);
 
   document.getElementById('kpisCaixa').innerHTML = `
-    <div class="kpi"><div class="v">${comandas.length}</div><div class="r">comandas</div></div>
+    <div class="kpi"><div class="v">${comandas.length}</div><div class="r">comandas fechadas</div></div>
     <div class="kpi"><div class="v">${real(bruto - descontos)}</div><div class="r">faturamento</div></div>
     <div class="kpi"><div class="v">${real(comissao)}</div><div class="r">comissões</div></div>
     <div class="kpi"><div class="v">${real(comandas.length ? (bruto-descontos)/comandas.length : 0)}</div>
-      <div class="r">ticket médio</div></div>`;
+      <div class="r">ticket médio</div></div>
+    <div class="kpi"><div class="v"${abertas.length ? ' style="color:var(--alerta)"' : ''}>${real(emAberto)}</div>
+      <div class="r">${abertas.length} em aberto</div></div>`;
 
   const alvo = document.getElementById('listaComandas');
-  if(!comandas.length){
+  if(!todas.length){
     alvo.innerHTML = '<div class="vazio"><b>Nenhuma comanda hoje</b>'
                    + 'Abra pela agenda: clique num atendimento e depois em Comanda.</div>';
   } else {
     alvo.innerHTML = `<table class="tabela"><thead><tr>
-        <th>#</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagamento</th><th></th>
-      </tr></thead><tbody>` + comandas.map(c => {
-        const t = c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0) - (c.desconto||0);
+        <th>#</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Situação</th><th></th>
+      </tr></thead><tbody>` + todas.map(c => {
+        const t = totalDaComanda(c);
         const formas = c.pagamentos.length
           ? c.pagamentos.map(p => p.forma).join(', ')
-          : '<span class="tag t-pend">em aberto</span>';
+          : '<span class="tag t-pend">sem pagamento</span>';
+        // A situação é a coluna que ensina o hábito: enquanto estiver
+        // "aberta", aquele dinheiro não está no faturamento de lugar nenhum.
+        const sit = comandaFechada(c)
+          ? '<span class="tag t-conf">fechada</span>'
+          : (c.status === 'cancelada'
+              ? '<span class="tag t-canc">cancelada</span>'
+              : '<span class="tag t-pend">aberta</span>');
         return `<tr>
           <td><b>${escapar(c.numero)}</b></td>
           <td>${escapar(nomeCliente(c.clienteId))}</td>
           <td>${c.itens.length}</td>
           <td><b>${real(t)}</b></td>
           <td>${formas}</td>
+          <td>${sit}</td>
           <td style="text-align:right"><button class="btn btn-peq" onclick="abrirComanda('${c.id}')">Abrir</button></td>
         </tr>`;
       }).join('') + '</tbody></table>';
@@ -1996,6 +2070,377 @@ function pintarCaixa(){
             <td>${real(porProf[k].venda)}</td><td><b>${real(porProf[k].com)}</b></td></tr>`;
         }).join('') + '</tbody></table>';
 }
+
+/* ===========================================================================
+   RELATÓRIOS
+   ---------------------------------------------------------------------------
+   O Caixa mostra o dia. Esta tela mostra o período — e a pergunta que ela
+   existe para responder é uma só, a que hoje se responde na calculadora do
+   celular no dia 30: QUANTO EU DEVO PARA CADA UMA.
+
+   ── POR QUE A CONTA É FEITA NO BANCO ──────────────────────────────────────
+   Somar aqui exigiria baixar TODO o histórico de comandas do salão — que
+   cresce para sempre — só para mostrar quatro números. Um salão com dois anos
+   de casa passaria minutos carregando para ver o fechamento de um mês. No
+   banco a conta acontece onde o dado mora e volta um jsonb pequeno.
+
+   E tem o lado que não é desempenho: `relatorio()` é `security definer` com
+   `e_gestor()` na porta. Fazer a conta aqui significaria a recepção baixando
+   o faturamento e a comissão de todo mundo para o navegador dela.
+
+   ── E POR QUE EXISTE UMA SEGUNDA CONTA, IGUAL, EM JAVASCRIPT ──────────────
+   `relatorioLocal()` não é a versão "de verdade": é a versão da demonstração,
+   que roda sem banco nenhum. As duas devolvem o MESMO formato de propósito,
+   para o desenho da tela ser um só. Duas telas — uma para a demonstração e
+   outra para a nuvem — divergem no primeiro campo novo, e a que ninguém olha
+   é a que quebra.
+   =========================================================================== */
+let relDe = null, relAte = null;
+let relDados = null;
+// Cada carregamento leva um número. Clicando rápido em "Mês passado" e depois
+// em "Este mês", a resposta do primeiro pode chegar por último e pintar o mês
+// errado por cima — com o cabeçalho dizendo o certo. Só a última pintada vale.
+let relPedido = 0;
+
+const PERIODOS = [
+  ['mes',      'Este mês'],
+  ['anterior', 'Mês passado'],
+  ['dias30',   '30 dias'],
+  ['ano',      'Este ano'],
+];
+
+/* ⚠ "ESTE MÊS" TERMINA HOJE, NÃO NO DIA 31.
+   Terminando no fim do mês, o período em curso ficava sempre com dias vazios
+   no fim — e como a comparação é contra uma janela do MESMO TAMANHO, o mês
+   corrido de 26 dias apanhava de um mês anterior de 31. O dono via seta
+   vermelha todo mês, até o dia 31, num salão que não tinha piorado nada.
+
+   Faturamento não existe no futuro: o período que interessa é o que já
+   aconteceu. */
+function limitesDoPeriodo(qual){
+  const h = hoje(), [a, m] = h.split('-').map(Number);
+  if(qual === 'mes')      return [iso(new Date(a, m-1, 1)), h];
+  if(qual === 'anterior'){
+    const p = iso(new Date(a, m-2, 1));
+    return [p, fimDoMes(p)];
+  }
+  if(qual === 'dias30')   return [somarDias(h, -29), h];
+  if(qual === 'ano')      return [iso(new Date(a, 0, 1)), h];
+  return [iso(new Date(a, m-1, 1)), h];
+}
+
+// dd/mm, para dizer contra QUAL janela a porcentagem foi tirada.
+const diaMes = d => d.split('-').reverse().slice(0,2).join('/');
+
+function prepararRelatorios(){
+  if(!relDe || !relAte) [relDe, relAte] = limitesDoPeriodo('mes');
+  document.getElementById('relDe').value  = relDe;
+  document.getElementById('relAte').value = relAte;
+  pintarAtalhosPeriodo();
+  carregarRelatorio();
+}
+
+function pintarAtalhosPeriodo(){
+  document.getElementById('relAtalhos').innerHTML = PERIODOS.map(([q, rot]) => {
+    const [d, a] = limitesDoPeriodo(q);
+    const ligado = d === relDe && a === relAte;
+    return `<button class="${ligado ? 'on' : ''}" onclick="periodoRapido('${q}')"
+            >${rot}</button>`;
+  }).join('');
+}
+
+function periodoRapido(qual){
+  [relDe, relAte] = limitesDoPeriodo(qual);
+  prepararRelatorios();
+}
+
+function mudarPeriodo(){
+  const d = document.getElementById('relDe').value;
+  const a = document.getElementById('relAte').value;
+  if(!d || !a) return;
+  if(a < d){
+    alert('A data final é anterior à inicial. Confira o período.');
+    document.getElementById('relDe').value  = relDe;
+    document.getElementById('relAte').value = relAte;
+    return;
+  }
+  relDe = d; relAte = a;
+  pintarAtalhosPeriodo();
+  carregarRelatorio();
+}
+
+async function carregarRelatorio(){
+  const meu = ++relPedido;
+  const alvo = document.getElementById('relCorpo');
+  alvo.innerHTML = '<div class="vazio">Somando o período…</div>';
+  try{
+    let r;
+    if(NA_NUVEM){
+      r = await Dados.chamar('relatorio',
+        { p_salao: salaoAtual, p_de: relDe, p_ate: relAte });
+      // Função que devolve escalar vem crua; a de conjunto vem em lista.
+      if(Array.isArray(r)) r = r[0];
+    } else {
+      r = relatorioLocal(relDe, relAte);
+    }
+    if(meu !== relPedido) return;      // chegou atrasado: já tem coisa mais nova
+    relDados = r;
+    desenharRelatorio(r);
+  }catch(e){
+    if(meu !== relPedido) return;
+    console.error('Relatório:', e);
+    alvo.innerHTML = '<div class="vazio"><b>Não consegui montar o relatório</b>'
+      + escapar(e.message || 'Tente de novo em instantes.') + '</div>';
+  }
+}
+
+/* A mesma conta do 12_relatorios.sql, para a demonstração. As regras que
+   importam são as mesmas, e estão aqui escritas de propósito para quem
+   comparar os dois arquivos ver que batem:
+     · só comanda FECHADA entra, e pela data em que FECHOU;
+     · a comissão sai do ITEM, não da comanda — o corte é do João e a escova
+       é da Ana, na mesma cliente;
+     · falta e cancelamento contam pelo dia do ATENDIMENTO, não do pagamento. */
+function relatorioLocal(de, ate){
+  const fuso = fusoDoSalaoAtual();
+  const dia = inst => inst ? instanteParaTela(inst, fuso).data : null;
+
+  const fechadas = doSalao(bd.comandas).filter(c => {
+    if(!comandaFechada(c)) return false;
+    const d = dia(c.fechadaEm);
+    return d && d >= de && d <= ate;
+  });
+
+  const dias = Math.round(
+    (new Date(ate + 'T12:00') - new Date(de + 'T12:00')) / 86400000) + 1;
+  const deAntes  = somarDias(de, -dias);
+  const ateAntes = somarDias(de, -1);
+  const antes = doSalao(bd.comandas).filter(c => {
+    if(!comandaFechada(c)) return false;
+    const d = dia(c.fechadaEm);
+    return d && d >= deAntes && d <= ateAntes;
+  });
+
+  const cent = v => Math.round(v * 100) / 100;
+  const somaTotal = lista => cent(lista.reduce((s,c) => s + totalDaComanda(c), 0));
+
+  const porProf = new Map(), porServ = new Map(), porForma = new Map();
+  for(const c of fechadas){
+    for(const i of c.itens){
+      const t = i.qtd * i.precoUnit;
+      const cm = Math.round(t * (i.comissaoPct||0)) / 100;
+      const p = acharProf(i.profissionalId);
+      const chave = i.profissionalId || '';
+      const linha = porProf.get(chave)
+        || { profissionalId: i.profissionalId || null,
+             nome: p ? (p.apelido || p.nome) : 'sem profissional',
+             vendido: 0, comissao: 0, itens: 0 };
+      linha.vendido += t; linha.comissao += cm; linha.itens += 1;
+      porProf.set(chave, linha);
+
+      const s = porServ.get(i.descricao) || { nome: i.descricao, qtd: 0, valor: 0 };
+      s.qtd += i.qtd; s.valor += t;
+      porServ.set(i.descricao, s);
+    }
+    for(const g of c.pagamentos){
+      const f = porForma.get(g.forma) || { forma: g.forma, valor: 0, taxa: 0 };
+      f.valor += g.valor; f.taxa += (g.taxa || 0);
+      porForma.set(g.forma, f);
+    }
+  }
+
+  const ags = doSalao(bd.agendamentos)
+    .filter(a => !a.arquivadoEm && a.data >= de && a.data <= ate);
+  const conta = st => ags.filter(a => a.status === st).length;
+
+  const clientesNoPeriodo = new Set(fechadas.map(c => c.clienteId));
+  const antesDoPeriodo = new Set(doSalao(bd.comandas)
+    .filter(c => comandaFechada(c) && dia(c.fechadaEm) && dia(c.fechadaEm) < de)
+    .map(c => c.clienteId));
+
+  return {
+    de, ate, dias,
+    faturamento: somaTotal(fechadas),
+    atendimentos: fechadas.length,
+    descontos: cent(fechadas.reduce((s,c) => s + (c.desconto||0), 0)),
+    faturamentoAntes: somaTotal(antes),
+    formas: [...porForma.values()]
+      .map(f => ({ forma: f.forma, valor: cent(f.valor), taxa: cent(f.taxa) }))
+      .sort((x,y) => y.valor - x.valor),
+    comissoes: [...porProf.values()]
+      .map(p => ({ ...p, vendido: cent(p.vendido), comissao: cent(p.comissao) }))
+      .sort((x,y) => y.comissao - x.comissao),
+    servicos: [...porServ.values()]
+      .map(s => ({ nome: s.nome, qtd: cent(s.qtd), valor: cent(s.valor) }))
+      .sort((x,y) => y.valor - x.valor).slice(0, 12),
+    agenda: {
+      concluidos: conta('concluido'),
+      faltas:     conta('faltou'),
+      cancelados: conta('cancelado'),
+      marcados:   ags.length,
+      perdido: cent(ags.filter(a => a.status === 'faltou' || a.status === 'cancelado')
+                       .reduce((s,a) => s + (a.valorPrevisto||0), 0)),
+    },
+    clientes: {
+      atendidas: clientesNoPeriodo.size,
+      novas: [...clientesNoPeriodo].filter(k => !antesDoPeriodo.has(k)).length,
+    },
+  };
+}
+
+/* A variação contra o período anterior. É o que transforma "R$ 8.400" em
+   "R$ 8.400, 12% acima do mês passado" — o número sozinho não diz se o salão
+   está melhorando. Sem período anterior não se inventa porcentagem: dizer
+   "+100%" contra zero é ruído.
+
+   E a janela comparada aparece escrita. "12% acima do período anterior" faz
+   cada pessoa imaginar uma janela diferente — e a de verdade são os mesmos
+   dias imediatamente antes, que num período de 26 dias começa no meio do mês
+   passado. Dizer contra o quê é a diferença entre um número e uma conta que
+   o dono consegue refazer. */
+function variacao(agora, antes, r){
+  if(!antes) return agora
+    ? '<div class="rel-var rel-igual">sem período anterior para comparar</div>'
+    : '';
+  const dias = Number(r.dias) || 1;
+  const janela = diaMes(somarDias(r.de, -dias)) + ' a ' + diaMes(somarDias(r.de, -1));
+  const p = Math.round(((agora - antes) / antes) * 1000) / 10;
+  if(p === 0) return `<div class="rel-var rel-igual">igual a ${janela}</div>`;
+  const sobe = p > 0;
+  return `<div class="rel-var ${sobe ? 'rel-sobe' : 'rel-desce'}">`
+       + (sobe ? '▲ +' : '▼ ') + p.toString().replace('.', ',')
+       + '% que ' + janela + '</div>';
+}
+
+function desenharRelatorio(r){
+  const alvo = document.getElementById('relCorpo');
+  if(!r){ alvo.innerHTML = '<div class="vazio">Sem dados no período.</div>'; return; }
+
+  const n = v => Number(v) || 0;
+  const fat = n(r.faturamento), at = n(r.atendimentos);
+  const comissoes = r.comissoes || [], formas = r.formas || [],
+        servicos  = r.servicos  || [], ag = r.agenda || {}, cl = r.clientes || {};
+  const totalComissao = comissoes.reduce((s,c) => s + n(c.comissao), 0);
+  const totalTaxas    = formas.reduce((s,f) => s + n(f.taxa), 0);
+
+  /* O vazio precisa dizer POR QUE está vazio. "Sem dados" faria o dono achar
+     que o sistema perdeu o mês dele — quando quase sempre é comanda que
+     ficou aberta, que é justamente o que ele precisa saber para consertar. */
+  if(!at && !n(ag.marcados)){
+    alvo.innerHTML = `<div class="vazio"><b>Nenhuma comanda fechada neste período</b>
+      Só comanda FECHADA vira faturamento — é a data do fechamento que diz de
+      que mês é o dinheiro. Se você atendeu e recebeu mas não fechou a comanda,
+      ela ainda está aberta no Caixa, esperando.</div>`;
+    return;
+  }
+
+  alvo.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${real(fat)}</div><div class="r">faturamento</div>
+        ${variacao(fat, n(r.faturamentoAntes), r)}</div>
+      <div class="kpi"><div class="v">${at}</div><div class="r">comandas fechadas</div></div>
+      <div class="kpi"><div class="v">${real(at ? fat/at : 0)}</div><div class="r">ticket médio</div></div>
+      <div class="kpi"><div class="v">${real(totalComissao)}</div><div class="r">comissões a pagar</div></div>
+      <div class="kpi"><div class="v">${real(n(r.descontos))}</div><div class="r">descontos dados</div></div>
+    </div>
+
+    <h2 class="rel-secao">Comissão por profissional
+      <small>Some o que cada uma vendeu no período. Sai do item, então uma
+             cliente atendida por duas pessoas conta certo para as duas.</small></h2>
+    ${comissoes.length ? `<div class="tabela-rola"><table class="tabela"><thead><tr>
+        <th>Profissional</th><th style="text-align:right">Itens</th>
+        <th style="text-align:right">Vendeu</th><th style="text-align:right">A receber</th>
+      </tr></thead><tbody>
+      ${comissoes.map(c => {
+        const p = c.profissionalId ? acharProf(c.profissionalId) : null;
+        return `<tr>
+          <td><span class="pnt" style="background:${corDoProf(p)}"></span>${escapar(c.nome)}</td>
+          <td style="text-align:right;color:var(--txt2)">${n(c.itens)}</td>
+          <td style="text-align:right">${real(n(c.vendido))}</td>
+          <td style="text-align:right"><b>${real(n(c.comissao))}</b></td>
+        </tr>`;
+      }).join('')}
+      </tbody><tfoot><tr>
+        <td colspan="3"><b>Total a pagar</b></td>
+        <td style="text-align:right"><b>${real(totalComissao)}</b></td>
+      </tr></tfoot></table></div>`
+      : '<div class="vazio">Nenhum item com profissional no período.</div>'}
+
+    <h2 class="rel-secao">Como o dinheiro entrou
+      <small>A taxa da maquininha vem junto: o salão recebe menos do que a
+             cliente pagou, e sem isso o faturamento mente sobre o que cai na
+             conta.</small></h2>
+    ${formas.length ? `<div class="tabela-rola"><table class="tabela"><thead><tr>
+        <th>Forma</th><th style="text-align:right">Recebido</th>
+        <th style="text-align:right">Taxa</th><th style="text-align:right">Líquido</th>
+      </tr></thead><tbody>
+      ${formas.map(f => `<tr>
+        <td>${escapar(FORMA_NOME[f.forma] || f.forma)}</td>
+        <td style="text-align:right">${real(n(f.valor))}</td>
+        <td style="text-align:right;color:var(--txt2)">${n(f.taxa) ? '− ' + real(n(f.taxa)) : '—'}</td>
+        <td style="text-align:right"><b>${real(n(f.valor) - n(f.taxa))}</b></td>
+      </tr>`).join('')}
+      </tbody>${totalTaxas ? `<tfoot><tr>
+        <td colspan="2"><b>Ficou em taxa</b></td>
+        <td colspan="2" style="text-align:right"><b>${real(totalTaxas)}</b></td>
+      </tr></tfoot>` : ''}</table></div>`
+      : '<div class="vazio">Nenhum pagamento registrado no período.</div>'}
+
+    <h2 class="rel-secao">O que mais saiu
+      <small>Os 12 que mais renderam. É o que decide preço, vitrine e o que
+             vale ter na cadeira.</small></h2>
+    ${servicos.length ? `<div class="tabela-rola"><table class="tabela"><thead><tr>
+        <th>Serviço ou produto</th><th style="text-align:right">Qtd</th>
+        <th style="text-align:right">Rendeu</th><th style="width:28%"></th>
+      </tr></thead><tbody>
+      ${servicos.map(s => {
+        const maior = n(servicos[0].valor) || 1;
+        return `<tr>
+          <td>${escapar(s.nome)}</td>
+          <td style="text-align:right;color:var(--txt2)">${n(s.qtd)}</td>
+          <td style="text-align:right"><b>${real(n(s.valor))}</b></td>
+          <td><div class="rel-barra"><i style="width:${Math.max(3, Math.round(n(s.valor)/maior*100))}%"></i></div></td>
+        </tr>`;
+      }).join('')}
+      </tbody></table></div>`
+      : '<div class="vazio">Nenhum item lançado no período.</div>'}
+
+    <h2 class="rel-secao">Quem passou pela casa
+      <small>Conta pela comanda fechada, igual ao faturamento. Cliente nova é
+             a que não tinha nenhum atendimento pago aqui antes deste
+             período.</small></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${n(cl.atendidas)}</div><div class="r">clientes atendidas</div></div>
+      <div class="kpi"><div class="v">${n(cl.novas)}</div><div class="r">delas, novas na casa</div></div>
+      <div class="kpi"><div class="v">${n(cl.atendidas) - n(cl.novas)}</div><div class="r">que já eram de casa</div></div>
+    </div>
+
+    <h2 class="rel-secao">A agenda
+      <small>Estes contam pela data do ATENDIMENTO, não a do pagamento — falta
+             é do dia em que a cadeira ficou parada. Por isso não batem com o
+             número de comandas: são perguntas diferentes.</small></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${n(ag.marcados)}</div><div class="r">atendimentos marcados</div></div>
+      <div class="kpi"><div class="v">${n(ag.concluidos)}</div><div class="r">concluídos</div></div>
+      <div class="kpi"><div class="v">${n(ag.faltas)}</div><div class="r">faltas</div></div>
+      <div class="kpi"><div class="v">${n(ag.cancelados)}</div><div class="r">cancelamentos</div></div>
+      <div class="kpi"><div class="v"${n(ag.perdido) ? ' style="color:var(--alerta)"' : ''}>${real(n(ag.perdido))}</div>
+        <div class="r">ficou na mesa</div></div>
+    </div>
+    ${n(ag.perdido) ? `<div class="aviso info" style="margin-top:13px">
+      <b>${real(n(ag.perdido))} em falta e cancelamento.</b>
+      É o preço previsto do que não aconteceu. Quando esse número incomoda, o
+      caminho costuma ser lembrete no dia anterior ou sinal na marcação.
+    </div>` : ''}`;
+
+  if(window.aplicarIcones) aplicarIcones();
+  rotularTabelas();
+}
+
+const FORMA_NOME = {
+  dinheiro:'Dinheiro', pix:'Pix', debito:'Débito', credito:'Crédito',
+  transferencia:'Transferência', cortesia:'Cortesia', pacote:'Pacote',
+};
 
 /* ── Desenho: página pública ─────────────────────────────────────────── */
 function prepararPublico(){
@@ -2516,6 +2961,71 @@ function proximoNumero(){
   return (nums.length ? Math.max(...nums) : 0) + 1;
 }
 
+/* ⚠ COMANDA ABERTA NÃO É FATURAMENTO, E ERA ISSO QUE ZERAVA O RELATÓRIO
+   ---------------------------------------------------------------------------
+   A comanda nasce com `status = 'aberta'` (é o default do schema) e ninguém
+   nesta tela a fechava: `receber()` empilhava o pagamento e pronto. Vista de
+   dentro do Caixa parecia funcionar — a tela somava tudo do dia, aberta ou
+   não — e o defeito só apareceu do outro lado, no relatório: ele conta
+   `status = 'fechada'` por `fechada_em`, então o mês de QUALQUER salão de
+   verdade voltava zerado, com o dinheiro todo lá dentro.
+
+   Dava para consertar pelo lado errado — fazer o relatório somar comanda
+   aberta também. Seria mentir sobre o mês: comanda aberta é atendimento em
+   andamento, e o dia 31 fecharia contando dinheiro que ainda não entrou.
+   O certo é a tela ter o botão que faltava. */
+const comandaFechada = c => c && c.status === 'fechada';
+const totalDaComanda = c =>
+  c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0) - (c.desconto||0);
+const pagoNaComanda = c => c.pagamentos.reduce((s,p) => s + p.valor, 0);
+
+function fecharComanda(comId){
+  const c = bd.comandas.find(x => x.id === comId);
+  if(!c || comandaFechada(c)) return;
+  if(!c.itens.length){
+    alert('Esta comanda não tem nenhum item. Some o que foi feito antes de fechar.');
+    return;
+  }
+  const total = totalDaComanda(c);
+  // Centavos: 0.1+0.2 não dá 0.3 em ponto flutuante, e sem arredondar aqui a
+  // comanda paga certinho recusaria fechar por um resto de 1e-15.
+  const falta = Math.round((total - pagoNaComanda(c)) * 100) / 100;
+  if(falta > 0){
+    alert('Ainda faltam ' + real(falta) + ' para fechar esta comanda.\n\n'
+        + 'Registre o pagamento que falta. Se for por conta da casa, use a '
+        + 'forma "Cortesia" — assim o relatório mostra que foi cortesia, e '
+        + 'não que o dinheiro sumiu.');
+    return;
+  }
+  c.status = 'fechada';
+  // O instante importa: é por ele que o relatório decide de que mês é esse
+  // dinheiro. Comanda aberta dia 31 e fechada dia 1º entra no mês novo.
+  c.fechadaEm = new Date().toISOString();
+  salvar(); fecharModal(); pintar();
+}
+
+/* Reabrir mexe em mês fechado — por isso não é um botão como os outros.
+   No mesmo dia é conserto de balcão, e quem está no balcão faz. De ontem
+   para trás é reescrever faturamento e comissão já conferidos, e aí é o
+   proprietário quem responde. */
+function reabrirComanda(comId){
+  const c = bd.comandas.find(x => x.id === comId);
+  if(!c || !comandaFechada(c)) return;
+  const diaFecho = c.fechadaEm
+    ? instanteParaTela(c.fechadaEm, fusoDoSalaoAtual()).data : hoje();
+  if(diaFecho !== hoje() && !souGestor()){
+    alert('Esta comanda foi fechada em ' + porExtenso(diaFecho) + '.\n\n'
+        + 'Reabrir muda o faturamento e a comissão de um período que já foi '
+        + 'fechado — só o proprietário ou um administrador pode fazer isso.');
+    return;
+  }
+  if(!confirm('Reabrir a comanda ' + c.numero + '?\n\n'
+            + 'Ela sai do faturamento até ser fechada de novo.')) return;
+  c.status = 'aberta';
+  c.fechadaEm = null;
+  salvar(); abrirComanda(comId); pintar();
+}
+
 function abrirComanda(comId){
   const c = bd.comandas.find(x => x.id === comId);
   if(!c) return;
@@ -2524,6 +3034,7 @@ function abrirComanda(comId){
   const comissao = c.itens.reduce((s,i) => s + Math.round(i.qtd*i.precoUnit*(i.comissaoPct||0))/100, 0);
   const total = subtotal - (c.desconto||0);
   const pago = c.pagamentos.reduce((s,p) => s + p.valor, 0);
+  const fechada = comandaFechada(c);
 
   abrirModal(`Comanda ${c.numero} · ${nomeCliente(c.clienteId)}`, `
     <table class="tabela" style="box-shadow:none;margin-bottom:13px"><thead><tr>
@@ -2538,13 +3049,18 @@ function abrirComanda(comId){
           <td style="font-size:13px">${escapar(p ? p.nome : '—')}</td>
           <td style="text-align:right">${real(t)}</td>
           <td style="text-align:right;color:var(--txt2)">${real(Math.round(t*(i.comissaoPct||0))/100)}</td>
-          <td style="text-align:right"><button class="btn btn-peq"
+          <td style="text-align:right">${fechada ? '' : `<button class="btn btn-peq"
               onclick="removerItem('${c.id}',${ix})" aria-label="Remover"
-              >${ico('fechar')}</button></td>
+              >${ico('fechar')}</button>`}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="5" style="color:var(--txt3)">Sem itens.</td></tr>'}
     </tbody></table>
 
+    ${fechada ? `<div class="aviso ok" style="margin-bottom:13px">
+      <b>Comanda fechada.</b> Este valor já está contando no faturamento
+      ${c.fechadaEm ? 'de ' + porExtenso(instanteParaTela(c.fechadaEm, fusoDoSalaoAtual()).data) : ''}.
+      Para corrigir alguma coisa, reabra primeiro.
+    </div>` : `
     <div class="dupla">
       <div class="campo"><label>Somar item</label>
         <select id="cItem">
@@ -2561,7 +3077,7 @@ function abrirComanda(comId){
 
     <div class="campo" style="margin-top:16px"><label>Desconto</label>
       <input type="number" id="cDesc" value="${c.desconto||0}" min="0" step="0.01"
-             onchange="mudarDesconto('${c.id}', this.value)"></div>
+             onchange="mudarDesconto('${c.id}', this.value)"></div>`}
 
     <table class="tabela" style="box-shadow:none"><tbody>
       <tr><td>Subtotal</td><td style="text-align:right">${real(subtotal)}</td></tr>
@@ -2578,21 +3094,46 @@ function abrirComanda(comId){
       ${c.pagamentos.map(p => `<span class="tag t-conf" style="margin-right:5px">
         ${p.forma} ${real(p.valor)}</span>`).join('')}</div>` : ''}
 
+    ${fechada ? '' : `
     <div class="dupla" style="margin-top:13px">
       <div class="campo"><label>Forma</label>
         <select id="cForma">
           <option value="pix">Pix</option><option value="dinheiro">Dinheiro</option>
           <option value="debito">Débito</option><option value="credito">Crédito</option>
+          <option value="transferencia">Transferência</option>
+          <!-- Cortesia e pacote são formas de pagamento de verdade, não
+               "sem pagamento". Sem elas na lista, a comanda de uma cortesia
+               nunca fecha, some do relatório, e o dono não consegue nem
+               contar quanto deu de brinde no mês. -->
+          <option value="cortesia">Cortesia</option>
+          <option value="pacote">Pacote</option>
         </select></div>
       <div class="campo"><label>Valor</label>
         <input type="number" id="cValor" value="${Math.max(total - pago, 0).toFixed(2)}"
                min="0" step="0.01"></div>
     </div>
-    <button class="btn btn-peq" onclick="receber('${c.id}')">Registrar pagamento</button>
-  `, [['Fechar','fecharModal();pintar()','btn-p']]);
+    <button class="btn btn-peq" onclick="receber('${c.id}')">Registrar pagamento</button>`}
+  `, fechada
+    ? [['Reabrir', `reabrirComanda('${c.id}')`, ''],
+       ['Fechar janela','fecharModal();pintar()','btn-p']]
+    : [['Fechar janela','fecharModal();pintar()',''],
+       ['Fechar comanda', `fecharComanda('${c.id}')`, 'btn-p']]);
+}
+
+/* A janela já esconde os controles de uma comanda fechada. Isto aqui é a
+   segunda tranca: quem chama a função direto pelo console, ou uma janela
+   antiga que ficou aberta noutra aba, não reescreve mês fechado. */
+function travadaSeFechada(comId){
+  const c = bd.comandas.find(x => x.id === comId);
+  if(comandaFechada(c)){
+    alert('Esta comanda está fechada. Reabra antes de alterar.');
+    return true;
+  }
+  return false;
 }
 
 function somarItem(comId){
+  if(travadaSeFechada(comId)) return;
   const c = bd.comandas.find(x => x.id === comId);
   const [tipo, ref] = document.getElementById('cItem').value.split(':');
   const profId = document.getElementById('cProf').value;
@@ -2611,16 +3152,19 @@ function somarItem(comId){
 }
 
 function removerItem(comId, ix){
+  if(travadaSeFechada(comId)) return;
   const c = bd.comandas.find(x => x.id === comId);
   c.itens.splice(ix,1); salvar(); abrirComanda(comId);
 }
 
 function mudarDesconto(comId, v){
+  if(travadaSeFechada(comId)) return;
   const c = bd.comandas.find(x => x.id === comId);
   c.desconto = parseFloat(v) || 0; salvar(); abrirComanda(comId);
 }
 
 function receber(comId){
+  if(travadaSeFechada(comId)) return;
   const c = bd.comandas.find(x => x.id === comId);
   const valor = parseFloat(document.getElementById('cValor').value) || 0;
   if(valor <= 0){ alert('Informe o valor recebido.'); return; }
@@ -3001,6 +3545,7 @@ function pintar(){
   if(telaAtual === 'servicos') pintarServicos();
   if(telaAtual === 'equipe')   pintarEquipe();
   if(telaAtual === 'caixa')    pintarCaixa();
+  if(telaAtual === 'relatorios') prepararRelatorios();
   if(telaAtual === 'salao')    pintarSalao();
   if(telaAtual === 'publico')  prepararPublico();
   if(telaAtual === 'plano')    pintarPlano();

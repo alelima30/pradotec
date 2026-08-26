@@ -64,7 +64,8 @@ console.log('\nO app do salão, em 375px');
 await p.goto(BASE + 'app.html?demo=1');
 await p.waitForTimeout(900);
 
-const abas = ['Agenda','Caixa','Clientes','Serviços','Equipe','Meu salão','Plano'];
+const abas = ['Agenda','Caixa','Relatórios','Clientes','Serviços','Equipe',
+              'Meu salão','Plano'];
 for(const aba of abas){
   if(aba !== 'Agenda'){
     await p.locator('.menu-botao').click();

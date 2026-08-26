@@ -32,6 +32,9 @@ drop function if exists public.equipe_com_acesso(uuid) cascade;
 drop function if exists public.remover_acesso(uuid, uuid, text) cascade;
 drop function if exists public.revogar_convite(uuid) cascade;
 
+-- E os relatórios, que também vêm no mesmo arquivo colável.
+drop function if exists public.relatorio(uuid, date, date) cascade;
+
 -- Os auxiliares como eram antes: sem `coalesce`, devolvendo NULL para quem
 -- não tem vínculo. É o estado em que a instalação de produção está agora.
 create or replace function public.e_equipe(p_salao uuid) returns boolean

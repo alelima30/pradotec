@@ -1090,6 +1090,13 @@ input.ruim, select.ruim{border-color:var(--er-500) !important}
 .tabela td{border-bottom:1px solid var(--borda)}
 .tabela tr:hover td{background:var(--n-50)}
 [data-tema="escuro"] .tabela tr:hover td{background:var(--painel2)}
+/* A linha de total fecha a tabela: régua mais forte em cima, e nenhuma
+   embaixo — é o fim da conta, não mais um item da lista. */
+.tabela tfoot td{
+  border-top:1.5px solid var(--borda-forte); border-bottom:none;
+  padding-top:11px; font-size:15px;
+}
+.tabela tfoot tr:hover td{background:transparent}
 
 /* Indicadores: número grande, rótulo pequeno, sem moldura pesada. */
 .kpi .v{font-size:1.5rem;font-weight:620;letter-spacing:-.028em}
@@ -1796,12 +1803,51 @@ body.sem-brilho .boas-cta::after{ animation:none; opacity:0 }
     display:block; text-align:left; border-bottom:none; padding-top:11px;
   }
   .tabela tbody td[data-acoes]::before{ content:none }
-  .tabela tbody td[data-acoes] .btn{ width:100% }
+  /* ⚠ UM BOTÃO OCUPA A LINHA. DOIS NÃO CABEM NELA DUAS VEZES.
+     `width:100%` foi escrito quando a célula de ações tinha um botão só. Com
+     o do WhatsApp ao lado, viraram dois de 100% numa célula com
+     `white-space:nowrap`: 676px de conteúdo num celular de 390px.
+
+     Ninguém via porque a tabela morava dentro de uma caixa com
+     `overflow-x:auto` — a linha rolava de lado, e o teste de celular, que
+     mede o corpo da página, dava tudo certo. A caixa escondia o defeito em
+     vez de resolver.
+
+     Agora eles dividem a linha: o do WhatsApp fica do tamanho do polegar e o
+     outro toma o resto. O `!important` é porque o `nowrap` é estilo em
+     linha, escrito pelo JavaScript que desenha a tabela. */
+  .tabela tbody td[data-acoes]{
+    display:flex; gap:8px; white-space:normal !important;
+  }
+  .tabela tbody td[data-acoes] .btn{ width:auto; flex:1 1 auto }
+  .tabela tbody td[data-acoes] .btn-zap{ flex:0 0 auto; min-width:44px }
   .tabela tr:hover td{ background:none }
 
+  /* O rodapé de total também é um cartão — sem isto ele fica solto embaixo
+     da pilha, sem fundo e sem borda, parecendo sobra de desenho. */
+  .tabela tfoot, .tabela tfoot tr, .tabela tfoot td{ display:block; width:auto }
+  .tabela tfoot tr{
+    background:var(--painel); border:1px solid var(--borda-forte);
+    border-radius:var(--r); box-shadow:var(--sombra); padding:4px 14px 10px;
+  }
+  .tabela tfoot td{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:14px; padding:9px 0; text-align:right; font-size:15px;
+  }
+
   /* ── Respiro e alvos ────────────────────────────────────────────────── */
-  .kpis{ grid-template-columns:1fr 1fr; gap:9px }
+  /* ⚠ `1fr` NÃO É "METADE". É `minmax(auto, 1fr)`, e esse `auto` é o
+     min-content do que está dentro — que numa coluna de indicador é um valor
+     em reais que o navegador não tem onde quebrar ("R$ 4.136,50" vem com
+     espaço inquebrável entre o R$ e o número). Duas colunas de meia tela
+     viravam duas colunas do tamanho do maior número, e a página inteira
+     passava a rolar de lado por 22px.
+
+     `minmax(0,1fr)` devolve o sentido de "metade"; a fonte um pouco menor é
+     para o número caber na metade em vez de vazar do próprio cartão. */
+  .kpis{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:9px }
   .kpi{ padding:11px 12px }
+  .kpi .v{ font-size:1.32rem }
   .barra{ gap:8px }
   /* O botão de ação da barra ocupa a linha: no celular ele é O que se faz
      naquela tela, e meia largura sobrando ao lado não serve para nada. */
