@@ -1453,8 +1453,29 @@ function salvarStatus(agId){
   salvar(); fecharModal(); pintar();
 }
 
+/* ⚠ EXCLUIR NÃO É CANCELAR, E O AVISO PRECISA DIZER ISSO
+
+   São dois botões que parecem a mesma coisa e fazem coisas muito diferentes:
+
+     Cancelar  → a linha fica, marcada como cancelada. A cliente vê
+                 "Cancelado" no aplicativo dela e entende o que houve.
+     Excluir   → a linha some. Some o histórico, somem os serviços dela
+                 (o banco apaga em cascata) e — o pior — o cartão SOME DA
+                 TELA DA CLIENTE, sem aviso nenhum. Ela pode aparecer no
+                 salão achando que continua marcada.
+
+   O aviso antigo era só "Excluir este atendimento?", que não distingue os
+   dois. Quem quer desmarcar uma cliente lê isso e clica. */
 function excluirAgendamento(agId){
-  if(!confirm('Excluir este atendimento?')) return;
+  const a = bd.agendamentos.find(x => x.id === agId);
+  const quem = a ? nomeCliente(a.clienteId) : 'esta pessoa';
+  if(!confirm(
+      'Excluir apaga este atendimento do histórico, e ele SOME da tela de '
+    + quem + ' sem nenhum aviso — ela pode vir ao salão achando que está '
+    + 'marcada.\n\n'
+    + 'Para desmarcar alguém, feche esta janela e mude a situação para '
+    + '"Cancelado": aí ela vê o cancelamento no aplicativo.\n\n'
+    + 'Excluir mesmo assim? (use para lançamento errado, teste ou duplicata)')) return;
   bd.agendamentos = bd.agendamentos.filter(x => x.id !== agId);
   salvar(); fecharModal(); pintar();
 }
@@ -3241,6 +3262,224 @@ function desmontarAgenda(d){
   d.pagamentos = pagos;
 }
 
+let _gravando = 0;          // gravações em voo — a sincronização espera
+let _relogioAgenda = null;  // o timer da sincronização de fundo
+
+/* ⚠ POR QUE A SINCRONIZAÇÃO TEM RETRATO PRÓPRIO, E NÃO USA O `_baixado`
+
+   Depois de uma gravação, `_baixado` guarda a hora no formato que o Postgres
+   entende — `2026-08-27 14:00:00 America/Sao_Paulo` — e esse texto NÃO é data
+   válida para o JavaScript. `new Date(...)` devolve Invalid Date.
+
+   Isso nunca incomodou ninguém porque `_baixado` só servia para COMPARAR
+   textos na hora de gravar. A primeira versão desta sincronização tentou
+   montá-lo para descobrir se o dono havia mexido em cada linha, e quebrou
+   com "RangeError: Invalid time value" — depois do primeiro salvamento, não
+   antes, que é o pior tipo de defeito para achar.
+
+   Então aqui mora um retrato separado: as linhas exatamente como o banco as
+   devolve, sempre em ISO. `_baixado` continua existindo e sendo atualizado em
+   paralelo, porque é dele que a gravação tira o que mudou. */
+let _bancoAgenda = null;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   A AGENDA SE ATUALIZA SOZINHA
+
+   ── O PROBLEMA, COMO O DONO VIVEU ─────────────────────────────────────────
+   O painel lia o banco UMA vez, ao abrir, e nunca mais. O dono deixa o painel
+   aberto o dia inteiro — é para isso que ele existe. A cliente marca pelo
+   link às 10h; o horário entra no banco na hora, e a tela do dono continua
+   mostrando a agenda das 8h da manhã. Ele só descobre o agendamento se por
+   acaso apertar F5.
+
+   Medido antes da correção: painel aberto, cliente marca, dono olha o dia
+   certo → 0 cartões na grade. Recarregando a página → 1 cartão. O dado
+   estava no banco o tempo todo; quem não sabia era a tela.
+
+   Para um sistema de agendamento isso não é atraso, é o defeito central: o
+   dono liga para a cliente dizendo que não tem nada marcado.
+
+   ── A REGRA QUE NÃO SE NEGOCIA ────────────────────────────────────────────
+   Trazer novidade do banco é fácil; o difícil é não atropelar o dono. Se ele
+   está com uma comanda aberta pela metade e a sincronização joga o banco por
+   cima, o trabalho dele some — e some sem aviso, que é pior que não
+   atualizar nada.
+
+   Então a regra é uma só: **linha que o dono mexeu e ainda não salvou nunca
+   é tocada**. A comparação é entre o `bd` (o que está na tela) e o
+   `_baixado` (o retrato do banco na última leitura). Se os dois são iguais,
+   o dono não mexeu naquela linha, e ela pode receber o que veio do banco. Se
+   são diferentes, o trabalho dele está ali: a sincronização passa longe.
+
+   ── E POR QUE OS DOIS LADOS ANDAM JUNTOS ──────────────────────────────────
+   `subir()` apaga do banco tudo que está no `_baixado` e não está no `bd`.
+   Se esta função mexesse só num dos dois, a próxima gravação do dono
+   MANDARIA APAGAR o horário que a cliente acabou de marcar. Por isso toda
+   inclusão, alteração e remoção aqui acontece nos DOIS ao mesmo tempo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Igualdade que não depende da ordem das chaves.
+function _mesmo(a, b){
+  const norm = v => JSON.stringify(v, (k, x) =>
+    (x && typeof x === 'object' && !Array.isArray(x))
+      ? Object.keys(x).sort().reduce((o, kk) => (o[kk] = x[kk], o), {})
+      : x);
+  return norm(a) === norm(b);
+}
+
+/* Põe linhas cruas do banco na forma da tela, com a MESMA função que a carga
+   inicial usa. Reescrever a conversão aqui seria criar uma segunda verdade
+   sobre o que é "10:00". */
+function _montarSoAgenda(agsCrus, itensCrus){
+  const d = {
+    saloes: (bd.saloes || []).filter(x => x.id === salaoAtual),
+    agendamentos: _copia(agsCrus),
+    agendamento_servicos: _copia(itensCrus),
+  };
+  montarAgenda(d);
+  return d.agendamentos;
+}
+
+async function sincronizarAgenda(){
+  if(!NA_NUVEM || !salaoAtual || !_baixado) return 0;
+  if(_gravando) return 0;                    // o retrato mudaria embaixo
+  if(document.hidden) return 0;              // aba escondida não precisa
+  /* Janela aberta: repintar por baixo de um formulário preenchido pela metade
+     é exatamente o tipo de "ajuda" que faz perder trabalho. Quem diz que a
+     janela está aberta é a classe `on` no `#fundo` — foi o que `abrirModal()`
+     e `fecharModal()` combinaram entre si. A primeira versão procurava um
+     elemento `#modal` que não existe, e o guarda simplesmente não guardava. */
+  const veu = document.getElementById('fundo');
+  if(veu && veu.classList.contains('on')) return 0;
+
+  let ags, itens, clis;
+  try{
+    [ags, itens, clis] = await Promise.all([
+      Dados.lista('agendamentos', { salaoId: salaoAtual }),
+      Dados.lista('agendamento_servicos', {}),
+      Dados.lista('clientes', { salaoId: salaoAtual }),
+    ]);
+  }catch(e){
+    // Rede oscilando não é motivo para assustar ninguém: tenta de novo no
+    // próximo ciclo, e o que está na tela continua valendo.
+    console.info('[AgendaPro] sincronização adiada:', e.message);
+    return 0;
+  }
+  // Pode ter começado uma gravação enquanto estas três requisições voltavam.
+  if(_gravando) return 0;
+
+  let novos = 0, mudou = false;
+
+  /* ── As fichas de cliente ──────────────────────────────────────────────
+     Vêm junto porque sem elas o cartão da agenda mostra "—" no lugar do
+     nome: o horário aparece, mas de quem ninguém sabe. */
+  const fichasBanco = new Map(clis.map(c => [c.id, c]));
+  const fichasRetrato = new Map((_baixado.clientes || []).map(c => [c.id, c]));
+  const fichasTela = new Map((bd.clientes || []).map(c => [c.id, c]));
+  for(const [id, doBanco] of fichasBanco){
+    if(!fichasRetrato.has(id)){
+      bd.clientes.push(_copia(doBanco));
+      _baixado.clientes.push(_copia(doBanco));
+      mudou = true;
+    } else if(fichasTela.has(id) && _mesmo(fichasTela.get(id), fichasRetrato.get(id))
+                                 && !_mesmo(fichasTela.get(id), doBanco)){
+      Object.assign(fichasTela.get(id), _copia(doBanco));
+      Object.assign(fichasRetrato.get(id), _copia(doBanco));
+      mudou = true;
+    }
+  }
+
+  /* ── Os agendamentos ───────────────────────────────────────────────────
+     O retrato guarda a forma do banco; a tela guarda a forma montada. Para
+     saber se o dono mexeu, o retrato é montado numa cópia e comparado com o
+     que está na tela — comparar cru com montado acusaria diferença sempre. */
+  const doBancoPorId  = new Map(ags.map(a => [a.id, a]));
+  const retratoPorId  = new Map((_baixado.agendamentos || []).map(a => [a.id, a]));
+  const telaPorId     = new Map((bd.agendamentos || []).map(a => [a.id, a]));
+
+  /* Os dois lados montados a partir de linhas CRUAS do banco — as de agora e
+     as da última passada. É comparando a tela com o retrato anterior que se
+     sabe se o dono mexeu naquela linha desde então. */
+  const anterior = _bancoAgenda || { ags: [], itens: [] };
+  const montados = new Map(
+    _montarSoAgenda(ags, itens).map(a => [a.id, a]));
+  const retratoMontado = new Map(
+    _montarSoAgenda(anterior.ags, anterior.itens).map(a => [a.id, a]));
+  const vistosAntes = new Set(anterior.ags.map(a => a.id));
+
+  for(const [id, cru] of doBancoPorId){
+    const naTela = telaPorId.get(id);
+    if(!vistosAntes.has(id)){
+      // NOVO — é o caso da cliente que acabou de marcar pelo link.
+      if(!naTela){ bd.agendamentos.push(montados.get(id)); novos++; }
+      if(!retratoPorId.has(id)){
+        _baixado.agendamentos.push(_copia(cru));
+        for(const it of itens.filter(x => x.agendamentoId === id))
+          _baixado.agendamento_servicos.push(_copia(it));
+      }
+      mudou = true;
+    } else if(naTela && _mesmo(naTela, retratoMontado.get(id))
+                     && !_mesmo(naTela, montados.get(id))){
+      // MUDOU NO BANCO e o dono não mexeu nesta linha: pode receber.
+      Object.assign(naTela, montados.get(id));
+      Object.assign(retratoPorId.get(id), _copia(cru));
+      mudou = true;
+    }
+  }
+
+  // Sumiu do banco (o dono apagou noutra aba, por exemplo) e a tela não
+  // estava mexendo nele: sai dos dois lados.
+  for(const id of vistosAntes){
+    if(doBancoPorId.has(id)) continue;
+    const naTela = telaPorId.get(id);
+    if(naTela && !_mesmo(naTela, retratoMontado.get(id))) continue;   // dono mexeu
+    bd.agendamentos = bd.agendamentos.filter(a => a.id !== id);
+    _baixado.agendamentos = _baixado.agendamentos.filter(a => a.id !== id);
+    _baixado.agendamento_servicos =
+      (_baixado.agendamento_servicos || []).filter(x => x.agendamentoId !== id);
+    mudou = true;
+  }
+
+  _bancoAgenda = { ags: _copia(ags), itens: _copia(itens) };
+
+  if(mudou) pintar();
+  if(novos) avisarNovosHorarios(novos);
+  return novos;
+}
+
+/* Um recado curto quando chega horário novo. Sem isto a grade muda sozinha e
+   o dono não sabe que mudou — pior ainda se o horário caiu num dia que ele
+   não está olhando. */
+function avisarNovosHorarios(n){
+  let el = document.getElementById('recadoNovos');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'recadoNovos';
+    el.className = 'aviso ok';
+    el.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:90;'
+      + 'max-width:300px;box-shadow:var(--sombra-md);cursor:pointer';
+    el.onclick = () => el.remove();
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<b>' + n + (n > 1 ? ' horários novos' : ' horário novo')
+    + '</b><br>Marcado agora pelo link do salão.';
+  clearTimeout(el._sumir);
+  el._sumir = setTimeout(() => el.remove(), 9000);
+}
+
+/* Quando sincronizar. O relógio é a rede de segurança; o gatilho que mais
+   importa é a aba voltar a ficar visível — o dono sai para o WhatsApp e
+   volta, e é nessa hora que ele quer a agenda em dia. */
+function ligarSincronizacao(){
+  if(!NA_NUVEM) return;
+  clearInterval(_relogioAgenda);
+  _relogioAgenda = setInterval(sincronizarAgenda, 40000);
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) sincronizarAgenda();
+  });
+  window.addEventListener('focus', sincronizarAgenda);
+}
+
 async function carregarTudo(){
   if(!NA_NUVEM) return carregar();
   try{
@@ -3260,6 +3499,8 @@ async function carregarTudo(){
        retrato tivesse salão que o `bd` não tem, a gravação leria isso como
        "sumiu" e mandaria apagar. */
     _baixado = _copia(cru);
+    _bancoAgenda = { ags:   _copia(cru.agendamentos || []),
+                     itens: _copia(cru.agendamento_servicos || []) };
     return montarAgenda(montarJornadas(cru));
   }catch(e){
     console.error('[AgendaPro] não consegui ler o banco:', e);
@@ -3352,6 +3593,7 @@ function salvar(){
     const paraSubir = _copia(bd);
     desmontarJornadas(paraSubir);
     desmontarAgenda(paraSubir);
+    _gravando++;
     Dados.subir(_baixado, paraSubir)
       .then(() => { _baixado = _copia(paraSubir); })
       .catch(async e => {
@@ -3372,7 +3614,11 @@ function salvar(){
            verdadeiro. */
         const novo = await carregarTudo();
         if(novo){ bd = novo; pintar(); }
-      });
+      })
+      /* Solta a trava só no fim de TUDO, inclusive do socorro do `catch` —
+         que recarrega o banco e troca o `bd` inteiro. Soltar antes deixaria a
+         sincronização de fundo ler no meio dessa troca. */
+      .finally(() => { _gravando = Math.max(0, _gravando - 1); });
     return;
   }
   try{
@@ -3674,6 +3920,7 @@ function mostrarQuemEstaLogado(){
       if(!salaoAtual || !acharSalao(salaoAtual)) salaoAtual = bd.saloes[0].id;
     }
     iniciar();
+    ligarSincronizacao();
     registrarServiceWorker();
     ajustarBotaoInstalar();
     arrumarRodape();
