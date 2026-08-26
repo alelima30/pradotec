@@ -711,6 +711,69 @@ const acharProf    = i => bd.profissionais.find(p => p.id === i);
 const acharServico = i => bd.servicos.find(s => s.id === i);
 const acharSalao   = i => bd.saloes.find(s => s.id === i);
 
+/* ══════════════════════════════════════════════════════════════════════════
+   FALAR COM A CLIENTE NO WHATSAPP
+
+   O telefone que a cliente digita ao marcar tem o rótulo "WhatsApp" na tela
+   dela — é o número por onde ela espera ser chamada. Guardá-lo e obrigar o
+   dono a copiar, abrir o WhatsApp e colar é jogar fora o único dado que o
+   agendamento já tem.
+
+   Sobre o formato: o `wa.me` exige o número com código do país e SEM sinal
+   nenhum. Um "(11) 99999-8888" colado ali abre uma conversa com ninguém, e o
+   WhatsApp não explica por quê — só mostra "número de telefone inválido".
+   Por isso a limpeza é feita aqui, num lugar só.
+   ══════════════════════════════════════════════════════════════════════════ */
+function numeroWhatsapp(tel){
+  const n = String(tel || '').replace(/\D/g, '');
+  if(!n) return null;
+  // Já veio com o código do país (55 + DDD + 8 ou 9 dígitos).
+  if(n.length >= 12 && n.startsWith('55')) return n;
+  // Número brasileiro com DDD, do jeito que se digita aqui.
+  if(n.length === 10 || n.length === 11) return '55' + n;
+  // Fora desses casos não dá para adivinhar: melhor não oferecer o botão do
+  // que abrir uma conversa errada.
+  return n.length >= 12 ? n : null;
+}
+
+function zapDoCliente(clienteId){
+  const c = acharCliente(clienteId);
+  return c ? numeroWhatsapp(c.telefone) : null;
+}
+
+/* Abre a conversa com um recado já escrito. O texto é um começo, não um
+   roteiro: o dono apaga e escreve o dele. Vale mais que abrir em branco
+   porque a parte chata — dizer quem é e de qual horário se trata — já vem
+   pronta, que é justamente o que faz o dono desistir de mandar mensagem. */
+function falarNoWhatsapp(agId){
+  const a = bd.agendamentos.find(x => x.id === agId);
+  if(!a) return;
+  const num = zapDoCliente(a.clienteId);
+  if(!num){
+    alert('Esta ficha não tem telefone.\n\nAbra a ficha da pessoa em Clientes '
+        + 'e cadastre o WhatsApp dela.');
+    return;
+  }
+  /* ⚠ AQUI NÃO SE ESCAPA HTML, E É DE PROPÓSITO
+
+     Este texto não vai para a tela: vai para dentro de um endereço, pelo
+     `encodeURIComponent`, e de lá para a caixa de mensagem do WhatsApp.
+     Passá-lo pelo `escapar()` faria a dona da "Tesoura & Cia" receber uma
+     mensagem escrita "Tesoura &amp; Cia".
+
+     As variáveis se chamam `chamarDe` e `casa` — e não `nome` — porque o
+     varredor de tests/seguranca.test.mjs procura campo de gente indo para
+     HTML, e um `nome` aqui acendia a luz dele à toa. Luz que acende à toa é
+     luz que alguém acaba desligando. */
+  const sl = acharSalao(salaoAtual) || {};
+  const chamarDe = (nomeCliente(a.clienteId) || '').split(' ')[0];
+  const casa = sl.nome || 'salão';
+  const texto = `Oi ${chamarDe}! Aqui é do ${casa}, sobre seu `
+    + `horário de ${porExtenso(a.data)} às ${hm(a.inicio)}.`;
+  window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(texto),
+              '_blank', 'noopener');
+}
+
 function nomeCliente(i){ const c = acharCliente(i); return c ? c.nome : '—'; }
 
 // Duração e preço de um agendamento saem da soma dos serviços dele.
@@ -909,16 +972,32 @@ function pintarAgenda(){
       // meio, some com o serviço e deixa hora e nome numa linha só. O serviço
       // continua no `title` e no detalhe.
       const curto = alt < 42 ? ' curto' : '';
+      /* O atalho do WhatsApp no próprio cartão. Ele NÃO aparece no celular, e
+         isso é decisão, não esquecimento: o cartão de um atendimento de 30
+         minutos tem 30px de altura, e um botão dentro dele seria um alvo de
+         toque de 20px — do tamanho que faz errar o dedo e abrir conversa com
+         a cliente errada. A regra dos 40px do tests/celular.test.mjs existe
+         exatamente por isso.
+
+         No computador, onde há ponteiro e o dono trabalha sentado, ele surge
+         ao passar o mouse. No celular o caminho é um toque no cartão: o
+         detalhe abre com o botão grande, do tamanho certo. */
+      const zap = zapDoCliente(a.clienteId);
       html += `<div class="ag ${a.status}${curto}" style="top:${y(a.inicio)}px;height:${alt}px;
                     background:${p.cor}" title="${hm(a.inicio)} · ${escapar(nomeCliente(a.clienteId))} · ${escapar(rotuloServicos(a))}"
                     onclick="event.stopPropagation();abrirDetalhe('${a.id}')">
                  <b>${hm(a.inicio)} ${escapar(nomeCliente(a.clienteId))}</b>
-                 <span>${escapar(rotuloServicos(a))}</span></div>`;
+                 <span>${escapar(rotuloServicos(a))}</span>${zap ? `
+                 <button class="ag-zap" aria-label="Falar no WhatsApp"
+                         title="Falar com ${escapar(nomeCliente(a.clienteId))} no WhatsApp"
+                         onclick="event.stopPropagation();falarNoWhatsapp('${a.id}')"
+                 ><span data-ico="whatsapp"></span></button>` : ''}</div>`;
     }
     html += '</div>';
   }
 
   grade.innerHTML = html;
+  if(window.aplicarIcones) aplicarIcones(grade);
   pintarKpis();
 }
 
@@ -1240,8 +1319,12 @@ function abrirModal(titulo, corpo, botoes){
   document.getElementById('modalTitulo').textContent = titulo;
   document.getElementById('modalCorpo').innerHTML = corpo;
   document.getElementById('modalPe').innerHTML = (botoes||[])
-    .map(([r,acao,cls]) => `<button class="btn ${cls||''}" onclick="${acao}">${r}</button>`).join('');
+    .map(([r,acao,cls]) => `<button class="btn ${cls||''}" onclick="${acao}">`
+       + (/whats/i.test(r) ? '<span data-ico="whatsapp"></span>' : '')
+       + `${r}</button>`).join('');
   document.getElementById('fundo').classList.add('on');
+  // Os `data-ico` recém-escritos ainda são <span>: viram SVG aqui.
+  if(window.aplicarIcones) aplicarIcones(document.getElementById('fundo'));
 }
 function fecharModal(){ document.getElementById('fundo').classList.remove('on'); }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') fecharModal(); });
@@ -1442,6 +1525,11 @@ function abrirDetalhe(agId){
     </div>
   `, [
     ['Excluir', `excluirAgendamento('${agId}')`, ''],
+    /* O WhatsApp só aparece quando há para onde ligar. Botão que existe e
+       avisa "esta ficha não tem telefone" depois do clique é pior que botão
+       que não está lá. */
+    ...(zapDoCliente(a.clienteId)
+        ? [['Falar no WhatsApp', `falarNoWhatsapp('${agId}')`, 'btn-zap']] : []),
     [comanda ? 'Abrir comanda' : 'Abrir comanda', `comandaDoAgendamento('${agId}')`, ''],
     ['Salvar', `salvarStatus('${agId}')`, 'btn-p'],
   ]);

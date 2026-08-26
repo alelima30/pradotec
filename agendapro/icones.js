@@ -58,6 +58,13 @@ const D = {
   externo:    '<path d="M13.5 4.5H19.5V10.5M19.5 4.5 11 13"/><path d="M18 14v4.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4.5"/>',
   copiar:     '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 5.5v-1a1 1 0 0 0-1-1h-10a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h1"/>',
   mao:        '<path d="M10 11V5.5a1.6 1.6 0 1 1 3.2 0V11"/><path d="M13.2 11V4.2a1.6 1.6 0 1 1 3.2 0V13"/><path d="M6.8 12.5V9.2a1.6 1.6 0 1 1 3.2 0V13"/><path d="M16.4 8.8a1.6 1.6 0 0 1 3.2 0v4.4a7.4 7.4 0 0 1-7.4 7.4h-.6a6.6 6.6 0 0 1-5.5-3l-2.4-3.6a1.6 1.6 0 0 1 2.5-2l1.4 1.5"/>',
+  /* O balão do WhatsApp, redesenhado no traço desta família — 1,75 de
+     espessura, grade de 24 — e não o logotipo oficial colado aqui. Marca de
+     terceiro dentro de uma barra de ícones sempre destoa: cor própria, peso
+     próprio, e num tamanho pequeno vira mancha verde. Aqui ele herda a cor do
+     texto como os outros, e é reconhecido pela forma: balão com o rabinho no
+     canto de baixo e o fone dentro. */
+  whatsapp:   '<path d="M20.5 12a8.5 8.5 0 0 1-12.6 7.4L3.5 20.5l1.1-4.4A8.5 8.5 0 1 1 20.5 12Z"/><path d="M9.2 9c.3-.7.6-.7 1-.7h.5c.2 0 .4 0 .6.5l.7 1.7c.1.3 0 .5-.1.7l-.4.5c-.1.2-.2.3 0 .6a6 6 0 0 0 2.8 2.4c.3.1.5.1.6 0l.6-.7c.2-.2.4-.2.6-.1l1.6.8c.3.1.4.3.4.5 0 .5-.2 1.3-.9 1.7-.5.3-1.2.4-2 .2a10 10 0 0 1-6.2-5.3c-.4-1-.4-2 .2-2.8Z"/>',
 };
 
 // Devolve o SVG como texto, para usar dentro de template literal.

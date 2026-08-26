@@ -1835,3 +1835,44 @@ body.sem-brilho .boas-cta::after{ animation:none; opacity:0 }
     linear-gradient(to left,   rgba(0,0,0,.45), rgba(0,0,0,0));
 }
 
+
+
+/* ── FALAR NO WHATSAPP ─────────────────────────────────────────────────────
+   O verde é o único lugar do sistema onde uma cor de fora entra: é a marca do
+   WhatsApp, e trocá-la pelo azul do AgendaPro faria o botão parecer "mais uma
+   ação" em vez de "sai daqui e abre outro aplicativo".
+
+   O tom é o #0E7A6C, e não o #128C7E que vem à cabeça: medido, o 128C7E dá
+   4,14:1 com letra branca — abaixo do mínimo de 4,5 da norma. O verde do
+   WhatsApp em botão pequeno é sempre um pouco claro demais para letra
+   branca, e "é a cor da marca deles" não conserta um texto que não se lê. */
+.btn-zap{
+  background:#0E7A6C !important; color:#FFFFFF !important;
+  border-color:#0E7A6C !important;
+}
+.btn-zap:hover{ background:#0B6B5E !important; border-color:#0B6B5E !important }
+.btn-zap .ic-svg{ width:16px; height:16px; margin-right:7px; vertical-align:-3px }
+
+/* O atalho dentro do cartão da agenda.
+
+   `@media (hover:hover)` não é detalhe de estilo — é o que mantém o painel
+   passando na regra dos 40px de alvo de toque. No celular este botão não
+   existe (`display:none`), e o caminho de lá é tocar o cartão e usar o botão
+   grande do detalhe. Tirar esta media query põe um alvo de 22px no dedo de
+   quem está com o celular na mão, em cima do cartão que ele quer abrir. */
+.ag-zap{ display:none }
+@media (hover:hover) and (pointer:fine){
+  .ag-zap{
+    display:grid; place-items:center;
+    position:absolute; top:3px; right:3px; width:22px; height:22px;
+    padding:0; border:none; border-radius:6px; cursor:pointer;
+    background:rgba(255,255,255,.22); color:#FFFFFF;
+    opacity:0; transition:opacity .12s ease, background .12s ease;
+  }
+  .ag:hover .ag-zap{ opacity:1 }
+  .ag-zap:hover{ background:rgba(255,255,255,.42) }
+  .ag-zap:focus-visible{ opacity:1; outline:2px solid #FFFFFF; outline-offset:1px }
+  .ag-zap .ic-svg{ width:13px; height:13px }
+  /* No bloco baixo o ícone cobriria o nome. Ali ele não entra. */
+  .ag.curto .ag-zap{ display:none }
+}
