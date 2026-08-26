@@ -235,6 +235,30 @@ vitrine_sem_funcao as (
 
 extensao as (
   select count(*) as n from pg_extension where extname = 'btree_gist'
+),
+
+-- A trava do telefone da ficha. Sem ela, o painel volta a gravar
+-- "(11) 98888-7777" onde o caminho da cliente grava "11988887777", e a mesma
+-- pessoa fica com duas fichas — histórico partido no meio.
+trava_tel as (
+  select count(*) as n from pg_constraint
+   where conname = 'cli_tel_so_digitos'
+     and conrelid = 'public.clientes'::regclass
+),
+
+-- O que sobrou fora do formato depois da migração.
+--
+-- Não é acidente: a migração deixa de propósito as fichas que colidem, porque
+-- juntar duas fichas é mover agendamento e comanda de uma para a outra, e
+-- isso some com dinheiro ou com atendimento sem ninguém ficar sabendo qual.
+-- O que aparece aqui é a lista de quem precisa da decisão do salão.
+tel_torto as (
+  select c.nome || ' (' || c.telefone || ')' as quem
+    from public.clientes c
+   where c.telefone is not null
+     and c.telefone <> coalesce(public.so_digitos(c.telefone), '')
+   order by c.nome
+   limit 20
 )
 
 -- ── O relatório ────────────────────────────────────────────────────────────
@@ -349,6 +373,23 @@ select * from (
               else 'a vitrine() é de uma versão anterior: a letra do nome, a '
                 || 'escolha do slide e a galeria de fotos e vídeos não chegam '
                 || 'na página da cliente. Cole o 00_tudo.sql inteiro de novo' end
+
+  union all select 18,
+         case when (select n from trava_tel) = 1 then '✓' else '✗' end,
+         'O telefone da ficha só entra em dígitos',
+         case when (select n from trava_tel) = 1 then 'ok'
+              else 'falta a trava cli_tel_so_digitos — o telefone com máscara '
+                || 'volta a entrar, e a mesma pessoa vira duas fichas. Cole o '
+                || 'supabase/99_remendo.sql' end
+
+  union all select 19,
+         case when (select count(*) from tel_torto) = 0 then '✓' else '⚠' end,
+         'Nenhuma ficha antiga ficou com o telefone fora do formato',
+         coalesce((select string_agg(quem, ', ') from tel_torto)
+                  || ' — a migração não mexeu nelas porque limpar criaria dois '
+                  || 'telefones iguais no mesmo salão: é a mesma pessoa em duas '
+                  || 'fichas. Junte à mão, no painel, decidindo qual fica',
+                  'ok')
 
   union all select 15,
          case when (select count(*) from concessao_faltando) = 0 then '✓' else '✗' end,
