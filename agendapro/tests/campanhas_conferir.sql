@@ -69,7 +69,7 @@ select t_igual('as 6 funções do convite estão lá',
 select t_verdade('anon executa ver_convite',
   has_function_privilege('anon', 'public.ver_convite(uuid)', 'execute'));
 select t_falso('mas NÃO cria convite',
-  has_function_privilege('anon', 'public.criar_convite(uuid, text, text)', 'execute'));
+  has_function_privilege('anon', 'public.criar_convite(uuid, text, text, uuid)', 'execute'));
 select t_falso('nem aceita convite sem estar logado',
   has_function_privilege('anon', 'public.aceitar_convite(uuid)', 'execute'));
 select t_falso('e não alcança a tabela onde moram os segredos dos links',

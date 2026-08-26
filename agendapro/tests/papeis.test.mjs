@@ -85,9 +85,10 @@ await dDona.inserir('servicos', { salaoId: SALAO, nome:'Corte', duracaoMin:60,
   intervaloMin:0, preco:80, ativo:true, aceitaOnline:true });
 
 // ── Convida a recepção e uma profissional ──────────────────────────────────
-async function convidar(papel, nome, email){
+async function convidar(papel, nome, email, ficha){
   const r = await dDona.chamar('criar_convite',
-    { p_salao: SALAO, p_papel: papel, p_para_quem: nome });
+    { p_salao: SALAO, p_papel: papel, p_para_quem: nome,
+      p_profissional: ficha || null });
   const d = novaAba();
   await d.criarConta({ email, senha:'minhasenhaboa', nome, telefone: tel() });
   await d.chamar('aceitar_convite', { p_token: r.token });
@@ -95,13 +96,20 @@ async function convidar(papel, nome, email){
 }
 const dRecep = await convidar('recepcao', 'Rita Recep',
                               `p-recep-${marca}@teste.com`);
+/* O convite de quem atende diz DE QUEM É A AGENDA, e é o aceite que amarra o
+   login à ficha. Antes eu amarrava isso com um UPDATE aqui no teste — e um
+   teste que arruma o estado na mão passa por um caminho que não existe no ar.
+   Foi assim que o buraco escapou: o convite saía sem ficha, a pessoa entrava,
+   e a agenda dela abria em branco. */
 const dProf  = await convidar('profissional', 'Bia',
-                              `p-prof-${marca}@teste.com`);
+                              `p-prof-${marca}@teste.com`, P2.id);
 
-// A Bia do login é a MESMA Bia da agenda: sem isso ela não teria coluna.
 const euBia = (dProf.sessaoAtual() || {}).usuarioId;
-await banco.query(`update public.profissionais set perfil_id=$1 where id=$2`,
-                  [euBia, P2.id]);
+const ligada = await banco.query(
+  `select perfil_id from public.profissionais where id=$1`, [P2.id]);
+verdade('aceitar o convite ligou o login da Bia à agenda dela',
+  ligada.rows[0].perfil_id === euBia,
+  'sem esse elo o RLS não entrega atendimento nenhum e a agenda abre vazia');
 
 // Cada uma com um atendimento, amanhã.
 const AMANHA = new Date(Date.now() + 864e5).toISOString().slice(0,10);

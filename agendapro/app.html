@@ -1832,15 +1832,50 @@ function abrirConvite(){
     <div class="campo"><label>O que ela vai poder fazer</label>
       <div class="lista-serv">${PAPEIS_CONVITE.map(([k, nome, o], i) => `
         <label class="serv-op">
-          <input type="radio" name="vPapel" value="${k}"${i === 0 ? ' checked' : ''}>
+          <input type="radio" name="vPapel" value="${k}"${i === 0 ? ' checked' : ''}
+                 onchange="trocarPapelConvite()">
           <span class="i"><span class="n">${escapar(nome)}</span>
             <span class="d">${escapar(o)}</span></span>
         </label>`).join('')}</div></div>
+
+    <!-- DE QUEM E A AGENDA, e por que isto e obrigatorio.
+         Quem atende so enxerga os atendimentos da PROPRIA ficha: e assim que
+         o RLS decide, por meu_profissional_id(). Login sem ficha ligada faz a
+         funcao devolver NULL, e a pessoa entra numa agenda em branco no
+         primeiro dia de trabalho.
+         (Sem crase e sem acento: este comentario mora dentro de um template
+         literal, e crase ali fecha a string.) -->
+    <div class="campo" id="vFicha" style="display:none">
+      <label for="vProf">De quem é a agenda</label>
+      <select id="vProf"></select>
+      <span style="font-size:12px;color:var(--txt2)">É a coluna que ela vai
+        ver. Se o nome não estiver aqui, cadastre em Equipe primeiro — ou a
+        pessoa já tem login.</span>
+    </div>
     <div id="vSaida"></div>
   `, [
     ['Fechar','fecharModal()',''],
     ['Gerar link','gerarConvite()','btn-p'],
   ]);
+  trocarPapelConvite();
+}
+
+function trocarPapelConvite(){
+  const bloco = document.getElementById('vFicha');
+  const sel   = document.getElementById('vProf');
+  if(!bloco || !sel) return;
+  const escolhido = document.querySelector('input[name="vPapel"]:checked');
+  const ehProf = escolhido && escolhido.value === 'profissional';
+  bloco.style.display = ehProf ? '' : 'none';
+  if(!ehProf) return;
+
+  /* Só quem ainda NÃO tem login: entregar uma ficha que já tem dono seria
+     roubar a agenda de quem entra com ela. O banco também recusa — esta
+     lista é para o dono não escolher e levar erro. */
+  const livres = profsAtivos().filter(p => !p.perfilId);
+  sel.innerHTML = livres.length
+    ? livres.map(p => `<option value="${p.id}">${escapar(p.nome)}</option>`).join('')
+    : '<option value="">— todo mundo já tem login —</option>';
 }
 
 async function gerarConvite(){
@@ -1850,8 +1885,10 @@ async function gerarConvite(){
   const saida = document.getElementById('vSaida');
   saida.innerHTML = '<div class="aviso info">Gerando…</div>';
   try{
+    const sel = document.getElementById('vProf');
     const r = await Dados.chamar('criar_convite',
-      { p_salao: salaoAtual, p_papel: papel, p_para_quem: nome || null });
+      { p_salao: salaoAtual, p_papel: papel, p_para_quem: nome || null,
+        p_profissional: papel === 'profissional' && sel ? (sel.value || null) : null });
     const link = location.origin + location.pathname.replace(/[^/]*$/, '')
                + 'convite.html?c=' + r.token;
     saida.innerHTML = `

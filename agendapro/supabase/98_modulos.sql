@@ -330,6 +330,7 @@ create table if not exists public.convites_equipe (
   salao_id   uuid not null references public.saloes(id) on delete cascade,
   papel      text not null check (papel in ('admin','recepcao','profissional')),
   para_quem  text,
+  profissional_id uuid references public.profissionais(id) on delete cascade,
   token      uuid not null default gen_random_uuid(),
   expira_em  timestamptz not null default now() + interval '7 days',
   usado_em   timestamptz,
@@ -347,12 +348,15 @@ create policy conv_gerir on public.convites_equipe for all to authenticated
   using ( public.e_gestor(salao_id) ) with check ( public.e_gestor(salao_id) );
 revoke all on public.convites_equipe from anon;
 grant select, insert, update, delete on public.convites_equipe to authenticated;
+drop function if exists public.criar_convite(uuid, text, text);
 create or replace function public.criar_convite(
-  p_salao uuid, p_papel text, p_para_quem text default null)
+  p_salao uuid, p_papel text, p_para_quem text default null,
+  p_profissional uuid default null)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v_token uuid;
+  pr public.profissionais%rowtype;
 begin
   if not public.e_gestor(p_salao) then
     raise exception 'Só quem administra o salão pode convidar.'
@@ -361,9 +365,27 @@ begin
   if p_papel not in ('admin','recepcao','profissional') then
     raise exception 'Papel inválido para convite.' using errcode = 'check_violation';
   end if;
-  insert into public.convites_equipe (salao_id, papel, para_quem, criado_por)
+  if p_papel = 'profissional' then
+    if p_profissional is null then
+      raise exception 'Escolha de quem é a agenda. Cadastre a pessoa em Equipe antes de dar o login.'
+        using errcode = 'check_violation';
+    end if;
+    select * into pr from public.profissionais where id = p_profissional;
+    if pr.id is null or pr.salao_id <> p_salao then
+      raise exception 'Esta agenda não é deste salão.' using errcode = 'check_violation';
+    end if;
+    if pr.perfil_id is not null then
+      raise exception 'A agenda de % já tem login.', pr.nome
+        using errcode = 'check_violation';
+    end if;
+  else
+    p_profissional := null;
+  end if;
+  insert into public.convites_equipe
+         (salao_id, papel, para_quem, profissional_id, criado_por)
        values (p_salao, p_papel,
-               nullif(btrim(coalesce(p_para_quem, '')), ''), auth.uid())
+               nullif(btrim(coalesce(p_para_quem, '')), ''),
+               p_profissional, auth.uid())
     returning token into v_token;
   return jsonb_build_object('token', v_token);
 end $$;
@@ -421,6 +443,12 @@ begin
        values (v_eu, c.salao_id, c.papel, 'ativo')
   on conflict (perfil_id, salao_id, papel)
     do update set status = 'ativo';
+  if c.papel = 'profissional' and c.profissional_id is not null then
+    update public.profissionais
+       set perfil_id = v_eu
+     where id = c.profissional_id and salao_id = c.salao_id
+       and perfil_id is null;
+  end if;
   update public.convites_equipe
      set usado_em = now(), usado_por = v_eu
    where id = c.id;
@@ -490,13 +518,13 @@ begin
    where id = c.id and usado_em is null and revogado_em is null;
   return jsonb_build_object('ok', true);
 end $$;
-revoke all on function public.criar_convite(uuid, text, text)   from public;
+revoke all on function public.criar_convite(uuid, text, text, uuid) from public;
 revoke all on function public.ver_convite(uuid)                 from public;
 revoke all on function public.aceitar_convite(uuid)             from public;
 revoke all on function public.equipe_com_acesso(uuid)           from public;
 revoke all on function public.remover_acesso(uuid, uuid, text)  from public;
 revoke all on function public.revogar_convite(uuid)             from public;
-grant execute on function public.criar_convite(uuid, text, text)  to authenticated;
+grant execute on function public.criar_convite(uuid, text, text, uuid) to authenticated;
 grant execute on function public.ver_convite(uuid)                to anon, authenticated;
 grant execute on function public.aceitar_convite(uuid)            to authenticated;
 grant execute on function public.equipe_com_acesso(uuid)          to authenticated;

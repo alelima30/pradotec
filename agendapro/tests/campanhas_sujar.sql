@@ -25,6 +25,7 @@ drop function if exists public.fila_resultado(uuid, boolean, text, text, text, b
 -- E o convite de equipe, que vem no mesmo arquivo colável.
 drop table if exists public.convites_equipe cascade;
 drop function if exists public.criar_convite(uuid, text, text) cascade;
+drop function if exists public.criar_convite(uuid, text, text, uuid) cascade;
 drop function if exists public.ver_convite(uuid) cascade;
 drop function if exists public.aceitar_convite(uuid) cascade;
 drop function if exists public.equipe_com_acesso(uuid) cascade;

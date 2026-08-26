@@ -36,6 +36,13 @@ insert into public.vinculos (perfil_id, salao_id, papel, status) values
   ('e0000000-0000-0000-0000-00000000000d',
    'e0000000-1111-0000-0000-00000000000a', 'dono', 'ativo');
 
+-- A ficha de quem atende, ainda sem login.
+insert into public.profissionais (id, salao_id, nome) values
+  ('e0000000-5555-0000-0000-00000000000a',
+   'e0000000-1111-0000-0000-00000000000a', 'Bia'),
+  ('e0000000-5555-0000-0000-00000000000b',
+   'e0000000-1111-0000-0000-00000000000b', 'Do outro salão');
+
 \echo ''
 \echo 'A dona cria um convite'
 
@@ -137,14 +144,16 @@ select set_config('request.jwt.claim.sub',
                   'e0000000-0000-0000-0000-00000000000d', false);
 
 select (public.criar_convite('e0000000-1111-0000-0000-00000000000a',
-                             'profissional', 'Vencido')->>'token') as tv \gset
+          'profissional', 'Vencido',
+          'e0000000-5555-0000-0000-00000000000a')->>'token') as tv \gset
 update public.convites_equipe set expira_em = now() - interval '1 day'
  where token = :'tv';
 select t_falso('convite vencido não vale',
   (public.ver_convite(:'tv'::uuid)->>'valido')::boolean);
 
 select (public.criar_convite('e0000000-1111-0000-0000-00000000000a',
-                             'profissional', 'Revogado')->>'token') as tr \gset
+          'profissional', 'Revogado',
+          'e0000000-5555-0000-0000-00000000000a')->>'token') as tr \gset
 select id as idr from public.convites_equipe where token = :'tr' \gset
 select public.revogar_convite(:'idr'::uuid);
 select t_falso('convite revogado não vale',
@@ -195,5 +204,55 @@ select t_igual('a dona vê uma pessoa com acesso',
 -- O e-mail é a chave de login da pessoa, e não é preciso para administrar.
 select t_falso('e a lista NÃO traz o e-mail de ninguém',
   (public.equipe_com_acesso('e0000000-1111-0000-0000-00000000000a')->0) ? 'email');
+
+select set_config('request.jwt.claim.sub', '', false);
+
+\echo ''
+\echo 'O LOGIN DE QUEM ATENDE FICA LIGADO A UMA AGENDA'
+
+select set_config('request.jwt.claim.sub',
+                  'e0000000-0000-0000-0000-00000000000d', false);
+
+-- Sem ficha, o convite de profissional e recusado NA CRIACAO. Era este o
+-- buraco: o convite saia, a pessoa aceitava, e entrava numa agenda em branco
+-- porque `meu_profissional_id()` devolvia NULL.
+select t_texto('convite de profissional sem ficha e recusado',
+  erro_de($$select public.criar_convite(
+    'e0000000-1111-0000-0000-00000000000a', 'profissional', 'Sem ficha')$$),
+  'Escolha de quem é a agenda. Cadastre a pessoa em Equipe antes de dar o login.');
+
+-- Ficha de outro salao seria dar acesso a agenda alheia.
+select t_texto('e ficha de outro salão também',
+  erro_de($$select public.criar_convite(
+    'e0000000-1111-0000-0000-00000000000a', 'profissional', 'Alheia',
+    'e0000000-5555-0000-0000-00000000000b')$$),
+  'Esta agenda não é deste salão.');
+
+select (public.criar_convite('e0000000-1111-0000-0000-00000000000a',
+          'profissional', 'Bia',
+          'e0000000-5555-0000-0000-00000000000a')->>'token') as tb \gset
+
+select set_config('request.jwt.claim.sub',
+                  'e0000000-0000-0000-0000-00000000000e', false);
+select public.aceitar_convite(:'tb'::uuid);
+
+select t_verdade('ao aceitar, a ficha da agenda passa a ser dela',
+  (select perfil_id from public.profissionais
+    where id = 'e0000000-5555-0000-0000-00000000000a')
+    = 'e0000000-0000-0000-0000-00000000000e');
+
+-- É o que faz a agenda dela deixar de vir em branco.
+select t_verdade('e o banco passa a reconhecer a agenda dela',
+  public.meu_profissional_id('e0000000-1111-0000-0000-00000000000a')
+    = 'e0000000-5555-0000-0000-00000000000a');
+
+-- Ficha que já tem dono não se entrega duas vezes.
+select set_config('request.jwt.claim.sub',
+                  'e0000000-0000-0000-0000-00000000000d', false);
+select t_texto('e a mesma agenda não é dada a mais ninguém',
+  erro_de($$select public.criar_convite(
+    'e0000000-1111-0000-0000-00000000000a', 'profissional', 'Outra',
+    'e0000000-5555-0000-0000-00000000000a')$$),
+  'A agenda de Bia já tem login.');
 
 select set_config('request.jwt.claim.sub', '', false);
