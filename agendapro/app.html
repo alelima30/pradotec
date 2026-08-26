@@ -542,9 +542,26 @@ body.carregando-tudo .tela{ display:none }
    =========================================================================== */
 
 const CHAVE = 'agendapro.demo.v1';
-const ABRE = 8 * 60;    // 08:00 — início da grade
-const FECHA = 20 * 60;  // 20:00 — fim da grade
+
+/* A JANELA MÍNIMA da grade — não mais o limite dela.
+   Era limite, e por isso o dono via "1 atendimento" no topo com a grade
+   vazia: a recepção encaixava a cliente às 07:00, o contador somava (ele
+   olha o dia inteiro) e o cartão ia parar em `top:-60px`, fora da coluna.
+   Existia no HTML, não existia para quem estava olhando.
+
+   Agora estes dois só garantem que um dia vazio continue com a cara de
+   sempre; a faixa real do dia é calculada em `faixaDaGrade()` e cresce até
+   caber tudo o que existe naquele dia. */
+const ABRE = 8 * 60;    // 08:00
+const FECHA = 20 * 60;  // 20:00
 const PASSO = 15;       // granularidade da grade, em minutos
+
+/* A faixa REALMENTE desenhada no último `pintarAgenda()`. O clique numa
+   coluna vazia converte altura em horário, e converter com uma régua
+   diferente da que desenhou a grade abriria o "novo agendamento" no horário
+   errado — erro que ninguém percebe, porque a hora que aparece no formulário
+   parece plausível. */
+let gradeIni = ABRE, gradeFim = FECHA;
 
 const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 // As cores das colunas da agenda vêm do demo.js, junto da semente.
@@ -918,11 +935,49 @@ function pintarDataTopo(){
     { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
 }
 
+/* QUEM GANHA COLUNA NA GRADE DE UM DIA
+   Os ativos, sempre — e mais quem tiver horário marcado NAQUELE dia, mesmo
+   já desligado. Sem a segunda metade, desativar uma profissional fazia a
+   cliente dela sumir da tela sem cancelar nada: o horário continuava de pé
+   no banco, contado no topo, e sem coluna nenhuma para aparecer.
+
+   O banco não deixa apagar profissional com horário marcado
+   (`on delete restrict`), então a ficha sempre existe para dar nome à
+   coluna. */
+function profsDaGrade(dia){
+  const lista = profsAtivos();
+  const tem = new Set(lista.map(p => p.id));
+  for(const a of agendaDoDia(dia)){
+    if(tem.has(a.profissionalId)) continue;
+    const p = doSalao(bd.profissionais).find(x => x.id === a.profissionalId);
+    if(p){ tem.add(p.id); lista.push(p); }
+  }
+  return lista;
+}
+
+/* Até onde a grade tem que ir para caber o dia inteiro.
+   Jornada, horário marcado e bloqueio, todos abraçados; a janela mínima é
+   08:00–20:00 para o dia vazio não encolher e virar uma tira. Arredonda para
+   a hora cheia porque a coluna da esquerda marca de hora em hora. */
+function faixaDaGrade(dia, profs){
+  let ini = ABRE, fim = FECHA;
+  const caber = (a, b) => {
+    if(Number.isFinite(a) && a < ini) ini = a;
+    if(Number.isFinite(b) && b > fim) fim = b;
+  };
+  for(const p of profs) for(const [i,f] of jornadaDo(p, dia)) caber(i, f);
+  for(const a of agendaDoDia(dia)) caber(a.inicio, a.fim);
+  for(const b of bd.bloqueios.filter(b => b.salaoId === salaoAtual && b.data === dia))
+    caber(b.inicio, b.fim);
+  return [Math.max(0, Math.floor(ini/60)*60),
+          Math.min(24*60, Math.ceil(fim/60)*60)];
+}
+
 /* ── Desenho: agenda ─────────────────────────────────────────────────── */
 function pintarAgenda(){
   document.getElementById('rotuloDia').textContent = porExtenso(diaAtual);
 
-  const profs = profsAtivos();
+  const profs = profsDaGrade(diaAtual);
   const grade = document.getElementById('grade');
 
   if(!profs.length){
@@ -932,9 +987,11 @@ function pintarAgenda(){
     return;
   }
 
-  const totalMin = FECHA - ABRE;
+  const [ABRE_, FECHA_] = faixaDaGrade(diaAtual, profs);
+  gradeIni = ABRE_; gradeFim = FECHA_;
+  const totalMin = FECHA_ - ABRE_;
   const altura = (totalMin / PASSO) * 15;   // 15px por bloco de 15 min
-  const y = m => ((m - ABRE) / PASSO) * 15;
+  const y = m => ((m - ABRE_) / PASSO) * 15;
 
   // A largura da coluna vem do CSS (`--col`), para o celular poder pedir uma
   // medida que deixe a terceira coluna meio cortada — que é a pista de que a
@@ -943,20 +1000,26 @@ function pintarAgenda(){
     `58px repeat(${profs.length}, minmax(var(--col, 148px), 1fr))`;
 
   const semVaga = new Set(foraDaCota().map(x => x.id));
+  // Quem está na grade só porque tem cliente marcada, já tendo saído da
+  // equipe. A coluna precisa dizer isso: sem o aviso, o dono vê o nome de
+  // quem ele desativou e acha que o desligamento não pegou.
+  const desligados = new Set(profs.filter(p => !p.ativo).map(p => p.id));
   let html = '<div class="col-h" style="position:sticky;left:0;z-index:25"></div>';
   for(const p of profs){
     const j = jornadaDo(p, diaAtual);
     const fx = j.length
       ? j.map(x => hm(x[0]) + '–' + hm(x[1])).join(' · ')
       : 'folga';
-    html += `<div class="col-h${semVaga.has(p.id) ? ' sem-vaga' : ''}">
+    const marcado = semVaga.has(p.id) || desligados.has(p.id);
+    html += `<div class="col-h${marcado ? ' sem-vaga' : ''}">
       <div class="nm"><span class="pnt" style="background:${escapar(p.cor)}"></span>${escapar(p.nome)}</div>
-      <div class="fn">${semVaga.has(p.id) ? 'fora do plano' : fx}</div></div>`;
+      <div class="fn">${desligados.has(p.id) ? 'desativada · ainda tem cliente marcada'
+                      : semVaga.has(p.id) ? 'fora do plano' : fx}</div></div>`;
   }
 
   // Coluna das horas
   html += '<div class="col-horas">';
-  for(let m = ABRE; m < FECHA; m += 60) html += `<div class="hora">${hm(m)}</div>`;
+  for(let m = ABRE_; m < FECHA_; m += 60) html += `<div class="hora">${hm(m)}</div>`;
   html += '</div>';
 
   // Uma coluna por profissional
@@ -964,7 +1027,7 @@ function pintarAgenda(){
     html += `<div class="col" style="height:${altura}px" data-prof="${p.id}"
                   onclick="cliqueNaColuna(event,'${p.id}')">`;
 
-    for(let m = ABRE; m < FECHA; m += 30){
+    for(let m = ABRE_; m < FECHA_; m += 30){
       const meia = (m % 60) !== 0;
       html += `<div class="faixa${meia?' meia':''}" style="top:${y(m)}px"></div>`;
     }
@@ -974,12 +1037,12 @@ function pintarAgenda(){
     if(!janelas.length){
       html += `<div class="fora" style="top:0;height:${altura}px"></div>`;
     } else {
-      let cursor = ABRE;
+      let cursor = ABRE_;
       for(const [ji,jf] of janelas.slice().sort((a,b)=>a[0]-b[0])){
         if(ji > cursor) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(ji)-y(cursor)}px"></div>`;
         cursor = Math.max(cursor, jf);
       }
-      if(cursor < FECHA) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(FECHA)-y(cursor)}px"></div>`;
+      if(cursor < FECHA_) html += `<div class="fora" style="top:${y(cursor)}px;height:${y(FECHA_)-y(cursor)}px"></div>`;
     }
 
     // Bloqueios
@@ -1047,10 +1110,22 @@ function pintarKpis(){
 }
 
 // Clique num espaço vazio: descobre o horário pela posição vertical.
+//
+// A régua é a MESMA que desenhou a grade (`gradeIni`/`gradeFim`), não a
+// janela mínima. Com as duas separadas, num dia que começa às 07:00 o clique
+// nas 07:00 abriria o formulário marcando 08:00 — e a hora errada é plausível
+// o bastante para o dono salvar sem desconfiar.
 function cliqueNaColuna(ev, profId){
+  const p = doSalao(bd.profissionais).find(x => x.id === profId);
+  if(p && !p.ativo){
+    alert(p.nome + ' está desativada. Ela aparece aqui porque ainda tem '
+        + 'cliente marcada neste dia.\n\nPara marcar horário novo com ela, '
+        + 'reative em Equipe.');
+    return;
+  }
   const r = ev.currentTarget.getBoundingClientRect();
-  const min = ABRE + Math.floor((ev.clientY - r.top) / 15) * PASSO;
-  abrirNovo(profId, Math.max(ABRE, Math.min(min, FECHA - PASSO)));
+  const min = gradeIni + Math.floor((ev.clientY - r.top) / 15) * PASSO;
+  abrirNovo(profId, Math.max(gradeIni, Math.min(min, gradeFim - PASSO)));
 }
 
 /* ── Desenho: clientes ───────────────────────────────────────────────── */

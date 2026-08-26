@@ -118,10 +118,11 @@ rodar "fluxo"              node "$AQUI/fluxo-auditoria.test.mjs"
 rodar "sincronia"          node "$AQUI/sincronia.test.mjs"
 rodar "whatsapp"           node "$AQUI/whatsapp.test.mjs"
 rodar "varredura"          node "$AQUI/varredura.test.mjs"
+rodar "grade"              node "$AQUI/grade.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 21 suítes."
+  echo "✓ Tudo passou — as 22 suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."
