@@ -4521,7 +4521,12 @@ function mostrarQuemEstaLogado(){
     v.perfilId === eu && v.salaoId === salaoAtual);
   // Os cinco valores que a CHECK de `vinculos.papel` aceita. Inventar um sexto
   // aqui daria "Sem papel definido" para gente que tem papel.
-  const PAPEL = { dono:'Dono', admin:'Administra', recepcao:'Recepção',
+  /* O RÓTULO muda; a CHAVE não.
+     `dono` é o valor gravado em `vinculos.papel`, está na CHECK do schema e
+     é o que `papel_no_salao()` compara em toda policy de RLS. Trocar a chave
+     por "proprietario" derrubaria a permissão de todo mundo que já tem
+     vínculo. O que a pessoa lê é outra coisa, e é só isto aqui. */
+  const PAPEL = { dono:'Proprietário', admin:'Administra', recepcao:'Recepção',
                   profissional:'Atende', cliente:'Cliente' };
 
   const nome = perfil.nome || (perfil.email || '').split('@')[0];
