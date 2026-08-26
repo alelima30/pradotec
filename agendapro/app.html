@@ -97,10 +97,15 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 .dia{font-weight:700;font-size:16px;min-width:210px;text-align:center;text-transform:capitalize}
 
 /* ── Grade da agenda ─────────────────────────────────────────────────── */
+/* O miolo da grade é MARFIM, não branco.
+   Ele ocupa metade da tela; branco puro aqui é a maior fonte de luz do
+   painel, e foi o que motivou o pedido ("está doendo a visão"). Marfim
+   ainda deixa o cartão colorido saltar — que é o que precisa saltar. */
 .grade-wrap{
-  background:var(--painel);border:1px solid var(--borda);border-radius:var(--r);
-  box-shadow:var(--sombra); overflow:auto;
+  background:var(--painel2);border:1px solid var(--borda);border-radius:var(--r);
+  box-shadow:var(--sombra-md, var(--sombra)); overflow:auto;
 }
+.grade .col{ background:var(--painel2) }
 .grade{display:grid;min-width:min-content}
 /* Tabela larga rola DENTRO da caixa dela, e não empurra a página.
    O botão do WhatsApp na lista de clientes estourou 301px no celular; a
@@ -109,24 +114,47 @@ h2{font-size:19px;font-weight:700;letter-spacing:-.02em}
 .tabela-rola{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tabela-rola > .tabela{min-width:520px}
 /* Dia | Semana. Duas metades de um botão só, para ler como uma escolha entre
-   dois estados e não como dois comandos separados. */
-.vistas{display:inline-flex;border:1px solid var(--borda);border-radius:9px;overflow:hidden}
+   dois estados e não como dois comandos separados.
+
+   O trilho é afundado e a metade escolhida é uma pastilha ERGUIDA sobre ele,
+   com sombra. Sem esse relevo os dois lados pesavam igual e não dava para
+   ver, de relance, em qual vista a agenda está — que é a única pergunta que
+   este controle responde. */
+.vistas{
+  display:inline-flex; padding:3px; gap:2px;
+  border:1px solid var(--borda); border-radius:11px;
+  background:var(--painel2);
+  box-shadow:inset 0 1px 2px rgba(25,23,18,.06);
+}
 /* 40px de altura é a regra de alvo de toque do tests/celular.test.mjs, e ela
    pegou este botão: nasceu com 34, que no polegar é a medida que faz errar. */
 .vistas button{
   border:0;background:transparent;color:var(--txt2);cursor:pointer;
-  padding:0 14px;height:40px;font:inherit;font-size:13px;font-weight:600;
+  /* 40px é a regra de alvo de toque do tests/celular.test.mjs, e ela mede o
+     BOTÃO, não o trilho. Com 36 aqui o teste reprovou — e reprovou certo: o
+     dedo acerta a pastilha, não a caixa em volta dela. */
+  padding:0 15px;height:40px;min-height:40px;border-radius:8px;
+  font:inherit;font-size:13px;font-weight:600;
+  transition:background .12s, color .12s, box-shadow .12s;
 }
-.vistas button + button{border-left:1px solid var(--borda)}
-.vistas button.on{background:var(--az-soft);color:var(--marca)}
+.vistas button:hover{color:var(--txt)}
+.vistas button.on{
+  background:var(--painel); color:var(--marca);
+  box-shadow:0 1px 2px rgba(25,23,18,.10), 0 2px 5px -1px rgba(25,23,18,.08);
+}
+
 /* Cabeçalho de dia na visão da semana: o de hoje puxa a vista. */
 .col-h.hoje{background:var(--az-soft)}
 .col-h.hoje .nm{color:var(--marca)}
 .col-h.clicavel{cursor:pointer}
 .col-h{
-  position:sticky;top:0;z-index:20;background:var(--painel);
-  border-bottom:1px solid var(--borda);padding:10px 8px;text-align:center;
+  position:sticky;top:0;z-index:20;background:var(--painel2);
+  border-bottom:1px solid var(--borda-forte);padding:11px 8px;text-align:center;
+  box-shadow:0 1px 0 var(--borda);
 }
+/* A coluna das horas no mesmo tom do cabeçalho: ela é régua, não conteúdo,
+   e no branco puro competia com os atendimentos. */
+.col-horas{ background:var(--painel2) }
 .col-h .nm{font-weight:700;font-size:14px;white-space:nowrap}
 .col-h .fn{font-size:11px;color:var(--txt2)}
 .pnt{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}

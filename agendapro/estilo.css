@@ -113,7 +113,20 @@
   --marca-media:var(--az-600); --marca-clara:var(--az-400); --marca-funda:var(--az-700);
   --info:var(--az-texto);
 
-  --bg:var(--n-50);   --painel:var(--n-0); --painel2:var(--n-25);
+  /* ⚠ O PALCO É GELO, NÃO BRANCO.
+     Relatado assim: "está tudo muito branco, está doendo a visão". E era
+     verdade — o fundo era #F8FAFC, quase papel de impressora, com painel
+     branco por cima. Dois brancos quase iguais não separam nada e a tela
+     inteira vira um bloco luminoso, que é o que cansa a vista de quem passa
+     o dia nela.
+
+     Agora o palco é um creme claro (#F6F2E8) e o painel continua
+     branco. A diferença passa a ser visível, os cartões ganham borda sem
+     precisar de traço, e a luz total da tela cai.
+
+     O quente é de propósito: um cinza frio ao lado do azul da marca puxa
+     para o verde e parece sujo. Um creme puxa para o papel. */
+  --bg:#F6F2E8;       --painel:var(--n-0); --painel2:#FBF8F1;
 
   /* ── A MOLDURA, AGORA CLARA ───────────────────────────────────────────
      A lateral era grafite quase preto nos dois temas. Ficava com cara de
@@ -125,7 +138,7 @@
      Os tons de texto aqui deixam de ser branco transparente e passam a ser
      ardósia sólida: branco a 58% sobre fundo branco é invisível, e foi o
      que quebrou quando a moldura clareou. */
-  --lat:#FFFFFF; --lat-2:var(--n-50); --lat-borda:var(--n-200);
+  --lat:#FDFBF6; --lat-2:#F2EDE1; --lat-borda:#E6DFD2;
   --lat-txt:var(--n-900); --lat-txt2:var(--n-600); --lat-txt3:var(--n-500);
   --lat-largura:252px;
   /* Os fundos de dentro da moldura, nomeados. Antes eram `rgba(255,255,255,…)`
@@ -136,7 +149,7 @@
   --lat-ic:var(--n-100); --lat-ic-txt:var(--az-600);
   --lat-sel:var(--az-50); --lat-sel-txt:var(--az-700);
   --lat-card:var(--painel);
-  --borda:var(--n-200); --borda-forte:var(--n-300);
+  --borda:#E7E2D9; --borda-forte:#D3CCC0;
   --txt:var(--n-900); --txt2:var(--n-600); --txt3:var(--n-400);
   --ok:var(--su-500); --alerta:var(--wa-500); --erro:var(--er-500);
 
