@@ -1,3 +1,42 @@
+create or replace function public.so_digitos(p_texto text)
+returns text language sql immutable set search_path = public as $$
+  select nullif(regexp_replace(coalesce(p_texto, ''), '[^0-9]', '', 'g'), '')
+$$;
+
+update public.clientes
+   set telefone = null
+ where telefone is not null
+   and public.so_digitos(telefone) is null;
+with alvo as (
+  select c.id,
+         public.so_digitos(c.telefone) as limpo,
+         row_number() over (partition by c.salao_id, public.so_digitos(c.telefone)
+                            order by c.criado_em, c.id) as ordem
+    from public.clientes c
+   where c.telefone is not null
+     and public.so_digitos(c.telefone) is not null
+     and c.telefone <> public.so_digitos(c.telefone)
+)
+update public.clientes c
+   set telefone = a.limpo
+  from alvo a
+ where c.id = a.id
+   and a.ordem = 1
+   and not exists (select 1 from public.clientes o
+                    where o.salao_id = c.salao_id
+                      and o.id <> c.id
+                      and o.telefone = a.limpo);
+do $trava$
+begin
+  if not exists (select 1 from pg_constraint
+                  where conname = 'cli_tel_so_digitos'
+                    and conrelid = 'public.clientes'::regclass) then
+    alter table public.clientes
+      add constraint cli_tel_so_digitos
+      check (telefone is null or telefone ~ '^[0-9]+$') not valid;
+  end if;
+end $trava$;
+
 create or replace function public.horarios_livres(
   p_profissional uuid, p_data date, p_servicos uuid[])
 returns setof timestamptz

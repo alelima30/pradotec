@@ -111,6 +111,70 @@ for vez in 1 2; do
 done
 psql -q -d postgres -c "drop database if exists ${BANCO}_2x;" >/dev/null 2>&1 || true
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O 99_remendo.sql TEM QUE CONSERTAR UM BANCO JÁ SUJO
+#
+# O remendo é gerado por recorte do 05/06/09, e o recortador só sabia achar
+# FUNÇÃO — procurava um cabeçalho e cortava até o `$$;`. A correção do
+# telefone da ficha não é função: é UPDATE mais a trava `cli_tel_so_digitos`.
+# Ficou de fora sem ninguém notar, e o remendo levava a tela corrigida com o
+# cadastro sujo do mesmo jeito. A mesma pessoa continuava em duas fichas.
+#
+# Nada acusava: o 00_tudo.sql tem a correção, então o banco de teste nascia
+# limpo e qualquer conferência passaria mesmo com o remendo vazio. Aqui a
+# correção é DESFEITA e o cadastro é sujado antes de colar o remendo.
+#
+# E o remendo é colado DAS DUAS FORMAS. Numa linha só é como ele chega quando
+# alguém copia pelo celular — é para isso que ele nasceu sem comentário.
+# ═══════════════════════════════════════════════════════════════════════════
+echo ""
+echo "▸ 99_remendo.sql num banco já instalado e sujo"
+for forma in arquivo "uma linha só"; do
+  psql -q -d postgres -c "drop database if exists ${BANCO}_rem;" \
+                      -c "create database ${BANCO}_rem;" >/dev/null
+  if ! psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_rem" \
+         -f "$AQUI/00_stub_supabase.sql" -f "$RAIZ/supabase/00_tudo.sql" \
+         >/dev/null 2>&1 \
+     || ! psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_rem" \
+            -f "$AQUI/00_ajuda.sql" -f "$AQUI/remendo_sujar.sql" >/dev/null
+  then
+    echo "  ✗ não consegui montar o banco sujo — o remendo nem foi testado"
+    falhou=1
+    continue
+  fi
+
+  echo "  ── colado como $forma ──"
+  if [ "$forma" = arquivo ]; then
+    colar() { psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_rem" \
+                -f "$RAIZ/supabase/99_remendo.sql"; }
+  else
+    colar() { tr '\n' ' ' < "$RAIZ/supabase/99_remendo.sql" \
+                | psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_rem" -f -; }
+  fi
+
+  if ! saida=$(colar 2>&1); then
+    echo "  ✗ o remendo não passou:"
+    echo "$saida" | grep -E "ERROR" | head -3
+    falhou=1
+  else
+    # psql sai por um pipe: sem PIPESTATUS quem responde é o `sed`, que nunca
+    # falha — e a conferência inteira viraria enfeite.
+    psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_rem" \
+      -f "$AQUI/remendo_conferir.sql" 2>&1 \
+      | sed "s|^psql:${AQUI}/remendo_conferir.sql:[0-9]*: NOTICE:  ||"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || falhou=1
+  fi
+  # Colar de novo é o que a gente pede a cada correção: tem que ser inofensivo.
+  if ! saida=$(colar 2>&1); then
+    echo "  ✗ a segunda colagem falhou:"
+    echo "$saida" | grep -E "ERROR" | head -3
+    falhou=1
+  else
+    echo "  ✓ colado duas vezes, sem erro"
+  fi
+done
+psql -q -d postgres -c "drop database if exists ${BANCO}_rem;" >/dev/null 2>&1 || true
+
 echo ""
 if [ "$falhou" -eq 0 ]; then
   echo "✓ Tudo passou."

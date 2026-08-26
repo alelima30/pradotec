@@ -38,7 +38,21 @@ def recortar(fonte, cabeca):
     i = fonte.index(cabeca)
     return fonte[i:fonte.index('$$;', i) + 3]
 
+def recortar_ate(fonte, cabeca, rodape):
+    i = fonte.index(cabeca)
+    return fonte[i:fonte.index(rodape, i) + len(rodape)]
+
 ficha = recortar(fonte05, 'create or replace function public.ficha_do_cliente')
+# `so_digitos` é a régua do telefone, e a migração logo abaixo chama ela. Vem
+# junto para o remendo não depender de a instalação já ter a versão certa.
+digitos = recortar(fonte05, 'create or replace function public.so_digitos(')
+# A migração do telefone da ficha (seção 4.4) não é função: é UPDATE mais a
+# trava `cli_tel_so_digitos`. O recortador antigo só sabia achar funções, e por
+# isso a correção que arruma os cadastros já gravados ficava fora do remendo —
+# quem colava o remendo levava a tela corrigida e o banco sujo do mesmo jeito.
+telefone = recortar_ate(fonte05,
+                        'update public.clientes\n   set telefone = null',
+                        'end $trava$;')
 # `horarios_livres` entra no remendo desde que ela passou a costurar as faixas
 # de jornada. Sem ela aqui, quem só cola o remendo continua com a lista de
 # horários duplicada e fora de ordem — o remendo tem que levar a correção
@@ -46,6 +60,8 @@ ficha = recortar(fonte05, 'create or replace function public.ficha_do_cliente')
 livres = recortar(fonte05, 'create or replace function public.horarios_livres(')
 
 partes = [
+    limpar(digitos),
+    limpar(telefone),
     limpar(livres),
     "revoke all on function public.horarios_livres(uuid, date, uuid[]) from public;",
     "grant execute on function public.horarios_livres(uuid, date, uuid[]) to anon, authenticated;",
