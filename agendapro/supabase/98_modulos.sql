@@ -324,3 +324,181 @@ revoke all on function public.fila_resultado(uuid, boolean, text, text, text, bo
 grant execute on function public.fila_proxima(int) to service_role;
 grant execute on function public.fila_resultado(uuid, boolean, text, text, text, boolean)
   to service_role;
+
+create table if not exists public.convites_equipe (
+  id         uuid primary key default gen_random_uuid(),
+  salao_id   uuid not null references public.saloes(id) on delete cascade,
+  papel      text not null check (papel in ('admin','recepcao','profissional')),
+  para_quem  text,
+  token      uuid not null default gen_random_uuid(),
+  expira_em  timestamptz not null default now() + interval '7 days',
+  usado_em   timestamptz,
+  usado_por  uuid references public.perfis(id) on delete set null,
+  revogado_em timestamptz,
+  criado_por uuid references public.perfis(id) on delete set null,
+  criado_em  timestamptz not null default now()
+);
+create unique index if not exists ux_convite_token on public.convites_equipe(token);
+create index if not exists ix_convite_salao on public.convites_equipe(salao_id, criado_em desc);
+alter table public.convites_equipe enable row level security;
+alter table public.convites_equipe force row level security;
+drop policy if exists conv_gerir on public.convites_equipe;
+create policy conv_gerir on public.convites_equipe for all to authenticated
+  using ( public.e_gestor(salao_id) ) with check ( public.e_gestor(salao_id) );
+revoke all on public.convites_equipe from anon;
+grant select, insert, update, delete on public.convites_equipe to authenticated;
+create or replace function public.criar_convite(
+  p_salao uuid, p_papel text, p_para_quem text default null)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_token uuid;
+begin
+  if not public.e_gestor(p_salao) then
+    raise exception 'Só quem administra o salão pode convidar.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_papel not in ('admin','recepcao','profissional') then
+    raise exception 'Papel inválido para convite.' using errcode = 'check_violation';
+  end if;
+  insert into public.convites_equipe (salao_id, papel, para_quem, criado_por)
+       values (p_salao, p_papel,
+               nullif(btrim(coalesce(p_para_quem, '')), ''), auth.uid())
+    returning token into v_token;
+  return jsonb_build_object('token', v_token);
+end $$;
+create or replace function public.ver_convite(p_token uuid)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  c public.convites_equipe%rowtype;
+  s public.saloes%rowtype;
+begin
+  select * into c from public.convites_equipe where token = p_token;
+  if c.id is null
+     or c.usado_em is not null
+     or c.revogado_em is not null
+     or c.expira_em < now() then
+    return jsonb_build_object('valido', false);
+  end if;
+  select * into s from public.saloes where id = c.salao_id;
+  if s.id is null or s.status <> 'ativo' then
+    return jsonb_build_object('valido', false);
+  end if;
+  return jsonb_build_object(
+    'valido', true,
+    'salao',  s.nome,
+    'tipo',   s.tipo,
+    'logo',   s.logo,
+    'papel',  c.papel,
+    'paraQuem', c.para_quem);
+end $$;
+create or replace function public.aceitar_convite(p_token uuid)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  c public.convites_equipe%rowtype;
+  v_eu uuid := auth.uid();
+begin
+  if v_eu is null then
+    raise exception 'Entre na sua conta para aceitar o convite.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  select * into c from public.convites_equipe where token = p_token for update;
+  if c.id is null
+     or c.usado_em is not null
+     or c.revogado_em is not null
+     or c.expira_em < now() then
+    raise exception 'Este convite não vale mais. Peça outro ao salão.'
+      using errcode = 'check_violation';
+  end if;
+  if exists (select 1 from public.vinculos v
+              where v.perfil_id = v_eu and v.salao_id = c.salao_id
+                and v.papel = c.papel and v.status = 'ativo') then
+    return jsonb_build_object('ok', true, 'jaEra', true, 'salaoId', c.salao_id);
+  end if;
+  insert into public.vinculos (perfil_id, salao_id, papel, status)
+       values (v_eu, c.salao_id, c.papel, 'ativo')
+  on conflict (perfil_id, salao_id, papel)
+    do update set status = 'ativo';
+  update public.convites_equipe
+     set usado_em = now(), usado_por = v_eu
+   where id = c.id;
+  return jsonb_build_object('ok', true, 'salaoId', c.salao_id, 'papel', c.papel);
+end $$;
+create or replace function public.equipe_com_acesso(p_salao uuid)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.e_gestor(p_salao) then
+    raise exception 'Sem permissão neste salão.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'perfilId', p.id,
+             'nome',     p.nome,
+             'papel',    v.papel,
+             'desde',    v.criado_em,
+             'souEu',    p.id = auth.uid())
+           order by array_position(
+             array['dono','admin','recepcao','profissional'], v.papel), p.nome)
+      from public.vinculos v
+      join public.perfis p on p.id = v.perfil_id
+     where v.salao_id = p_salao
+       and v.status = 'ativo'
+       and v.papel <> 'cliente'), '[]'::jsonb);
+end $$;
+create or replace function public.remover_acesso(
+  p_salao uuid, p_perfil uuid, p_papel text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_donos int;
+begin
+  if not public.e_gestor(p_salao) then
+    raise exception 'Só quem administra o salão pode mexer nos acessos.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  if p_papel = 'dono' then
+    if p_perfil = auth.uid() then
+      raise exception 'Você não pode tirar o próprio acesso de dono.'
+        using errcode = 'check_violation';
+    end if;
+    select count(*) into v_donos from public.vinculos
+     where salao_id = p_salao and papel = 'dono' and status = 'ativo';
+    if v_donos <= 1 then
+      raise exception 'Este é o único dono do salão. Passe a titularidade antes.'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  delete from public.vinculos
+   where salao_id = p_salao and perfil_id = p_perfil and papel = p_papel;
+  return jsonb_build_object('ok', true);
+end $$;
+create or replace function public.revogar_convite(p_convite uuid)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  c public.convites_equipe%rowtype;
+begin
+  select * into c from public.convites_equipe where id = p_convite;
+  if c.id is null or not public.e_gestor(c.salao_id) then
+    raise exception 'Convite não encontrado.' using errcode = 'insufficient_privilege';
+  end if;
+  update public.convites_equipe set revogado_em = now()
+   where id = c.id and usado_em is null and revogado_em is null;
+  return jsonb_build_object('ok', true);
+end $$;
+revoke all on function public.criar_convite(uuid, text, text)   from public;
+revoke all on function public.ver_convite(uuid)                 from public;
+revoke all on function public.aceitar_convite(uuid)             from public;
+revoke all on function public.equipe_com_acesso(uuid)           from public;
+revoke all on function public.remover_acesso(uuid, uuid, text)  from public;
+revoke all on function public.revogar_convite(uuid)             from public;
+grant execute on function public.criar_convite(uuid, text, text)  to authenticated;
+grant execute on function public.ver_convite(uuid)                to anon, authenticated;
+grant execute on function public.aceitar_convite(uuid)            to authenticated;
+grant execute on function public.equipe_com_acesso(uuid)          to authenticated;
+grant execute on function public.remover_acesso(uuid, uuid, text) to authenticated;
+grant execute on function public.revogar_convite(uuid)            to authenticated;

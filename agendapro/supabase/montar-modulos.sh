@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ===========================================================================
-# Gera supabase/98_campanhas.sql — o módulo de campanhas, SEM UM COMENTÁRIO
+# Gera supabase/98_modulos.sql — campanhas e convite de equipe,
+# SEM UM COMENTÁRIO
 #
 # ── POR QUE NÃO MANDAR O 00_tudo.sql ───────────────────────────────────────
 # Ele tem 170 KB. Copiado no celular, ou por seleção de mouse, as quebras de
@@ -53,9 +54,10 @@ auxiliares = [
 
 partes = [limpar(a) for a in auxiliares]
 partes.append(limpar(open('supabase/10_campanhas.sql', encoding='utf-8').read()))
+partes.append(limpar(open('supabase/11_equipe.sql', encoding='utf-8').read()))
 
 saida = '\n\n'.join(partes) + '\n'
 assert '--' not in saida, 'sobrou comentário: o arquivo perde a imunidade'
-open('supabase/98_campanhas.sql', 'w', encoding='utf-8').write(saida)
-print('supabase/98_campanhas.sql —', saida.count('\n'), 'linhas')
+open('supabase/98_modulos.sql', 'w', encoding='utf-8').write(saida)
+print('supabase/98_modulos.sql —', saida.count('\n'), 'linhas')
 PY

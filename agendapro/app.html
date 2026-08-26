@@ -505,6 +505,14 @@ body.carregando-tudo .tela{ display:none }
       <button class="btn btn-p" onclick="abrirProf()">+ Profissional</button>
     </div>
     <div class="cards" id="listaEquipe"></div>
+
+    <!-- ⚠ FICHA E LOGIN SÃO COISAS DIFERENTES, E A TELA PRECISA DIZER ISSO.
+         Acima: quem ATENDE — a coluna na agenda, a comissão, a jornada. Uma
+         profissional pode ter ficha e nunca entrar no sistema, e a recepção
+         precisa entrar sem ter coluna nenhuma na agenda. Misturar os dois
+         numa lista só faria o dono achar que cadastrar alguém já dá acesso —
+         ou pior, que tirar o acesso apaga o histórico dos atendimentos. -->
+    <div class="card" id="cartaoAcessos" style="margin-top:20px"></div>
   </section>
 
   <!-- ══════════ CAIXA ══════════ -->
@@ -1648,6 +1656,165 @@ function pintarEquipe(){
         <button class="btn btn-peq" onclick="abrirBloqueio('${p.id}')">Bloquear horário</button>
       </div></div>`;
   }).join('');
+  pintarAcessos();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   QUEM ENTRA NO SISTEMA
+
+   O banco já sabia lidar com `recepcao` e `profissional` — as policies estão
+   escritas desde sempre, e a `vinc_gerir` até deixa o dono criar vínculo no
+   próprio salão. O que faltava era o CAMINHO: para criar o vínculo é preciso
+   o id do perfil da pessoa, e o dono não tem como descobrir esse id (nem
+   deve: um campo "digite o e-mail e eu procuro" seria uma porta para
+   descobrir quem tem conta na plataforma, um e-mail por vez).
+
+   No convite quem traz o id é a PRÓPRIA PESSOA, ao aceitar logada.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const PAPEIS_CONVITE = [
+  ['recepcao',     'Recepção',
+   'Marca, desmarca e lança comanda. Não mexe em preço, serviço nem equipe.'],
+  ['profissional', 'Quem atende',
+   'Vê a agenda do salão e lança o que atendeu.'],
+  ['admin',        'Administra',
+   'Faz tudo o que você faz, menos tirar o seu acesso de dono.'],
+];
+const NOME_PAPEL = { dono:'Proprietário', admin:'Administra',
+                     recepcao:'Recepção', profissional:'Quem atende' };
+
+let acessosDoSalao = null;   // cache do que o banco devolveu
+
+async function pintarAcessos(){
+  const alvo = document.getElementById('cartaoAcessos');
+  if(!alvo) return;
+
+  /* Em demonstração não há login nenhum: mostrar uma lista de acessos aqui
+     seria prometer uma coisa que a demonstração não tem como cumprir. */
+  if(!NA_NUVEM){
+    alvo.innerHTML = `
+      <h3 class="secao">Quem entra no sistema</h3>
+      <p class="secao-sub">Aqui você convida a recepção e quem atende para
+        terem login próprio, cada uma com o que pode fazer.</p>
+      <div class="aviso info">Esta parte só funciona com o sistema ligado no
+        servidor — na demonstração não existe conta para convidar.</div>`;
+    return;
+  }
+
+  alvo.innerHTML = `
+    <h3 class="secao">Quem entra no sistema</h3>
+    <p class="secao-sub">Login é diferente de ficha. Quem está aqui abre o
+      AgendaPro com a própria conta; quem está na lista acima aparece na
+      agenda. A mesma pessoa pode estar nos dois, ou em só um.</p>
+    <div id="listaAcessos"><div class="vazio">Carregando…</div></div>
+    <div class="card-acoes">
+      <button class="btn btn-p" onclick="abrirConvite()">Convidar alguém</button>
+    </div>`;
+
+  try{
+    acessosDoSalao = await Dados.chamar('equipe_com_acesso', { p_salao: salaoAtual });
+  }catch(e){
+    document.getElementById('listaAcessos').innerHTML =
+      `<div class="aviso">${escapar(e.message || 'Não consegui carregar.')}</div>`;
+    return;
+  }
+  desenharAcessos();
+}
+
+function desenharAcessos(){
+  const alvo = document.getElementById('listaAcessos');
+  if(!alvo) return;
+  /* Sem estado vazio de propósito: quem chama esta tela é gestor do salão, e
+     gestor tem vínculo — a lista sempre traz pelo menos ele. Um "ninguém
+     entra aqui" seria um ramo que nunca roda prometendo algo falso. */
+  const lista = acessosDoSalao || [];
+  alvo.innerHTML = `<div class="tabela-rola"><table class="tabela"><thead><tr>
+      <th>Pessoa</th><th>Pode</th><th></th>
+    </tr></thead><tbody>` + lista.map(a => `<tr>
+      <td><b>${escapar(a.nome || '—')}</b>${a.souEu
+          ? ' <span class="tag">você</span>' : ''}</td>
+      <td>${escapar(NOME_PAPEL[a.papel] || a.papel)}</td>
+      <td style="text-align:right">${a.souEu && a.papel === 'dono' ? ''
+        : `<button class="btn btn-peq"
+             onclick="tirarAcesso('${a.perfilId}','${a.papel}',this)"
+           >Tirar acesso</button>`}</td>
+    </tr>`).join('') + '</tbody></table></div>';
+}
+
+function abrirConvite(){
+  abrirModal('Convidar alguém', `
+    <p style="color:var(--txt2);font-size:14px;margin-bottom:14px">
+      Você gera um link e manda pela pessoa no WhatsApp. Ela abre, cria a
+      conta dela e já entra no salão.</p>
+    <div class="campo"><label for="vNome">Para quem é (opcional)</label>
+      <input id="vNome" placeholder="Rita, da recepção">
+      <span style="font-size:12px;color:var(--txt2)">Só para você saber de
+        quem é o convite na sua lista.</span></div>
+    <div class="campo"><label>O que ela vai poder fazer</label>
+      <div class="lista-serv">${PAPEIS_CONVITE.map(([k, nome, o], i) => `
+        <label class="serv-op">
+          <input type="radio" name="vPapel" value="${k}"${i === 0 ? ' checked' : ''}>
+          <span class="i"><span class="n">${escapar(nome)}</span>
+            <span class="d">${escapar(o)}</span></span>
+        </label>`).join('')}</div></div>
+    <div id="vSaida"></div>
+  `, [
+    ['Fechar','fecharModal()',''],
+    ['Gerar link','gerarConvite()','btn-p'],
+  ]);
+}
+
+async function gerarConvite(){
+  const escolhido = document.querySelector('input[name="vPapel"]:checked');
+  const papel = escolhido ? escolhido.value : 'recepcao';
+  const nome = (document.getElementById('vNome').value || '').trim();
+  const saida = document.getElementById('vSaida');
+  saida.innerHTML = '<div class="aviso info">Gerando…</div>';
+  try{
+    const r = await Dados.chamar('criar_convite',
+      { p_salao: salaoAtual, p_papel: papel, p_para_quem: nome || null });
+    const link = location.origin + location.pathname.replace(/[^/]*$/, '')
+               + 'convite.html?c=' + r.token;
+    saida.innerHTML = `
+      <div class="aviso ok" style="margin-top:4px">
+        <b>Link pronto.</b> Ele vale por 7 dias e serve UMA vez só — depois
+        que a pessoa aceitar, ele deixa de funcionar.
+        <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
+          <input id="vLink" readonly value="${escapar(link)}"
+                 onclick="this.select()"
+                 style="flex:1;min-width:180px;padding:8px 10px;
+                        border:1px solid var(--borda);border-radius:8px;
+                        background:var(--painel);font-size:13px">
+          <button class="btn btn-peq" onclick="copiarConvite()">Copiar</button>
+        </div>
+      </div>`;
+  }catch(e){
+    saida.innerHTML = `<div class="aviso">${escapar(e.message || 'Não consegui gerar.')}</div>`;
+  }
+}
+
+function copiarConvite(){
+  const c = document.getElementById('vLink');
+  c.select();
+  try{ navigator.clipboard.writeText(c.value); }catch(e){ document.execCommand('copy'); }
+  c.blur();
+}
+
+async function tirarAcesso(perfilId, papel, botao){
+  const quem = (acessosDoSalao || []).find(a => a.perfilId === perfilId
+                                             && a.papel === papel);
+  if(!confirm('Tirar o acesso de ' + ((quem && quem.nome) || 'esta pessoa') + '?\n\n'
+    + 'Ela para de entrar no sistema agora. A ficha dela e os atendimentos '
+    + 'que ela fez continuam no salão — isto mexe só no login.')) return;
+
+  botao.disabled = true;
+  try{
+    await Dados.chamar('remover_acesso',
+      { p_salao: salaoAtual, p_perfil: perfilId, p_papel: papel });
+    pintarAcessos();
+  }catch(e){
+    botao.disabled = false;
+    alert(e.message || 'Não consegui tirar o acesso.');
+  }
 }
 
 /* ── Desenho: caixa ──────────────────────────────────────────────────── */

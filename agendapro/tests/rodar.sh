@@ -61,6 +61,7 @@ preparar() {
   carregar "$RAIZ/supabase/08_conta.sql"
   carregar "$RAIZ/supabase/09_cliente.sql"
   carregar "$RAIZ/supabase/10_campanhas.sql"
+  carregar "$RAIZ/supabase/11_equipe.sql"
   carregar "$AQUI/00_ajuda.sql"
 }
 
@@ -177,7 +178,7 @@ done
 psql -q -d postgres -c "drop database if exists ${BANCO}_rem;" >/dev/null 2>&1 || true
 
 # ═══════════════════════════════════════════════════════════════════════════
-# O 98_campanhas.sql INSTALA O MÓDULO NUM BANCO QUE NÃO O TEM
+# O 98_modulos.sql INSTALA OS MÓDULOS NUM BANCO QUE NÃO OS TEM
 #
 # É o arquivo que o dono cola no Supabase para ganhar as campanhas. Mesma
 # regra do remendo: sem comentário, e colado DAS DUAS FORMAS, porque numa
@@ -189,7 +190,7 @@ psql -q -d postgres -c "drop database if exists ${BANCO}_rem;" >/dev/null 2>&1 |
 # que devolve NULL.
 # ═══════════════════════════════════════════════════════════════════════════
 echo ""
-echo "▸ 98_campanhas.sql num banco sem o módulo"
+echo "▸ 98_modulos.sql num banco sem os módulos"
 for forma in arquivo "uma linha só"; do
   psql -q -d postgres -c "drop database if exists ${BANCO}_camp;" \
                       -c "create database ${BANCO}_camp;" >/dev/null
@@ -207,9 +208,9 @@ for forma in arquivo "uma linha só"; do
   echo "  ── colado como $forma ──"
   if [ "$forma" = arquivo ]; then
     colarc() { psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" \
-                 -f "$RAIZ/supabase/98_campanhas.sql"; }
+                 -f "$RAIZ/supabase/98_modulos.sql"; }
   else
-    colarc() { tr '\n' ' ' < "$RAIZ/supabase/98_campanhas.sql" \
+    colarc() { tr '\n' ' ' < "$RAIZ/supabase/98_modulos.sql" \
                  | psql -v ON_ERROR_STOP=1 -q -d "${BANCO}_camp" -f -; }
   fi
 

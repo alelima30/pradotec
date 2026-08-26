@@ -22,6 +22,7 @@ cat > "$SAIDA" <<'CAB'
 --   08_conta.sql       o perfil que nasce junto com a conta
 --   09_cliente.sql     a cliente vê, cancela e entra na fila com um segredo
 --   10_campanhas.sql   campanhas de WhatsApp: tabelas, RLS e a fila
+--   11_equipe.sql      convite: dar login para recepção e profissional
 --
 -- A ORDEM IMPORTA, e não é só arrumação: o 02 fecha o balcão que o Supabase
 -- abre sozinho em toda tabela e vista nova, e só consegue fechar o que o 01
@@ -38,7 +39,7 @@ cat > "$SAIDA" <<'CAB'
 
 CAB
 
-for f in 01_schema.sql 02_rls.sql 03_onboarding.sql 04_imagens.sql 05_agenda.sql 06_vitrine.sql 07_plataforma.sql 08_conta.sql 09_cliente.sql 10_campanhas.sql; do
+for f in 01_schema.sql 02_rls.sql 03_onboarding.sql 04_imagens.sql 05_agenda.sql 06_vitrine.sql 07_plataforma.sql 08_conta.sql 09_cliente.sql 10_campanhas.sql 11_equipe.sql; do
   {
     echo ''
     echo '-- ###########################################################################'

@@ -22,6 +22,15 @@ drop function if exists public.placar_campanha(uuid) cascade;
 drop function if exists public.fila_proxima(int) cascade;
 drop function if exists public.fila_resultado(uuid, boolean, text, text, text, boolean) cascade;
 
+-- E o convite de equipe, que vem no mesmo arquivo colável.
+drop table if exists public.convites_equipe cascade;
+drop function if exists public.criar_convite(uuid, text, text) cascade;
+drop function if exists public.ver_convite(uuid) cascade;
+drop function if exists public.aceitar_convite(uuid) cascade;
+drop function if exists public.equipe_com_acesso(uuid) cascade;
+drop function if exists public.remover_acesso(uuid, uuid, text) cascade;
+drop function if exists public.revogar_convite(uuid) cascade;
+
 -- Os auxiliares como eram antes: sem `coalesce`, devolvendo NULL para quem
 -- não tem vínculo. É o estado em que a instalação de produção está agora.
 create or replace function public.e_equipe(p_salao uuid) returns boolean
