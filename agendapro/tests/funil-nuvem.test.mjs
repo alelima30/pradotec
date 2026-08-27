@@ -260,6 +260,21 @@ await q.waitForTimeout(500);
 // Terça (2): entra 08:00, sai 12:00; volta 14:00, sai 18:00 — com almoço.
 await q.fill('#j2a', '08:00'); await q.fill('#j2b', '12:00');
 await q.fill('#j2c', '14:00'); await q.fill('#j2d', '18:00');
+/* ⚠ E TAMBÉM O DIA EM QUE ESTE TESTE VAI MARCAR.
+   A jornada acima é só de terça — ela existe para provar o ida-e-volta do
+   almoço, e isso continua valendo. Mas o agendamento lá embaixo é no dia de
+   HOJE, seja lá que dia a suíte rode. Sem jornada hoje, o profissional está
+   de FOLGA, e desde a Fase 1A folga é recusada: o painel oferece encaixe e o
+   teste lê a confirmação como se fosse erro.
+
+   Preencher os dois é o cenário honesto: um salão que trabalha na terça e
+   também hoje. (Se hoje for terça, preenche duas vezes e não faz mal.) */
+const dowHoje = new Date().getDay();
+await q.fill('#j' + dowHoje + 'a', '08:00');
+await q.fill('#j' + dowHoje + 'b', '12:00');
+await q.fill('#j' + dowHoje + 'c', '14:00');
+await q.fill('#j' + dowHoje + 'd', '18:00');
+
 await q.click('button:has-text("Salvar")');
 await q.waitForTimeout(2500);
 igual('salvar a jornada não devolve erro', avisos.join(' | '), '');
