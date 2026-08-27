@@ -26,6 +26,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 
 const exigir = createRequire(import.meta.url);
 const { chromium } = exigir(process.env.PLAYWRIGHT || 'playwright');
@@ -53,6 +54,28 @@ secao('O carimbo de versão não pode mentir');
   verdade('o app.html declara uma versão', !!noApp, JSON.stringify(noApp));
   verdade('o sw.js declara uma versão', !!noSw, JSON.stringify(noSw));
   igual('e as duas são a mesma', noApp, noSw);
+
+  /* ⚠ E BATER ENTRE SI NÃO BASTA — ERA SÓ ISSO QUE ESTAVA CONFERIDO AQUI.
+     O carimbo ficou em `v8` por três publicações seguidas (relatórios,
+     cobrança e o motor da agenda) com este teste verde o tempo todo: dois
+     números errados e IGUAIS passavam.
+
+     Agora a segunda metade do carimbo sai do conteúdo dos arquivos que o
+     navegador baixa. Editar qualquer um deles sem rodar `bash versao.sh`
+     reprova aqui — que é o único jeito de o carimbo continuar respondendo à
+     pergunta para a qual ele existe: "que versão você está rodando?". */
+  const ARQUIVOS = ['app.html','agendar.html','criar.html','entrar.html',
+                    'index.html','nova-senha.html','estilo.css','dados.js',
+                    'demo.js','icones.js','imagens.js','endereco.js'];
+  const cru = ARQUIVOS.map(f =>
+    fs.readFileSync(path.join(RAIZ, f), 'utf8')
+      .replace(/const VERSAO_APP = '[^']*'/, "const VERSAO_APP = ''")).join('');
+  const esperado = createHash('sha256').update(cru).digest('hex').slice(0, 6);
+  const noCarimbo = String(noApp || '').split('.')[1];
+
+  verdade('o carimbo traz o dedo digital do conteúdo, não só a release',
+    !!noCarimbo, `veio "${noApp}" — rode: bash versao.sh`);
+  igual('e ele bate com os arquivos que estão no disco', noCarimbo, esperado);
 }
 
 function novaAba(){
