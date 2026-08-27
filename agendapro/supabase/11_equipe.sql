@@ -64,6 +64,29 @@ create table if not exists public.convites_equipe (
   criado_em  timestamptz not null default now()
 );
 
+/* ⚠ O `alter` abaixo NÃO é repetição do `create table` acima.
+
+   `create table if not exists` é tudo ou nada: se a tabela já existe, ele não
+   olha o que tem dentro — não acrescenta coluna nenhuma. Quem instalou este
+   arquivo ANTES de o convite saber ligar a ficha da agenda ficou com uma
+   `convites_equipe` sem `profissional_id`, e colar a versão nova por cima não
+   consertava: a tabela "já existe", o `create` passa batido, e a coluna
+   continua faltando.
+
+   O estrago aparecia longe daqui. A função de quatro argumentos era criada
+   sem reclamar — corpo plpgsql não é conferido contra o schema na hora do
+   `create` — o PostgREST passava a enxergá-la, o painel parava de acusar
+   "Could not find the function", e só no clique do dono, no salão de verdade,
+   é que estourava `column "profissional_id" does not exist`. Instalação
+   "bem-sucedida", convite quebrado.
+
+   Foi encontrado comparando o banco de quem atualiza contra o banco de quem
+   instala do zero: os dois têm que terminar iguais. Enquanto essa comparação
+   não existia, este buraco passava. */
+alter table public.convites_equipe
+  add column if not exists profissional_id uuid
+  references public.profissionais(id) on delete cascade;
+
 create unique index if not exists ux_convite_token on public.convites_equipe(token);
 create index if not exists ix_convite_salao on public.convites_equipe(salao_id, criado_em desc);
 

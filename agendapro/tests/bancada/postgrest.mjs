@@ -423,6 +423,55 @@ const http_ = http.createServer(async (req, res) => {
         const b = await corpoDe(req) || {};
         const nomes = Object.keys(b);
         const args = nomes.map((n,i) => `${n} => $${i+1}`).join(', ');
+
+        /* ── FUNÇÃO QUE NÃO EXISTE: 404 COM PGRST202, COMO O DE VERDADE ────
+           O PostgREST não deixa o erro do Postgres passar. Ele casa a chamada
+           contra o cache de schema ANTES de falar com o banco, e quando não
+           acha responde 404 com `PGRST202` e a frase «Could not find the
+           function public.x(a, b) in the schema cache» — mais um `hint`
+           sugerindo a assinatura parecida que ele achou.
+
+           A bancada mandava a chamada para o Postgres e devolvia o 42883
+           dele, com outra frase, outro código e status 400. Diferença que
+           parece detalhe e não é: o `dados.js` traduz PGRST202 numa
+           instrução para quem é dono de salão ("cole o 98_modulos.sql"), e
+           essa tradução não tinha como ser testada aqui — a bancada nunca
+           produzia o código que ela trata.
+
+           Aconteceu de verdade, nos dois lugares ao mesmo tempo: a tela de
+           Relatórios pedindo `relatorio(p_ate, p_de, p_salao)` num banco sem
+           ela, e a de convite pedindo `criar_convite` com quatro argumentos
+           num banco que só tinha a de três — esta última com o `hint` que
+           entregou o diagnóstico. */
+        const achou = await comPapel(req, cli => cli.query(
+          `select pg_get_function_identity_arguments(p.oid) as ass,
+                  array(select unnest(p.proargnames)) as nomes
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = $1`, [fn]));
+
+        /* Casa por SUBCONJUNTO, não por igualdade: argumento com `default`
+           pode ser omitido, e é o PostgREST de verdade que preenche o resto.
+           Exigir a lista exata aqui reprovaria chamadas que lá fora passam —
+           bancada mais rigorosa que o real reprova código certo, que é o
+           outro lado do mesmo defeito. */
+        const pedidos = [...nomes].sort().join(', ');
+        const casa = achou.rows.find(l => {
+          const tem = new Set(l.nomes || []);
+          return nomes.every(n => tem.has(n));
+        });
+
+        if(!casa){
+          const e = new Error('Could not find the function public.' + fn
+            + '(' + pedidos + ') in the schema cache');
+          e.status = 404;
+          e.code = 'PGRST202';
+          if(achou.rows.length){
+            e.hint = 'Perhaps you meant to call the function public.' + fn
+              + '(' + [...(achou.rows[0].nomes || [])].sort().join(', ') + ')';
+          }
+          throw e;
+        }
+
         const r = await comPapel(req, cli =>
           cli.query(`select * from public.${fn}(${args})`, nomes.map(n => b[n])));
 

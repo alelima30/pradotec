@@ -1008,9 +1008,22 @@ async function pedirVagas(){
        A diferença importa porque as duas têm curas opostas: "tente de novo"
        resolve queda de rede e não resolve função que não existe. Sem separar,
        o dono do salão fica clicando em "tentar de novo" a tarde inteira
-       enquanto o conserto é colar um arquivo no SQL Editor. */
-    vagasErro = /Could not find the function|PGRST202|does not exist/i
-      .test(String(e.message || ''))
+       enquanto o conserto é colar um arquivo no SQL Editor.
+
+       ⚠ O CÓDIGO PRIMEIRO, A FRASE SÓ COMO ÚLTIMO RECURSO.
+
+       Isto testava só a frase — `/Could not find the function/` — e quebrou
+       no dia em que o `dados.js` passou a traduzir essa mesma frase para
+       português antes de entregá-la. Nada estava errado nos dois lados: um
+       melhorou a mensagem, o outro dependia dela palavra por palavra. Casar
+       com texto voltado para gente é casar com o que EXISTE para mudar.
+
+       `e.codigo` vem do campo `code` da resposta, que é dado de máquina e
+       não muda de idioma. A frase fica só para o que chega sem código —
+       página de erro de proxy, resposta que não é JSON. */
+    vagasErro = (e.codigo === 'PGRST202'
+      || /Could not find the function|PGRST202|does not exist/i
+           .test(String(e.message || '')))
       ? 'FALTA_INSTALAR' : (e.message || 'sem detalhe');
   }
   desenhar();

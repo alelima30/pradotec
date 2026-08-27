@@ -76,9 +76,11 @@ no_ar "$BANCADA/" \
 
 falhou=0
 reprovadas=()
+quantas=0
 
 rodar() {
   local nome="$1"; shift
+  quantas=$((quantas + 1))
   echo ""
   echo "▸ $nome"
   local saida
@@ -99,6 +101,10 @@ rodar() {
 # arquivo. Custa menos de um segundo.
 rodar "sintaxe"           node "$AQUI/sintaxe.test.js"
 rodar "banco (SQL)"        bash "$AQUI/rodar.sh"
+# Logo depois do banco, e de propósito: o `rodar.sh` instala tudo do zero
+# antes de cada arquivo, e por isso é CEGO para o que só quebra em quem
+# atualiza. Este confere que os dois caminhos terminam no mesmo banco.
+rodar "atualizar o banco"  bash "$AQUI/atualizar.test.sh"
 rodar "colunas"            node "$AQUI/colunas.test.js"
 rodar "nuvem"              node "$AQUI/nuvem.test.mjs"
 rodar "cota"               node "$AQUI/cota.test.mjs"
@@ -132,10 +138,16 @@ rodar "relatórios"         node "$AQUI/relatorios.test.mjs"
 rodar "assinatura do webhook" node "$AQUI/webhook-assinatura.test.js"
 rodar "checkout"           node "$AQUI/cobranca.test.mjs"
 rodar "motor da agenda"    node "$AQUI/motor.test.mjs"
+rodar "banco atrasado"     node "$AQUI/banco-atrasado.test.mjs"
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou — as 35 suítes."
+  # Contado, não escrito à mão. O número escrito envelhece: ficou em "35"
+  # enquanto duas suítes novas entravam, e "✓ Tudo passou — as 35 suítes"
+  # continuava saindo, verdadeiro e desatualizado ao mesmo tempo. É o mesmo
+  # defeito do carimbo de versão, no lugar onde ele custa mais caro: o
+  # placar da suíte é o que se olha antes de publicar.
+  echo "✓ Tudo passou — as $quantas suítes."
 else
   echo "✗ Reprovaram: ${reprovadas[*]}"
   echo "  Nada deve ser publicado assim."

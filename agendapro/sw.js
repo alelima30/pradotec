@@ -16,7 +16,7 @@
 /* Sobe a cada correção publicada, e tem que andar junto com o VERSAO_APP do
    app.html: o carimbo na lateral mostra aquele, e dois números divergentes
    fariam a tela afirmar uma versão que não é a que está servindo. */
-const VERSAO = 'agendapro-v9.7c5722';
+const VERSAO = 'agendapro-v9.816a4a';
 
 const ESSENCIAIS = [
   './',

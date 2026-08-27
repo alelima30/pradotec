@@ -339,6 +339,9 @@ create table if not exists public.convites_equipe (
   criado_por uuid references public.perfis(id) on delete set null,
   criado_em  timestamptz not null default now()
 );
+alter table public.convites_equipe
+  add column if not exists profissional_id uuid
+  references public.profissionais(id) on delete cascade;
 create unique index if not exists ux_convite_token on public.convites_equipe(token);
 create index if not exists ix_convite_salao on public.convites_equipe(salao_id, criado_em desc);
 alter table public.convites_equipe enable row level security;
@@ -1106,6 +1109,21 @@ returns text language sql immutable set search_path = public as $$
            to_char(coalesce(v, 0), 'FM999,999,990.00'),
            '.', '|'), ',', '.'), '|', ',')
 $$;
+update public.comandas c
+   set agendamento_id = null
+ where c.agendamento_id is not null
+   and c.status <> 'cancelada'
+   and c.id <> (
+     select d.id from public.comandas d
+      where d.agendamento_id = c.agendamento_id
+        and d.status <> 'cancelada'
+      order by (select count(*) from public.pagamentos p
+                 where p.comanda_id = d.id) desc,
+               (select count(*) from public.comanda_itens i
+                 where i.comanda_id = d.id) desc,
+               d.aberta_em asc,
+               d.id asc
+      limit 1);
 create unique index if not exists ux_comanda_agendamento
   on public.comandas(agendamento_id)
   where (agendamento_id is not null and status <> 'cancelada');

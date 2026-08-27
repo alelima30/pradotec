@@ -240,7 +240,12 @@ psql -q -d postgres -c "drop database if exists ${BANCO}_camp;" >/dev/null 2>&1 
 
 echo ""
 if [ "$falhou" -eq 0 ]; then
-  echo "✓ Tudo passou."
+  # "Tudo passou" seco era ambíguo: o `tudo.sh` termina com uma frase que
+  # começa igual, e as duas caem no mesmo arquivo de saída. Um `grep` no log
+  # combinado — esperando o fim da suíte inteira — casava com ESTA linha, que
+  # sai lá no começo, e dava a suíte por encerrada com trinta arquivos ainda
+  # por rodar. Este placar é só o do banco; quem diz que acabou é o outro.
+  echo "✓ Tudo passou — os testes de banco."
 else
   echo "✗ Algum teste falhou — nada deve ser publicado assim."
   exit 1

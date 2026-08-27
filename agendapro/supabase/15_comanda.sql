@@ -64,6 +64,49 @@ $$;
 --                                 sem isto, o engano trancaria a cliente para
 --                                 sempre
 -- ---------------------------------------------------------------------------
+/* ⚠ ANTES DO ÍNDICE, DESEMPATAR O QUE JÁ ESTÁ GRAVADO.
+
+   Índice único não nasce em cima de dado que já o viola: o `create` falha
+   com "could not create unique index", e num arquivo colado de uma vez isso
+   é pior do que parece. Tudo que vem ANTES desta linha já rodou e ficou; o
+   que vem DEPOIS — a vista nova, as travas do desconto, o gatilho que
+   impede pagar mais do que se deve — não roda. O salão fica com meia
+   instalação e uma mensagem em inglês sobre índice.
+
+   E não é hipótese: enquanto o painel criava item e pagamento sem `id`, o
+   `Dados.subir()` apagava e reinseria a comanda a cada gravação, e a tela
+   abria outra quando não achava a do atendimento. Duas comandas no mesmo
+   atendimento é exatamente o rastro que aquele defeito deixava.
+
+   ── POR QUE DESLIGAR, E NÃO APAGAR NEM CANCELAR ──────────────────────────
+   Estas linhas têm dinheiro dentro. Apagar tira faturamento do mês que já
+   foi fechado e conferido. Cancelar é quase tão ruim: comanda cancelada sai
+   do relatório, então o mês encolhe sozinho e ninguém sabe por quê.
+
+   Desligar do atendimento (`agendamento_id = null`) não perde nada: a
+   comanda continua existindo, com os itens, os pagamentos e o valor, e
+   continua contando no relatório. Só deixa de estar amarrada àquele
+   atendimento — que é a única coisa que o índice exige.
+
+   Fica a do meio: a que tem mais pagamento, depois a que tem mais item,
+   depois a mais antiga. A ordem é determinística de propósito — colar duas
+   vezes tem que dar no mesmo, e `ties` resolvidos por `id` garantem isso. */
+update public.comandas c
+   set agendamento_id = null
+ where c.agendamento_id is not null
+   and c.status <> 'cancelada'
+   and c.id <> (
+     select d.id from public.comandas d
+      where d.agendamento_id = c.agendamento_id
+        and d.status <> 'cancelada'
+      order by (select count(*) from public.pagamentos p
+                 where p.comanda_id = d.id) desc,
+               (select count(*) from public.comanda_itens i
+                 where i.comanda_id = d.id) desc,
+               d.aberta_em asc,
+               d.id asc
+      limit 1);
+
 create unique index if not exists ux_comanda_agendamento
   on public.comandas(agendamento_id)
   where (agendamento_id is not null and status <> 'cancelada');

@@ -296,6 +296,42 @@ async function conferir(resp){
   // Sem frase nenhuma, o mínimo é dizer que o erro é de HTTP, e qual.
   if(!msg) msg = ('HTTP ' + resp.status + ' ' + (resp.statusText || '')).trim();
 
+  /* ── O BANCO ATRASADO EM RELAÇÃO À TELA ─────────────────────────────────
+     A tela se atualiza sozinha: é uma página, e o navegador busca a versão
+     nova. O banco não — ele só muda quando alguém cola SQL no painel do
+     Supabase. Entre uma coisa e outra existe uma janela, de horas ou de
+     semanas, em que a tela chama uma função que o banco ainda não tem.
+
+     O PostgREST responde isso com PGRST202 e uma frase escrita para quem
+     programa: «Could not find the function public.relatorio(p_ate, p_de,
+     p_salao) in the schema cache». Foi exatamente o que apareceu na tela de
+     Relatórios de um salão de verdade. Para a dona do salão essa frase não
+     quer dizer nada, e o pior: não diz o que fazer.
+
+     PGRST204 é a mesma história com coluna em vez de função — a tela grava
+     um campo que o banco ainda não tem.
+
+     Traduzir aqui, e não em cada tela, porque o problema não é da tela: é
+     do banco, e vale para todas elas igual. */
+  const CODIGO = (corpo && typeof corpo.code === 'string') ? corpo.code : '';
+  if(CODIGO === 'PGRST202' || CODIGO === 'PGRST204'){
+    const oque = CODIGO === 'PGRST202' ? 'função' : 'coluna';
+    /* O nome cru ajuda quem for consertar, e não atrapalha quem não for.
+
+       As duas frases nomeiam a peça de jeitos diferentes: a de função traz
+       «public.relatorio(...)», a de coluna traz «Could not find the 'x'
+       column of 'y'». Um padrão só pegaria metade dos casos, e a metade que
+       escapasse cairia na frase genérica — que ainda serve, mas manda quem
+       for consertar procurar sozinho o que já estava escrito ali. */
+    const nome = (msg.match(/public\.([a-z_0-9]+)/) ||
+                  msg.match(/'([a-z_0-9]+)' column/) || [])[1] || '';
+    msg = 'Esta parte do sistema ainda não foi instalada no seu banco'
+        + (nome ? ' (' + oque + ' ' + nome + ')' : '')
+        + '. Abra o Supabase, vá em SQL Editor e cole o arquivo '
+        + 'supabase/98_modulos.sql inteiro. Pode colar mais de uma vez '
+        + 'sem medo.';
+  }
+
   const erro = new Error(msg);
   erro.status = resp.status;
   erro.codigo = (corpo && (corpo.error_code ||

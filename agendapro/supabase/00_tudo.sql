@@ -4382,6 +4382,29 @@ create table if not exists public.convites_equipe (
   criado_em  timestamptz not null default now()
 );
 
+/* ⚠ O `alter` abaixo NÃO é repetição do `create table` acima.
+
+   `create table if not exists` é tudo ou nada: se a tabela já existe, ele não
+   olha o que tem dentro — não acrescenta coluna nenhuma. Quem instalou este
+   arquivo ANTES de o convite saber ligar a ficha da agenda ficou com uma
+   `convites_equipe` sem `profissional_id`, e colar a versão nova por cima não
+   consertava: a tabela "já existe", o `create` passa batido, e a coluna
+   continua faltando.
+
+   O estrago aparecia longe daqui. A função de quatro argumentos era criada
+   sem reclamar — corpo plpgsql não é conferido contra o schema na hora do
+   `create` — o PostgREST passava a enxergá-la, o painel parava de acusar
+   "Could not find the function", e só no clique do dono, no salão de verdade,
+   é que estourava `column "profissional_id" does not exist`. Instalação
+   "bem-sucedida", convite quebrado.
+
+   Foi encontrado comparando o banco de quem atualiza contra o banco de quem
+   instala do zero: os dois têm que terminar iguais. Enquanto essa comparação
+   não existia, este buraco passava. */
+alter table public.convites_equipe
+  add column if not exists profissional_id uuid
+  references public.profissionais(id) on delete cascade;
+
 create unique index if not exists ux_convite_token on public.convites_equipe(token);
 create index if not exists ix_convite_salao on public.convites_equipe(salao_id, criado_em desc);
 
@@ -5847,6 +5870,49 @@ $$;
 --                                 sem isto, o engano trancaria a cliente para
 --                                 sempre
 -- ---------------------------------------------------------------------------
+/* ⚠ ANTES DO ÍNDICE, DESEMPATAR O QUE JÁ ESTÁ GRAVADO.
+
+   Índice único não nasce em cima de dado que já o viola: o `create` falha
+   com "could not create unique index", e num arquivo colado de uma vez isso
+   é pior do que parece. Tudo que vem ANTES desta linha já rodou e ficou; o
+   que vem DEPOIS — a vista nova, as travas do desconto, o gatilho que
+   impede pagar mais do que se deve — não roda. O salão fica com meia
+   instalação e uma mensagem em inglês sobre índice.
+
+   E não é hipótese: enquanto o painel criava item e pagamento sem `id`, o
+   `Dados.subir()` apagava e reinseria a comanda a cada gravação, e a tela
+   abria outra quando não achava a do atendimento. Duas comandas no mesmo
+   atendimento é exatamente o rastro que aquele defeito deixava.
+
+   ── POR QUE DESLIGAR, E NÃO APAGAR NEM CANCELAR ──────────────────────────
+   Estas linhas têm dinheiro dentro. Apagar tira faturamento do mês que já
+   foi fechado e conferido. Cancelar é quase tão ruim: comanda cancelada sai
+   do relatório, então o mês encolhe sozinho e ninguém sabe por quê.
+
+   Desligar do atendimento (`agendamento_id = null`) não perde nada: a
+   comanda continua existindo, com os itens, os pagamentos e o valor, e
+   continua contando no relatório. Só deixa de estar amarrada àquele
+   atendimento — que é a única coisa que o índice exige.
+
+   Fica a do meio: a que tem mais pagamento, depois a que tem mais item,
+   depois a mais antiga. A ordem é determinística de propósito — colar duas
+   vezes tem que dar no mesmo, e `ties` resolvidos por `id` garantem isso. */
+update public.comandas c
+   set agendamento_id = null
+ where c.agendamento_id is not null
+   and c.status <> 'cancelada'
+   and c.id <> (
+     select d.id from public.comandas d
+      where d.agendamento_id = c.agendamento_id
+        and d.status <> 'cancelada'
+      order by (select count(*) from public.pagamentos p
+                 where p.comanda_id = d.id) desc,
+               (select count(*) from public.comanda_itens i
+                 where i.comanda_id = d.id) desc,
+               d.aberta_em asc,
+               d.id asc
+      limit 1);
+
 create unique index if not exists ux_comanda_agendamento
   on public.comandas(agendamento_id)
   where (agendamento_id is not null and status <> 'cancelada');
