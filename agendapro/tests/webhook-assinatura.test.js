@@ -69,7 +69,7 @@ verdade('assinado com outro segredo é recusado',
 
 /* ⚠ TROCAR O ID DEPOIS DE ASSINAR.
    O ataque mais provável não é forjar assinatura do zero: é pegar um aviso
-   legítimo (o de uma cobrança de R$ 47 que a pessoa pagou de verdade) e
+   legítimo (o de uma cobrança de R$ 57 que a pessoa pagou de verdade) e
    trocar o id para o de outra cobrança. Se o id não entrasse no manifesto,
    funcionaria. */
 {

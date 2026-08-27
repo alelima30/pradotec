@@ -665,7 +665,7 @@ end $$;
 
 -- Nem todo salão vai assinar, e o sistema tem que continuar de pé para quem
 -- não assina — com teto. Estes testes prendem justamente a fronteira entre
--- o Grátis e o Individual: sem ela, o plano de R$ 47 não vende para ninguém.
+-- o Grátis e o Individual: sem ela, o plano de R$ 57 não vende para ninguém.
 
 insert into public.saloes (id, slug, nome, fuso) values
   ('aaaaaaaa-0000-0000-0000-00000000000f', 'salao-do-plano', 'Salão do Plano',

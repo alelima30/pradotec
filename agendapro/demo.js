@@ -268,13 +268,13 @@ function semear(){
   return {
     // Espelha os planos do 01_schema.sql. `recursos` é o que separa o Grátis
     // do Individual: sem ele, um profissional com tudo liberado é exatamente
-    // o que o plano de R$ 47 ofereceria, e ninguém assinaria.
+    // o que o plano de R$ 57 ofereceria, e ninguém assinaria.
     planos: [
       {codigo:'gratuito',   nome:'Grátis',       maxProfissionais:1,  precoMes:0,
        recursos:{agendamentos_mes:40, lembrete_whatsapp:false, agenda_online:true}},
       {codigo:'trial',      nome:'Teste grátis', maxProfissionais:1,  precoMes:0,
        recursos:{lembrete_whatsapp:true, agenda_online:true}},
-      {codigo:'individual', nome:'Individual',   maxProfissionais:1,  precoMes:47,
+      {codigo:'individual', nome:'Individual',   maxProfissionais:1,  precoMes:57,
        recursos:{lembrete_whatsapp:true, agenda_online:true}},
       {codigo:'duo',        nome:'Duo',          maxProfissionais:2,  precoMes:87,
        recursos:{lembrete_whatsapp:true, agenda_online:true}},

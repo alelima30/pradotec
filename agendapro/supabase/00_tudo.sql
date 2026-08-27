@@ -186,7 +186,7 @@ $$;
 -- Por que o grátis tem teto de agendamento, e não de funcionalidade: o teto
 -- precisa crescer junto com o salão. Cortar a agenda online do plano grátis
 -- mataria justamente o que faz o dono adotar o sistema. Já 40 horários por mês
--- é um salão que ainda não é negócio; a 120 ele é, e aí R$ 47 sai de um corte.
+-- é um salão que ainda não é negócio; a 120 ele é, e aí R$ 57 sai de um corte.
 --
 -- O lembrete no WhatsApp fica de fora do grátis por um motivo de caixa, não de
 -- marketing: cada mensagem enviada é dinheiro que sai, por salão que não paga.
@@ -196,7 +196,7 @@ insert into public.planos
      '{"agendamentos_mes":40,"lembrete_whatsapp":false,"agenda_online":true}'),
   ('trial',     'Teste grátis', 1,  0.00, 1,
      '{"lembrete_whatsapp":true,"agenda_online":true}'),
-  ('individual','Individual',   1, 47.00, 2,
+  ('individual','Individual',   1, 57.00, 2,
      '{"lembrete_whatsapp":true,"agenda_online":true}'),
   ('duo',       'Duo',          2, 87.00, 3,
      '{"lembrete_whatsapp":true,"agenda_online":true}'),
@@ -5163,7 +5163,7 @@ begin
   /* ⚠ O VALOR TEM QUE BATER.
      Chega aqui vindo da API do Mercado Pago, não do corpo do aviso — mas
      conferir mesmo assim custa uma linha e fecha o caso de alguém pagar uma
-     cobrança de R$ 47 e receber o plano de R$ 297 porque o id foi trocado no
+     cobrança de R$ 57 e receber o plano de R$ 297 porque o id foi trocado no
      caminho. */
   if p_valor is distinct from c.valor then
     update public.cobrancas

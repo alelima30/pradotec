@@ -298,7 +298,7 @@ begin
   /* ⚠ O VALOR TEM QUE BATER.
      Chega aqui vindo da API do Mercado Pago, não do corpo do aviso — mas
      conferir mesmo assim custa uma linha e fecha o caso de alguém pagar uma
-     cobrança de R$ 47 e receber o plano de R$ 297 porque o id foi trocado no
+     cobrança de R$ 57 e receber o plano de R$ 297 porque o id foi trocado no
      caminho. */
   if p_valor is distinct from c.valor then
     update public.cobrancas

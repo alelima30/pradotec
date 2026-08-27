@@ -126,8 +126,8 @@ begin;
     -- testando. Somar os dois é como um salão somar orçamento com caixa.
     perform t_igual('1 pagante', (v->'resumo'->>'pagantes')::bigint, 1);
     perform t_igual('1 em teste', (v->'resumo'->>'em_teste')::bigint, 1);
-    perform t_igual('o MRR é só do que paga: R$ 47',
-                    (v->'resumo'->>'mrr')::numeric::bigint, 47);
+    perform t_igual('o MRR é só do que paga: R$ 57',
+                    (v->'resumo'->>'mrr')::numeric::bigint, 57);
 
     -- Quem vence esta semana é para quem se liga. Depois de vencido, já virou
     -- "aquele sistema que eu testei uma vez".
