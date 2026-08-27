@@ -70,7 +70,7 @@ insert into public.comandas (id, salao_id, cliente_id, status, desconto,
                              aberta_em, fechada_em) values
   ('f0000000-4444-0000-0000-000000000001',
    'f0000000-1111-0000-0000-00000000000a', 'f0000000-3333-0000-0000-00000000000a',
-   'fechada', 0, '2026-02-05 10:00-03', '2026-02-05 11:00-03');
+   'aberta', 0, '2026-02-05 10:00-03', null);
 insert into public.comanda_itens (comanda_id, tipo, descricao, qtd, preco_unit,
                                   profissional_id, comissao_pct) values
   ('f0000000-4444-0000-0000-000000000001', 'servico', 'Corte', 1, 80.00,
@@ -81,10 +81,10 @@ insert into public.comandas (id, salao_id, cliente_id, status, desconto,
                              aberta_em, fechada_em) values
   ('f0000000-4444-0000-0000-000000000002',
    'f0000000-1111-0000-0000-00000000000a', 'f0000000-3333-0000-0000-00000000000a',
-   'fechada', 0, '2026-03-10 09:00-03', '2026-03-10 10:00-03'),
+   'aberta', 0, '2026-03-10 09:00-03', null),
   ('f0000000-4444-0000-0000-000000000003',
    'f0000000-1111-0000-0000-00000000000a', 'f0000000-3333-0000-0000-00000000000b',
-   'fechada', 20.00, '2026-03-20 09:00-03', '2026-03-20 12:00-03'),
+   'aberta', 20.00, '2026-03-20 09:00-03', null),
   ('f0000000-4444-0000-0000-000000000004',
    'f0000000-1111-0000-0000-00000000000a', 'f0000000-3333-0000-0000-00000000000a',
    'aberta', 0, '2026-03-15 09:00-03', null),
@@ -105,9 +105,29 @@ insert into public.comanda_itens (comanda_id, tipo, descricao, qtd, preco_unit,
   ('f0000000-4444-0000-0000-000000000005', 'servico', 'Nao conta', 1, 9999.00,
    'f0000000-2222-0000-0000-00000000000a', 40);
 
+/* ⚠ A ORDEM AQUI É A DA VIDA REAL, E A FASE 2A PASSOU A EXIGIR ISSO.
+   Este fixture nascia com as comandas já FECHADAS e inseria os itens depois —
+   o que o balcão nunca faz, e o que o gatilho `tg_item_travado` agora recusa:
+   comanda fechada não recebe item.
+
+   Então elas abrem, recebem itens e pagamento, e só então fecham. O
+   `fechada_em` é reposto à mão porque a data importa: é ela que decide de que
+   mês é o dinheiro, e estes valores são de fevereiro e março de 2026.
+
+   Pagamento cobrindo o total também virou exigência para fechar — antes era
+   só uma regra da tela. */
 insert into public.pagamentos (comanda_id, forma, valor, taxa) values
+  ('f0000000-4444-0000-0000-000000000001', 'pix',      80.00, 0),
   ('f0000000-4444-0000-0000-000000000002', 'pix',     100.00, 0),
   ('f0000000-4444-0000-0000-000000000003', 'credito', 180.00, 5.40);
+
+update public.comandas set status = 'fechada', fechada_em = '2026-02-05 11:00-03'
+ where id = 'f0000000-4444-0000-0000-000000000001';
+update public.comandas set status = 'fechada', fechada_em = '2026-03-10 10:00-03'
+ where id = 'f0000000-4444-0000-0000-000000000002';
+update public.comandas set status = 'fechada', fechada_em = '2026-03-20 12:00-03'
+ where id = 'f0000000-4444-0000-0000-000000000003';
+
 
 \echo ''
 \echo 'O fechamento de março'
@@ -181,15 +201,20 @@ select t_igual('e uma delas é nova na casa',
    31 e fechando dia 1º, o dinheiro entrou no mês NOVO. Usar `aberta_em`
    jogaria a receita para o mês errado, e o dono só descobriria fechando o
    caixa e não batendo. */
-insert into public.comandas (id, salao_id, cliente_id, status, aberta_em, fechada_em)
+-- Mesma ordem da vida real: abre, recebe item e pagamento, e só então fecha.
+insert into public.comandas (id, salao_id, cliente_id, status, aberta_em)
 values ('f0000000-4444-0000-0000-000000000006',
         'f0000000-1111-0000-0000-00000000000a',
-        'f0000000-3333-0000-0000-00000000000a', 'fechada',
-        '2026-03-31 22:00-03', '2026-04-01 01:00-03');
+        'f0000000-3333-0000-0000-00000000000a', 'aberta',
+        '2026-03-31 22:00-03');
 insert into public.comanda_itens (comanda_id, tipo, descricao, qtd, preco_unit,
                                   profissional_id, comissao_pct)
 values ('f0000000-4444-0000-0000-000000000006', 'servico', 'Virada', 1, 50.00,
         'f0000000-2222-0000-0000-00000000000a', 40);
+insert into public.pagamentos (comanda_id, forma, valor)
+values ('f0000000-4444-0000-0000-000000000006', 'dinheiro', 50.00);
+update public.comandas set status = 'fechada', fechada_em = '2026-04-01 01:00-03'
+ where id = 'f0000000-4444-0000-0000-000000000006';
 
 select public.relatorio('f0000000-1111-0000-0000-00000000000a',
                         '2026-03-01', '2026-03-31') as r2 \gset

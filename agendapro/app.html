@@ -1322,7 +1322,7 @@ function irHoje(){ diaAtual = hoje(); pintar(); }
 
    Sobe a cada correção publicada. É o mesmo número do `sw.js`, e é de
    propósito: se os dois discordassem, o carimbo mentiria. */
-const VERSAO_APP = 'v9.9f34f9';
+const VERSAO_APP = 'v9.7c5722';
 
 function recarregarDeVerdade(){
   /* Recarregar com F5 pode devolver a mesma página do cache. Isto derruba o
@@ -2115,13 +2115,22 @@ function pintarCaixa(){
         const formas = c.pagamentos.length
           ? c.pagamentos.map(p => p.forma).join(', ')
           : '<span class="tag t-pend">sem pagamento</span>';
-        // A situação é a coluna que ensina o hábito: enquanto estiver
-        // "aberta", aquele dinheiro não está no faturamento de lugar nenhum.
+        /* A situação é a coluna que ensina o hábito: enquanto estiver
+           "aberta", aquele dinheiro não está no faturamento de lugar nenhum.
+
+           E ao lado dela, o que já entrou — pendente, parcial ou pago. Sem
+           isso, "aberta" com R$ 200 recebidos e "aberta" sem um centavo eram
+           a mesma linha na tela, e a recepção só descobria a diferença
+           abrindo uma por uma no fim do dia. */
+        const ROT_PGTO = { pendente:['sem pagar','t-canc'],
+                           parcial:['parcial','t-pend'], pago:['pago','t-conf'] };
+        const sp = ROT_PGTO[situacaoDaComanda(c)];
         const sit = comandaFechada(c)
           ? '<span class="tag t-conf">fechada</span>'
           : (c.status === 'cancelada'
               ? '<span class="tag t-canc">cancelada</span>'
-              : '<span class="tag t-pend">aberta</span>');
+              : '<span class="tag t-pend">aberta</span>'
+                + (sp ? ` <span class="tag ${sp[1]}">${sp[0]}</span>` : ''));
         return `<tr>
           <td><b>${escapar(c.numero)}</b></td>
           <td>${escapar(nomeCliente(c.clienteId))}</td>
@@ -3060,7 +3069,7 @@ function comandaDoAgendamento(agId){
       // `desmontarAgenda()` a remove antes de gravar.
       numero: proximoNumero(), data:a.data, desconto:0, pagamentos:[],
       itens: (a.servicos||[]).map(s => ({
-        tipo:'servico', descricao: acharServico(s.servicoId).nome,
+        id:id(), tipo:'servico', descricao: acharServico(s.servicoId).nome,
         qtd:1, precoUnit:s.preco, profissionalId:a.profissionalId,
         comissaoPct:s.comissaoPct,
       })),
@@ -3092,9 +3101,30 @@ function proximoNumero(){
    andamento, e o dia 31 fecharia contando dinheiro que ainda não entrou.
    O certo é a tela ter o botão que faltava. */
 const comandaFechada = c => c && c.status === 'fechada';
+
+/* ⚠ A CONTA DA COMANDA MORA AQUI, E EM MAIS NENHUM LUGAR DA TELA.
+   O total estava calculado em dois pontos — nesta linha e dentro do
+   `abrirComanda` — com fórmulas que precisavam ser mantidas iguais na mão. O
+   acréscimo, que a Fase 2A criou, entrou num e faltaria no outro: a janela da
+   comanda mostraria um número e o Caixa outro, para a mesma comanda.
+
+   A ordem é a mesma da vista `comandas_totais` do banco, de propósito:
+
+       subtotal − desconto + acréscimo = total */
+const subtotalDaComanda = c =>
+  c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0);
 const totalDaComanda = c =>
-  c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0) - (c.desconto||0);
+  subtotalDaComanda(c) - (c.desconto||0) + (c.acrescimo||0);
 const pagoNaComanda = c => c.pagamentos.reduce((s,p) => s + p.valor, 0);
+const faltaNaComanda = c => Math.round((totalDaComanda(c) - pagoNaComanda(c))*100)/100;
+
+/* O espelho do `situacao` da vista. A tela mostra, o banco decide. */
+function situacaoDaComanda(c){
+  if(c.status === 'cancelada') return 'cancelado';
+  const pago = pagoNaComanda(c);
+  if(pago <= 0) return 'pendente';
+  return pago >= totalDaComanda(c) ? 'pago' : 'parcial';
+}
 
 function fecharComanda(comId){
   const c = bd.comandas.find(x => x.id === comId);
@@ -3147,10 +3177,10 @@ function abrirComanda(comId){
   const c = bd.comandas.find(x => x.id === comId);
   if(!c) return;
 
-  const subtotal = c.itens.reduce((s,i) => s + i.qtd*i.precoUnit, 0);
+  const subtotal = subtotalDaComanda(c);
   const comissao = c.itens.reduce((s,i) => s + Math.round(i.qtd*i.precoUnit*(i.comissaoPct||0))/100, 0);
-  const total = subtotal - (c.desconto||0);
-  const pago = c.pagamentos.reduce((s,p) => s + p.valor, 0);
+  const total = totalDaComanda(c);
+  const pago = pagoNaComanda(c);
   const fechada = comandaFechada(c);
 
   abrirModal(`Comanda ${c.numero} · ${nomeCliente(c.clienteId)}`, `
@@ -3192,19 +3222,32 @@ function abrirComanda(comId){
     </div>
     <button class="btn btn-peq" onclick="somarItem('${c.id}')">+ Somar à comanda</button>
 
-    <div class="campo" style="margin-top:16px"><label>Desconto</label>
-      <input type="number" id="cDesc" value="${c.desconto||0}" min="0" step="0.01"
-             onchange="mudarDesconto('${c.id}', this.value)"></div>`}
+    <div class="dupla" style="margin-top:16px">
+      <div class="campo"><label>Desconto</label>
+        <input type="number" id="cDesc" value="${c.desconto||0}" min="0" step="0.01"
+               onchange="mudarDesconto('${c.id}', this.value)"></div>
+      <!-- Taxa de urgência, domingo, deslocamento. Entra no total e NÃO gera
+           comissão — quem faz o serviço não ganha por a casa cobrar a mais. -->
+      <div class="campo"><label>Acréscimo</label>
+        <input type="number" id="cAcre" value="${c.acrescimo||0}" min="0" step="0.01"
+               onchange="mudarAcrescimo('${c.id}', this.value)"></div>
+    </div>`}
 
     <table class="tabela" style="box-shadow:none"><tbody>
       <tr><td>Subtotal</td><td style="text-align:right">${real(subtotal)}</td></tr>
       <tr><td>Desconto</td><td style="text-align:right">− ${real(c.desconto||0)}</td></tr>
+      ${c.acrescimo ? `<tr><td>Acréscimo</td>
+        <td style="text-align:right">+ ${real(c.acrescimo)}</td></tr>` : ''}
       <tr><td><b>Total</b></td><td style="text-align:right;font-size:17px"><b>${real(total)}</b></td></tr>
       <tr><td style="color:var(--txt2)">Comissões</td>
           <td style="text-align:right;color:var(--txt2)">${real(comissao)}</td></tr>
       <tr><td style="color:var(--txt2)">Recebido</td>
           <td style="text-align:right;color:${pago >= total && total > 0 ? 'var(--ok)' : 'var(--alerta)'}">
           ${real(pago)}</td></tr>
+      ${faltaNaComanda(c) > 0 ? `<tr><td><b>Falta receber</b></td>
+        <td style="text-align:right;color:var(--alerta)"><b>${real(faltaNaComanda(c))}</b></td></tr>`
+        : faltaNaComanda(c) < 0 ? `<tr><td><b>Troco a devolver</b></td>
+        <td style="text-align:right;color:var(--alerta)"><b>${real(-faltaNaComanda(c))}</b></td></tr>` : ''}
     </tbody></table>
 
     ${c.pagamentos.length ? `<div class="campo" style="margin-top:11px">
@@ -3256,13 +3299,15 @@ function somarItem(comId){
   const profId = document.getElementById('cProf').value;
   const prof = acharProf(profId);
 
+  // Mesmo motivo do `receber()`: o id nasce aqui, senão cada gravação apaga
+  // o item e cria outro no lugar.
   if(tipo === 's'){
     const s = acharServico(ref);
-    c.itens.push({tipo:'servico', descricao:s.nome, qtd:1, precoUnit:s.preco,
+    c.itens.push({id:id(), tipo:'servico', descricao:s.nome, qtd:1, precoUnit:s.preco,
       profissionalId:profId, comissaoPct: s.comissaoPct != null ? s.comissaoPct : prof.comissaoPct});
   } else {
     const p = bd.produtos.find(x => x.id === ref);
-    c.itens.push({tipo:'produto', descricao:p.nome, qtd:1, precoUnit:p.preco,
+    c.itens.push({id:id(), tipo:'produto', descricao:p.nome, qtd:1, precoUnit:p.preco,
       profissionalId:profId, comissaoPct:p.comissaoPct});
   }
   salvar(); abrirComanda(comId);
@@ -3277,7 +3322,28 @@ function removerItem(comId, ix){
 function mudarDesconto(comId, v){
   if(travadaSeFechada(comId)) return;
   const c = bd.comandas.find(x => x.id === comId);
-  c.desconto = parseFloat(v) || 0; salvar(); abrirComanda(comId);
+  const novo = parseFloat(v) || 0;
+
+  /* O banco recusa desconto maior que os itens — o total nunca pode ficar
+     negativo. Conferir aqui é para a pessoa saber ANTES de o banco recusar e
+     a tela recarregar inteira. */
+  const sub = subtotalDaComanda(c);
+  if(novo > sub){
+    alert('O desconto de ' + real(novo) + ' é maior que o valor dos itens ('
+        + real(sub) + ').\n\nO máximo que dá para descontar aqui é '
+        + real(sub) + ' — que é a cortesia inteira.');
+    abrirComanda(comId);
+    return;
+  }
+  c.desconto = novo; salvar(); abrirComanda(comId);
+}
+
+function mudarAcrescimo(comId, v){
+  if(travadaSeFechada(comId)) return;
+  const c = bd.comandas.find(x => x.id === comId);
+  const novo = parseFloat(v) || 0;
+  if(novo < 0){ alert('O acréscimo não pode ser negativo.'); abrirComanda(comId); return; }
+  c.acrescimo = novo; salvar(); abrirComanda(comId);
 }
 
 function receber(comId){
@@ -3285,7 +3351,31 @@ function receber(comId){
   const c = bd.comandas.find(x => x.id === comId);
   const valor = parseFloat(document.getElementById('cValor').value) || 0;
   if(valor <= 0){ alert('Informe o valor recebido.'); return; }
-  c.pagamentos.push({forma: document.getElementById('cForma').value, valor});
+
+  /* O banco recusa receber mais do que a conta — um zero a mais na digitação
+     viraria faturamento que nunca entrou. Aqui a pessoa descobre na hora,
+     com o número que ainda falta na frente dela. */
+  const falta = faltaNaComanda(c);
+  if(valor > falta + 0.005){
+    alert('Faltam ' + real(Math.max(falta, 0)) + ' nesta comanda, e você '
+        + 'digitou ' + real(valor) + '.\n\nCorrija o valor — ou, se a cliente '
+        + 'está pagando por outra pessoa, abra a comanda dela.');
+    return;
+  }
+  /* ⚠ O `id` NASCE AQUI, e não na hora de gravar.
+     O `desmontarAgenda()` fazia `id: g.id || Dados.novoId()` — mas ele trabalha
+     sobre a CÓPIA que vai ao banco, não sobre o `bd`. Resultado: a linha da
+     tela continuava sem id, e cada `salvar()` cunhava um id novo para ela.
+
+     O `Dados.subir()` compara por id: id novo = linha nova. Toda gravação
+     APAGAVA os pagamentos anteriores e INSERIA tudo de novo, com ids
+     diferentes e `recebido_em` reposto.
+
+     Ninguém via, porque o estado final era o mesmo. Quem enxergou foi a trava
+     da Fase 2A: no meio do vaivém, os pagamentos velhos e os novos coexistem,
+     a soma dobra, e o banco recusou — "excede o que falta nesta comanda". O
+     sintoma apareceu como "a comanda paga não fecha". */
+  c.pagamentos.push({id:id(), forma: document.getElementById('cForma').value, valor});
   salvar(); abrirComanda(comId);
 }
 

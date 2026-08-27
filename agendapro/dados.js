@@ -170,6 +170,16 @@ const NUMERICAS = new Set([
   'comissao_pct', 'comissao_total', 'comissao_valor', 'custo', 'desconto',
   'estoque', 'preco', 'preco_mes', 'preco_unit', 'qtd', 'sinal_exigido',
   'sinal_pago', 'subtotal', 'taxa', 'total', 'valor', 'valor_previsto',
+  /* ⚠ COLUNA DE DINHEIRO NOVA TEM QUE ENTRAR AQUI, SEMPRE.
+     `acrescimo` nasceu na Fase 2A e ficou de fora desta lista. O PostgREST
+     devolve `numeric` como STRING, então `subtotal - desconto + acrescimo`
+     virou `100 - 0 + "0.00"` — e o JavaScript, sem avisar, concatenou:
+     "1000.00". A comanda paga por inteiro passou a nunca fechar, porque a
+     conta dizia que ela valia mil reais.
+
+     O sintoma apareceu longe da causa: "paga por inteiro, ela fecha" veio
+     "aberta", num teste de relatório, três arquivos adiante. */
+  'acrescimo', 'pago', 'falta',
 ]);
 
 function paraTela(tabela, linha){

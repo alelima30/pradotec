@@ -926,7 +926,20 @@ create index if not exists ix_pgto_comanda on public.pagamentos(comanda_id);
 -- baixo — qualquer pessoa logada leria o faturamento de todos os salões.
 -- É o furo mais silencioso que existe no Supabase: a tabela está protegida,
 -- a vista sobre ela não está.
-create or replace view public.comandas_totais
+-- ⚠ `drop` + `create`, e NÃO `create or replace`.
+--
+-- `create or replace view` não deixa TIRAR coluna — e é isso que ele tenta
+-- fazer na segunda colagem, depois que o 15_comanda.sql acrescentou
+-- `acrescimo`, `pago`, `falta` e `situacao` a esta mesma vista. O arquivo
+-- inteiro morria em "cannot drop columns from view", numa linha que não tem
+-- nada de errado, avisando de um problema que está trezentas linhas adiante.
+--
+-- Derrubando e recriando, a ordem converge sozinha: aqui nasce a versão
+-- curta, lá adiante ela é substituída pela completa, e colar de novo dá no
+-- mesmo. Quem cola este arquivo cola inteiro, sempre.
+drop view if exists public.comandas_totais;
+
+create view public.comandas_totais
 with (security_invoker = true) as
   select c.id,
          c.salao_id,
